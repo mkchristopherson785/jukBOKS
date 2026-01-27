@@ -1,15 +1,55 @@
 import express from "express";
 import cors from "cors";
-import ViteExpress from "vite-express";
+import { createServer as createViteServer } from "vite";
 import routes from "./routes";
+import path from "path";
+import { fileURLToPath } from "url";
+import fs from "fs";
 
-const app = express();
-const PORT = 5000;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-app.use(cors());
-app.use(express.json());
-app.use(routes);
+async function createServer() {
+  const app = express();
+  const PORT = 5000;
 
-ViteExpress.listen(app, PORT, () => {
-  console.log(`Jukboks server running on port ${PORT}`);
-});
+  app.use(cors());
+  app.use(express.json());
+  app.use(routes);
+
+  const vite = await createViteServer({
+    root: path.resolve(__dirname, "../client"),
+    server: {
+      middlewareMode: true,
+      hmr: { port: 5001 },
+    },
+    appType: "spa",
+  });
+
+  app.use(vite.middlewares);
+
+  app.use("*", async (req, res, next) => {
+    try {
+      const url = req.originalUrl;
+      
+      if (url.startsWith("/api/")) {
+        return next();
+      }
+
+      const htmlPath = path.resolve(__dirname, "../client/index.html");
+      let template = await fs.promises.readFile(htmlPath, "utf-8");
+      template = await vite.transformIndexHtml(url, template);
+
+      res.status(200).set({ "Content-Type": "text/html" }).end(template);
+    } catch (e: any) {
+      vite.ssrFixStacktrace(e);
+      console.error(e);
+      res.status(500).end(e.message);
+    }
+  });
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Jukboks server running on http://0.0.0.0:${PORT}`);
+  });
+}
+
+createServer();

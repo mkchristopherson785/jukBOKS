@@ -1,6 +1,9 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react()],
@@ -10,14 +13,15 @@ export default defineConfig({
       "@shared": path.resolve(__dirname, "./shared"),
     },
   },
-  root: "./client",
+  root: path.resolve(__dirname, "client"),
   build: {
-    outDir: "../dist/public",
+    outDir: path.resolve(__dirname, "dist/public"),
     emptyOutDir: true,
   },
   server: {
     host: "0.0.0.0",
     port: 5000,
     allowedHosts: true,
+    middlewareMode: false,
   },
 });

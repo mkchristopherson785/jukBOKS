@@ -6,6 +6,25 @@ import type { InsertRequest, InsertVote } from "../shared/schema";
 
 const router = Router();
 
+async function validateGuestToken(guestToken: string | undefined, venueId: number) {
+  if (!guestToken) return null;
+  
+  const guest = await storage.getGuestByToken(guestToken);
+  if (!guest) return null;
+  
+  const session = await storage.getPartySessionById(guest.partySessionId);
+  if (!session || session.venueId !== venueId || !session.isActive) {
+    return null;
+  }
+  
+  return guest;
+}
+
+async function validateApiKey(apiKey: string | undefined) {
+  if (!apiKey) return null;
+  return await storage.getOrganizationByApiKey(apiKey);
+}
+
 router.get("/api/v1/venues/:code", async (req: Request, res: Response) => {
   try {
     const venue = await storage.getVenueByCode(req.params.code);
@@ -87,9 +106,24 @@ router.post("/api/v1/venues/:code/request", async (req: Request, res: Response) 
       return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
     }
 
+    const org = apiKey ? await validateApiKey(apiKey) : null;
+    const guest = guestToken ? await validateGuestToken(guestToken, venue.id) : null;
+
+    if (!org && !guest) {
+      return res.status(401).json({ error: "UNAUTHORIZED", message: "Valid guest token or API key required" });
+    }
+
+    if (org && org.id !== venue.organizationId) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "API key not authorized for this venue" });
+    }
+
     const { trackId, title, artist, album, albumCover, duration, isExplicit, requesterName } = req.body;
 
-    if (!venue.allowExplicit && isExplicit) {
+    if (!trackId || !title || !artist) {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "trackId, title, and artist are required" });
+    }
+
+    if (!venue.allowExplicit && isExplicit === true) {
       return res.status(400).json({ error: "EXPLICIT_NOT_ALLOWED", message: "This venue does not allow explicit content" });
     }
 
@@ -101,21 +135,25 @@ router.post("/api/v1/venues/:code/request", async (req: Request, res: Response) 
       album,
       albumCover,
       duration,
-      isExplicit: isExplicit || false,
+      isExplicit: isExplicit === true,
       requesterName,
       status: venue.autoApprove ? "approved" : "pending",
     };
 
-    if (guestToken) {
-      const guest = await storage.getGuestByToken(guestToken);
-      if (guest) {
-        if ((guest.requestCount || 0) >= (venue.dailyRequestLimit || 5)) {
-          return res.status(400).json({ error: "DAILY_LIMIT_REACHED", message: `You have reached your daily request limit of ${venue.dailyRequestLimit} songs` });
-        }
-        requestData.requestedByGuestId = guest.id;
-        requestData.requesterName = guest.name;
-        await storage.updateGuest(guest.id, { requestCount: (guest.requestCount || 0) + 1 });
+    if (guest) {
+      const currentCount = guest.requestCount || 0;
+      const limit = venue.dailyRequestLimit || 5;
+      
+      if (currentCount >= limit) {
+        return res.status(400).json({ 
+          error: "DAILY_LIMIT_REACHED", 
+          message: `You have reached your daily request limit of ${limit} songs` 
+        });
       }
+      
+      requestData.requestedByGuestId = guest.id;
+      requestData.requesterName = guest.name;
+      await storage.updateGuest(guest.id, { requestCount: currentCount + 1, lastActiveAt: new Date() });
     }
 
     const request = await storage.createRequest(requestData);
@@ -126,31 +164,51 @@ router.post("/api/v1/venues/:code/request", async (req: Request, res: Response) 
       message: "Song added to queue",
     });
   } catch (error) {
+    console.error("Request error:", error);
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }
 });
 
 router.post("/api/v1/venues/:code/vote", async (req: Request, res: Response) => {
   try {
+    const apiKey = req.headers["x-jukboks-api-key"] as string;
     const guestToken = req.headers["x-guest-token"] as string;
     const { requestId } = req.body;
 
-    const request = await storage.getRequest(requestId);
-    if (!request) {
+    if (!requestId || typeof requestId !== "number") {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "requestId is required" });
+    }
+
+    const songRequest = await storage.getRequest(requestId);
+    if (!songRequest) {
       return res.status(404).json({ error: "REQUEST_NOT_FOUND", message: "Request not found" });
+    }
+
+    const venue = await storage.getVenue(songRequest.venueId);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const org = apiKey ? await validateApiKey(apiKey) : null;
+    const guest = guestToken ? await validateGuestToken(guestToken, venue.id) : null;
+
+    if (!org && !guest) {
+      return res.status(401).json({ error: "UNAUTHORIZED", message: "Valid guest token or API key required" });
+    }
+
+    if (org && org.id !== venue.organizationId) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "API key not authorized for this venue" });
     }
 
     let voteData: InsertVote = { requestId };
 
-    if (guestToken) {
-      const guest = await storage.getGuestByToken(guestToken);
-      if (guest) {
-        const hasVoted = await storage.hasVoted(requestId, undefined, guest.id);
-        if (hasVoted) {
-          return res.status(400).json({ error: "ALREADY_VOTED", message: "You have already voted for this song" });
-        }
-        voteData.guestId = guest.id;
+    if (guest) {
+      const hasVoted = await storage.hasVoted(requestId, undefined, guest.id);
+      if (hasVoted) {
+        return res.status(400).json({ error: "ALREADY_VOTED", message: "You have already voted for this song" });
       }
+      voteData.guestId = guest.id;
+      await storage.updateGuest(guest.id, { lastActiveAt: new Date() });
     }
 
     await storage.createVote(voteData);
@@ -161,6 +219,7 @@ router.post("/api/v1/venues/:code/vote", async (req: Request, res: Response) => 
       voteCount: votes.length,
     });
   } catch (error) {
+    console.error("Vote error:", error);
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }
 });
@@ -222,10 +281,14 @@ router.post("/api/v1/party/:partyCode/join", async (req: Request, res: Response)
     const venue = await storage.getVenue(session.venueId);
     const { name } = req.body;
 
+    if (!name || typeof name !== "string" || name.trim().length < 1) {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "Name is required" });
+    }
+
     const sessionToken = nanoid(32);
     const guest = await storage.createGuest({
       partySessionId: session.id,
-      name: name || "Guest",
+      name: name.trim().slice(0, 50),
       sessionToken,
     });
 
@@ -236,6 +299,7 @@ router.post("/api/v1/party/:partyCode/join", async (req: Request, res: Response)
       requestsRemaining: venue?.dailyRequestLimit || 5,
     });
   } catch (error) {
+    console.error("Join error:", error);
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }
 });
@@ -282,6 +346,10 @@ router.get("/api/v1/venues/:code/qrcode", async (req: Request, res: Response) =>
 
 router.post("/api/setup/demo", async (req: Request, res: Response) => {
   try {
+    if (process.env.NODE_ENV === "production" && !process.env.ALLOW_DEMO_SETUP) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "Demo setup not available in production" });
+    }
+
     let org = await storage.getOrganizationBySlug("demo");
     
     if (!org) {
@@ -320,9 +388,9 @@ router.post("/api/setup/demo", async (req: Request, res: Response) => {
 
     res.json({
       success: true,
-      organization: org,
-      venue,
-      partySession: session,
+      organization: { id: org.id, name: org.name, slug: org.slug },
+      venue: { id: venue.id, name: venue.name, code: venue.code },
+      partySession: { id: session.id, code: session.code },
     });
   } catch (error) {
     console.error("Setup error:", error);

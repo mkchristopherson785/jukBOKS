@@ -39,6 +39,7 @@ export interface IStorage {
   removeVote(requestId: number, userId?: number, guestId?: number): Promise<boolean>;
   
   createPartySession(data: InsertPartySession): Promise<PartySession>;
+  getPartySessionById(id: number): Promise<PartySession | undefined>;
   getPartySessionByCode(code: string): Promise<PartySession | undefined>;
   getActivePartySession(venueId: number, date: string): Promise<PartySession | undefined>;
   
@@ -182,6 +183,11 @@ export class DatabaseStorage implements IStorage {
 
   async createPartySession(data: InsertPartySession): Promise<PartySession> {
     const [session] = await db.insert(partySessions).values(data).returning();
+    return session;
+  }
+
+  async getPartySessionById(id: number): Promise<PartySession | undefined> {
+    const [session] = await db.select().from(partySessions).where(eq(partySessions.id, id));
     return session;
   }
 
