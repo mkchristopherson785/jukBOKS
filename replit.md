@@ -3,66 +3,101 @@
 ## Overview
 Jukboks is a standalone SaaS platform that enables businesses (bars, restaurants, gyms, HOAs, event venues) to create interactive music experiences where guests can request and vote on songs.
 
-## Tech Stack
-- **Backend**: Node.js + Express + TypeScript
-- **Frontend**: React + Vite + TailwindCSS
-- **Database**: PostgreSQL with Drizzle ORM
-- **Music Search**: iTunes API (Apple Music metadata)
+## Key Features
+- **Apple Music Integration**: Full MusicKit JS integration for song search and playback
+- **Unified Queue**: Mix of user requests and auto-play songs from backup playlists
+- **QR Code Party Access**: Guests scan a QR code to join and request songs without accounts
+- **Kiosk Display Mode**: TV/display-friendly "Now Playing" screen
+- **Listen Along**: Remote users with Apple Music can sync playback in real-time
+- **Per-Venue Settings**: Explicit content filtering, daily request limits, auto-approve
+- **Multi-Organization Support**: Each business manages their own venues
+- **Integration API**: External apps can embed Jukboks functionality
 
-## Project Structure
+## Architecture
+
+### Multi-Tenant Structure
+```
+Organizations (businesses)
+  └── Users (staff/managers for that organization)
+  └── Venues (each location/room with its own queue)
+       └── Music Requests (song queue)
+       └── Party Sessions (daily QR codes)
+            └── Guests (anonymous party attendees)
+```
+
+### Tech Stack
+- **Backend**: Node.js + Express + TypeScript
+- **Frontend**: React + Vite + TailwindCSS + shadcn/ui
+- **Database**: PostgreSQL with Drizzle ORM
+- **Music**: Apple Music API (MusicKit JS)
+- **Auth**: Session-based for org users, tokens for API access
+
+## Directory Structure
 ```
 jukboks/
-├── server/               # Backend API
-│   ├── index.ts         # Server entry point
-│   ├── routes.ts        # API endpoints
-│   ├── storage.ts       # Database operations
-│   └── db.ts            # Database connection
-├── client/              # Frontend React app
+├── server/           # Backend API
+│   ├── index.ts      # Server entry point
+│   ├── routes.ts     # API endpoints
+│   ├── storage.ts    # Database operations
+│   └── db.ts         # Database connection
+├── client/           # Frontend React app
 │   ├── src/
 │   │   ├── components/  # Reusable UI components
 │   │   ├── pages/       # Page components
 │   │   ├── hooks/       # Custom React hooks
 │   │   └── lib/         # Utilities
-│   └── index.html       # Entry HTML
-├── shared/              # Shared types and schemas
-│   └── schema.ts        # Database schema + Zod validators
+│   └── index.html    # Entry HTML
+├── shared/           # Shared types and schemas
+│   └── schema.ts     # Database schema + Zod validators
+├── docs/             # Documentation
+│   └── INTEGRATION_API.md  # API integration guide
 └── package.json
 ```
 
-## Key Features
-- **Apple Music Integration**: Song search using iTunes API
-- **Unified Queue**: Mix of user requests with voting
-- **QR Code Party Access**: Guests scan a QR code to join and request songs
-- **Kiosk Display Mode**: TV/display-friendly "Now Playing" screen
-- **Per-Venue Settings**: Explicit content filtering, daily request limits
-- **Multi-Organization Support**: Each business manages their own venues
-- **Integration API**: External apps can embed Jukboks functionality
-
 ## Database Schema
-- **organizations**: Businesses using Jukboks
+- **organizations**: Businesses using Jukboks (branding, API keys, subscription)
 - **users**: Organization staff/managers
-- **venues**: Individual locations/rooms with their own queues
-- **requests**: Song queue items
+- **venues**: Individual locations/rooms with their own queues and settings
+- **requests**: Song queue items with status tracking
 - **votes**: Upvotes on song requests
 - **party_sessions**: Daily QR codes for guest access
-- **guests**: Anonymous party attendees
+- **guests**: Anonymous party attendees with request limits
 
 ## API Endpoints
 
-### Public
+### Public (No Auth Required)
 - `GET /api/v1/venues/:code` - Get venue info
 - `GET /api/v1/venues/:code/queue` - Get current queue
 - `GET /api/v1/venues/:code/now-playing` - What's currently playing
 - `GET /api/v1/venues/:code/qrcode` - Generate QR code for party
 
-### Guest Access
+### Guest Access (Token Required)
 - `GET /api/v1/party/:code` - Get party page data
 - `POST /api/v1/party/:code/join` - Join as guest
 - `POST /api/v1/venues/:code/request` - Submit a song request
 - `POST /api/v1/venues/:code/vote` - Vote on a song
 
+### Authenticated (API Key Required)
+- `POST /api/v1/venues/:code/request` - Submit request via API
+- `POST /api/v1/venues/:code/vote` - Vote via API
+
 ### Admin
 - `POST /api/setup/demo` - Create demo organization and venue
+
+## Integration API
+
+External apps (like LivHOA) can integrate with Jukboks using:
+
+### Authentication
+- **API Key**: Generated per organization for server-to-server calls
+- **Venue Code**: Public code for accessing a specific venue's party
+
+### Embeddable Options
+1. **Redirect**: Link users to `party.jukboks.app/{venue-code}`
+2. **Iframe**: Embed the party page in your app
+3. **API**: Build custom UI using the API endpoints
+
+See `docs/INTEGRATION_API.md` for full API documentation.
 
 ## Pages
 - `/` - Landing page with "Launch Demo Party" button
