@@ -17,7 +17,7 @@ async function createServer() {
   app.use(routes);
 
   if (isProduction) {
-    const distPath = path.resolve(__dirname, "../../public");
+    const distPath = path.resolve(__dirname, "../public");
     app.use(express.static(distPath));
     
     app.get("*", (req, res) => {
