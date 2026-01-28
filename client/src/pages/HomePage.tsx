@@ -27,9 +27,8 @@ export default function HomePage() {
     <div className="min-h-screen">
       <header className="border-b border-white/10 backdrop-blur-lg bg-black/20">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/assets/logo-app.png" alt="Jukboks" className="w-10 h-10 rounded-xl" />
-            <img src="/assets/logo-text.png" alt="Jukboks" className="h-8 invert" />
+          <div className="flex items-center">
+            <img src="/assets/logo-full.png" alt="Jukboks" className="h-10 invert" />
           </div>
           <div className="flex items-center gap-4">
             {authLoading ? (
