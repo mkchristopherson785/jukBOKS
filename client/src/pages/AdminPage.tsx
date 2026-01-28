@@ -356,7 +356,7 @@ export default function AdminPage() {
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <a href="/" className="flex items-center">
-              <img src="/assets/logo-full.png" alt="Jukboks" className="h-10 invert" />
+              <img src="/assets/logo-full.png" alt="Jukboks" className="h-10" />
             </a>
           </div>
           <div className="flex items-center gap-4">
