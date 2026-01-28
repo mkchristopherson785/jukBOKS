@@ -844,4 +844,112 @@ router.patch("/api/me/venues/:venueId", isAuthenticated, async (req: any, res) =
   }
 });
 
+// Helper to get user's organization (as owner or member)
+async function getUserOrganization(userId: string, userEmail: string) {
+  // First check if user owns an organization
+  let org = await storage.getOrganizationByOwnerId(userId);
+  if (org) return { org, isOwner: true };
+  
+  // Check if user is a member of any organization
+  const memberOrgs = await storage.getOrganizationsByMemberAuthId(userId);
+  if (memberOrgs.length > 0) {
+    return { org: memberOrgs[0], isOwner: false };
+  }
+  
+  // Check by email for pending invitations
+  const emailOrgs = await storage.getOrganizationsByMemberEmail(userEmail);
+  if (emailOrgs.length > 0) {
+    // Update the member record with the auth user ID
+    const member = await storage.getOrganizationMemberByEmail(emailOrgs[0].id, userEmail);
+    if (member && !member.authUserId) {
+      await storage.updateOrganizationMember(member.id, { authUserId: userId, joinedAt: new Date() });
+    }
+    return { org: emailOrgs[0], isOwner: false };
+  }
+  
+  return { org: null, isOwner: false };
+}
+
+// Get team members
+router.get("/api/me/team", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { org, isOwner } = await getUserOrganization(userId, userEmail);
+    if (!org) {
+      return res.json({ members: [], isOwner: false });
+    }
+
+    const members = await storage.getOrganizationMembers(org.id);
+    res.json({ members, isOwner, organizationName: org.name });
+  } catch (error) {
+    console.error("Error getting team:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Invite team member (owner only)
+router.post("/api/me/team", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const org = await storage.getOrganizationByOwnerId(userId);
+    if (!org) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "Only organization owners can invite members" });
+    }
+
+    const { email, role = "admin" } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: "BAD_REQUEST", message: "Email is required" });
+    }
+
+    // Check if already a member
+    const existing = await storage.getOrganizationMemberByEmail(org.id, email);
+    if (existing) {
+      return res.status(400).json({ error: "ALREADY_MEMBER", message: "This email is already a team member" });
+    }
+
+    const member = await storage.createOrganizationMember({
+      organizationId: org.id,
+      email: email.toLowerCase(),
+      role,
+    });
+
+    res.json(member);
+  } catch (error) {
+    console.error("Error inviting team member:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Remove team member (owner only)
+router.delete("/api/me/team/:memberId", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const org = await storage.getOrganizationByOwnerId(userId);
+    if (!org) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "Only organization owners can remove members" });
+    }
+
+    const memberId = parseInt(req.params.memberId);
+    await storage.deleteOrganizationMember(memberId);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error removing team member:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
 export default router;
