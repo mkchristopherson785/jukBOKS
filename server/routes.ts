@@ -852,8 +852,20 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
       return res.status(404).json({ error: "NO_AVAILABLE_TRACKS", message: "All tracks in playlist are banned" });
     }
 
-    // Pick a random track
-    const randomTrack = tracks[Math.floor(Math.random() * tracks.length)];
+    // Filter out songs played in the last 4 hours
+    const availableTracks: any[] = [];
+    for (const track of tracks) {
+      const wasPlayedRecently = await storage.wasTrackPlayedRecently(venue.id, track.id, 4);
+      if (!wasPlayedRecently) {
+        availableTracks.push(track);
+      }
+    }
+    
+    // If all songs were played recently, just use the full list
+    const tracksToChooseFrom = availableTracks.length > 0 ? availableTracks : tracks;
+
+    // Pick a random track from available ones
+    const randomTrack = tracksToChooseFrom[Math.floor(Math.random() * tracksToChooseFrom.length)];
     const attrs = randomTrack.attributes;
 
     // Create a request for the random song
