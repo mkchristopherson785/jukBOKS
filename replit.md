@@ -5,7 +5,8 @@ Jukboks is a standalone SaaS platform that enables businesses (bars, restaurants
 
 ## Key Features
 - **Apple Music Integration**: Full MusicKit JS integration for song search and playback
-- **Sonos Integration**: Control Sonos speakers for venue playback via OAuth 2.0
+- **Sonos Integration**: Control Sonos speakers for venue playback via OAuth 2.0 (Coming Soon - requires SMAPI)
+- **iOS App**: Native iOS app via Capacitor for App Store distribution
 - **Unified Queue**: Mix of user requests and auto-play songs from backup playlists
 - **QR Code Party Access**: Guests scan a QR code to join and request songs without accounts
 - **Kiosk Display Mode**: TV/display-friendly "Now Playing" screen
