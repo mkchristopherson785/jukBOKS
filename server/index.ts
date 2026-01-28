@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.env.NODE_ENV === "production";
@@ -19,6 +20,9 @@ async function createServer() {
   // Setup Replit Auth (must come before other routes)
   await setupAuth(app);
   registerAuthRoutes(app);
+  
+  // Register object storage routes for file uploads
+  registerObjectStorageRoutes(app);
 
   app.use(routes);
 

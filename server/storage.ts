@@ -1,7 +1,7 @@
 import { eq, and, desc, sql, gte, asc, or } from "drizzle-orm";
 import { db } from "./db";
 import {
-  organizations, users, venues, requests, votes, partySessions, guests, backupPlaylists, organizationMembers,
+  organizations, users, venues, requests, votes, partySessions, guests, backupPlaylists, organizationMembers, announcements,
   type Organization, type InsertOrganization,
   type User, type InsertUser,
   type Venue, type InsertVenue,
@@ -11,6 +11,7 @@ import {
   type Guest, type InsertGuest,
   type BackupPlaylist, type InsertBackupPlaylist,
   type OrganizationMember, type InsertOrganizationMember,
+  type Announcement, type InsertAnnouncement,
 } from "../shared/schema";
 
 export interface QueueItemWithVotes extends Request {
@@ -71,6 +72,14 @@ export interface IStorage {
   getOrganizationsByMemberAuthId(authUserId: string): Promise<Organization[]>;
   updateOrganizationMember(id: number, data: Partial<OrganizationMember>): Promise<OrganizationMember | undefined>;
   deleteOrganizationMember(id: number): Promise<boolean>;
+  
+  createAnnouncement(data: InsertAnnouncement): Promise<Announcement>;
+  getAnnouncementsByVenue(venueId: number): Promise<Announcement[]>;
+  getActiveAnnouncementsByVenue(venueId: number): Promise<Announcement[]>;
+  getAnnouncement(id: number): Promise<Announcement | undefined>;
+  updateAnnouncement(id: number, data: Partial<Announcement>): Promise<Announcement | undefined>;
+  deleteAnnouncement(id: number): Promise<boolean>;
+  getAnnouncementCount(venueId: number): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -366,6 +375,41 @@ export class DatabaseStorage implements IStorage {
   async deleteOrganizationMember(id: number): Promise<boolean> {
     await db.delete(organizationMembers).where(eq(organizationMembers.id, id));
     return true;
+  }
+
+  async createAnnouncement(data: InsertAnnouncement): Promise<Announcement> {
+    const [announcement] = await db.insert(announcements).values(data).returning();
+    return announcement;
+  }
+
+  async getAnnouncementsByVenue(venueId: number): Promise<Announcement[]> {
+    return db.select().from(announcements).where(eq(announcements.venueId, venueId)).orderBy(asc(announcements.position));
+  }
+
+  async getActiveAnnouncementsByVenue(venueId: number): Promise<Announcement[]> {
+    return db.select().from(announcements).where(
+      and(eq(announcements.venueId, venueId), eq(announcements.isActive, true))
+    ).orderBy(asc(announcements.position));
+  }
+
+  async getAnnouncement(id: number): Promise<Announcement | undefined> {
+    const [announcement] = await db.select().from(announcements).where(eq(announcements.id, id));
+    return announcement;
+  }
+
+  async updateAnnouncement(id: number, data: Partial<Announcement>): Promise<Announcement | undefined> {
+    const [announcement] = await db.update(announcements).set(data).where(eq(announcements.id, id)).returning();
+    return announcement;
+  }
+
+  async deleteAnnouncement(id: number): Promise<boolean> {
+    await db.delete(announcements).where(eq(announcements.id, id));
+    return true;
+  }
+
+  async getAnnouncementCount(venueId: number): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` }).from(announcements).where(eq(announcements.venueId, venueId));
+    return result[0]?.count || 0;
   }
 }
 

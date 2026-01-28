@@ -1,7 +1,7 @@
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, ThumbsUp, SkipForward, Play, User, Radio } from "lucide-react";
-import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode } from "../lib/api";
+import { Music2, ThumbsUp, SkipForward, Play, User, Radio, Volume2 } from "lucide-react";
+import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnouncement, markAnnouncementPlayed, markSongFinished } from "../lib/api";
 import { MusicKitPlayer } from "../components/MusicKitPlayer";
 import { useState, useEffect, useCallback } from "react";
 
@@ -14,6 +14,9 @@ export default function KioskPage() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const [isPlayingAnnouncement, setIsPlayingAnnouncement] = useState(false);
+  const [currentAnnouncement, setCurrentAnnouncement] = useState<{ id: number; name: string; audioUrl: string } | null>(null);
+  const [announcementAudio, setAnnouncementAudio] = useState<HTMLAudioElement | null>(null);
 
   const { data: venue } = useQuery({
     queryKey: ["venue", code],
@@ -128,18 +131,83 @@ export default function KioskPage() {
     }
   }, [queue?.items, currentSong, isTransitioning, playNextSong, isStarted, triggerAutoPlay]);
 
-  const handleSongEnded = useCallback(() => {
-    if (currentSong) {
-      setIsTransitioning(true);
-      markPlayedMutation.mutate(currentSong.id, {
-        onSettled: () => {
-          setCurrentSong(null);
+  const checkAndPlayAnnouncement = useCallback(async (): Promise<boolean> => {
+    if (!code || isPlayingAnnouncement) return false;
+    
+    try {
+      // First, mark that a song finished (increments counter)
+      await markSongFinished(code);
+      
+      // Check if an announcement should play
+      const result = await fetchNextAnnouncement(code);
+      
+      if (result.shouldPlay && result.announcement) {
+        setIsPlayingAnnouncement(true);
+        setCurrentAnnouncement(result.announcement);
+        
+        // Create and play the audio element
+        const audio = new Audio(result.announcement.audioUrl);
+        setAnnouncementAudio(audio);
+        
+        audio.onended = async () => {
+          // Mark announcement as played
+          await markAnnouncementPlayed(code);
+          setIsPlayingAnnouncement(false);
+          setCurrentAnnouncement(null);
+          setAnnouncementAudio(null);
+          // Continue to next song
           setIsTransitioning(false);
           refetchQueue();
+        };
+        
+        audio.onerror = () => {
+          console.error("Error playing announcement");
+          setIsPlayingAnnouncement(false);
+          setCurrentAnnouncement(null);
+          setAnnouncementAudio(null);
+          setIsTransitioning(false);
+          refetchQueue();
+        };
+        
+        audio.play().catch((err) => {
+          console.error("Failed to play announcement:", err);
+          setIsPlayingAnnouncement(false);
+          setCurrentAnnouncement(null);
+          setAnnouncementAudio(null);
+          setIsTransitioning(false);
+          refetchQueue();
+        });
+        
+        return true; // Announcement is playing
+      }
+    } catch (error) {
+      console.error("Error checking announcement:", error);
+    }
+    
+    return false; // No announcement to play
+  }, [code, isPlayingAnnouncement, refetchQueue]);
+
+  const handleSongEnded = useCallback(async () => {
+    if (currentSong) {
+      setIsTransitioning(true);
+      
+      markPlayedMutation.mutate(currentSong.id, {
+        onSettled: async () => {
+          setCurrentSong(null);
+          
+          // Check if we should play an announcement
+          const playingAnnouncement = await checkAndPlayAnnouncement();
+          
+          if (!playingAnnouncement) {
+            // No announcement, continue to next song
+            setIsTransitioning(false);
+            refetchQueue();
+          }
+          // If announcement is playing, it will handle transitioning when it ends
         },
       });
     }
-  }, [currentSong, markPlayedMutation, refetchQueue]);
+  }, [currentSong, markPlayedMutation, refetchQueue, checkAndPlayAnnouncement]);
 
   const handleSkip = useCallback(() => {
     if (currentSong) {
@@ -211,39 +279,55 @@ export default function KioskPage() {
         </div>
 
         <div className="w-full max-w-2xl">
-          {displayCover && (
-            <div className="mb-8 flex justify-center">
-              <img 
-                src={displayCover} 
-                alt={displayTitle || "Album"} 
-                className="w-64 h-64 rounded-2xl shadow-2xl object-cover"
+          {isPlayingAnnouncement && currentAnnouncement ? (
+            <>
+              <div className="mb-8 flex justify-center">
+                <div className="w-64 h-64 rounded-2xl shadow-2xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
+                  <Volume2 className="w-32 h-32 text-white/80 animate-pulse" />
+                </div>
+              </div>
+              <div className="text-center mb-8">
+                <h2 className="text-4xl font-bold text-white mb-2">{currentAnnouncement.name}</h2>
+                <p className="text-xl text-gray-300">Announcement</p>
+              </div>
+            </>
+          ) : (
+            <>
+              {displayCover && (
+                <div className="mb-8 flex justify-center">
+                  <img 
+                    src={displayCover} 
+                    alt={displayTitle || "Album"} 
+                    className="w-64 h-64 rounded-2xl shadow-2xl object-cover"
+                  />
+                </div>
+              )}
+              
+              <div className="text-center mb-8">
+                <h2 className="text-4xl font-bold text-white mb-2">{displayTitle || "No song playing"}</h2>
+                <p className="text-xl text-gray-300">{displayArtist || "Request a song to get started"}</p>
+              </div>
+
+              <MusicKitPlayer
+                trackId={currentSong?.trackId || null}
+                previewUrl={displayPreview}
+                onEnded={handleSongEnded}
+                onSkip={handleSkip}
               />
-            </div>
-          )}
-          
-          <div className="text-center mb-8">
-            <h2 className="text-4xl font-bold text-white mb-2">{displayTitle || "No song playing"}</h2>
-            <p className="text-xl text-gray-300">{displayArtist || "Request a song to get started"}</p>
-          </div>
 
-          <MusicKitPlayer
-            trackId={currentSong?.trackId || null}
-            previewUrl={displayPreview}
-            onEnded={handleSongEnded}
-            onSkip={handleSkip}
-          />
-
-          {currentSong && (
-            <div className="mt-4 flex justify-center">
-              <button
-                onClick={handleSkip}
-                disabled={isTransitioning}
-                className="flex items-center gap-2 px-6 py-3 bg-gray-700/50 hover:bg-gray-600/50 rounded-xl transition-colors text-gray-300 disabled:opacity-50"
-              >
-                <SkipForward className="w-5 h-5" />
-                {isTransitioning ? "Skipping..." : "Skip Song"}
-              </button>
-            </div>
+              {currentSong && (
+                <div className="mt-4 flex justify-center">
+                  <button
+                    onClick={handleSkip}
+                    disabled={isTransitioning}
+                    className="flex items-center gap-2 px-6 py-3 bg-gray-700/50 hover:bg-gray-600/50 rounded-xl transition-colors text-gray-300 disabled:opacity-50"
+                  >
+                    <SkipForward className="w-5 h-5" />
+                    {isTransitioning ? "Skipping..." : "Skip Song"}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

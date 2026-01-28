@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X, Copy, Check, Radio } from "lucide-react";
-import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, deleteVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchListeners } from "../lib/api";
+import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X, Copy, Check, Radio, Volume2, Upload } from "lucide-react";
+import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, deleteVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchListeners, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, type Announcement } from "../lib/api";
+import { useUpload } from "../hooks/use-upload";
 import { QueueList } from "../components/QueueList";
 import { useAuth } from "../hooks/use-auth";
 
@@ -19,6 +20,10 @@ export default function AdminPage() {
   const [playlistUrl, setPlaylistUrl] = useState("");
   const [playlistError, setPlaylistError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [announcementName, setAnnouncementName] = useState("");
+  const [announcementError, setAnnouncementError] = useState("");
+  const { uploadFile, isUploading } = useUpload({});
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -139,6 +144,65 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["backupPlaylists", selectedVenueCode] });
     },
   });
+
+  const { data: announcementsData } = useQuery({
+    queryKey: ["announcements", selectedVenue?.id],
+    queryFn: () => fetchAnnouncements(selectedVenue?.id!),
+    enabled: !!selectedVenue?.id,
+  });
+
+  const announcements = announcementsData?.announcements || [];
+
+  const createAnnouncementMutation = useMutation({
+    mutationFn: (data: { name: string; audioUrl: string; duration?: number }) => createAnnouncement(selectedVenue?.id!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["announcements", selectedVenue?.id] });
+      setShowAnnouncementModal(false);
+      setAnnouncementName("");
+      setAnnouncementError("");
+    },
+    onError: (error: any) => {
+      setAnnouncementError(error.message);
+    },
+  });
+
+  const deleteAnnouncementMutation = useMutation({
+    mutationFn: (announcementId: number) => deleteAnnouncement(selectedVenue?.id!, announcementId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["announcements", selectedVenue?.id] });
+    },
+  });
+
+  const toggleAnnouncementMutation = useMutation({
+    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) => updateAnnouncement(selectedVenue?.id!, id, { isActive }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["announcements", selectedVenue?.id] });
+    },
+  });
+
+  const updateAnnouncementSettingsMutation = useMutation({
+    mutationFn: (settings: { frequencyType?: string | null; frequency?: number; playMode?: string }) => 
+      updateAnnouncementSettings(selectedVenue?.id!, settings),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["venue", selectedVenueCode] });
+    },
+  });
+
+  const handleAnnouncementUpload = async (file: File) => {
+    if (!announcementName.trim()) {
+      setAnnouncementError("Please enter a name for the announcement");
+      return;
+    }
+    
+    setAnnouncementError("");
+    const result = await uploadFile(file);
+    if (result) {
+      createAnnouncementMutation.mutate({
+        name: announcementName.trim(),
+        audioUrl: result.objectPath,
+      });
+    }
+  };
 
   const deleteVenueMutation = useMutation({
     mutationFn: (venueId: number) => deleteVenue(venueId),
@@ -401,7 +465,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* Main Content: Queue + Playlists side by side */}
+                {/* Main Content: Queue + Sidebar (Playlists + Announcements) */}
                 <div className="grid lg:grid-cols-3 gap-4">
                   {/* Queue - Takes 2 columns */}
                   <div className="lg:col-span-2 bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
@@ -411,43 +475,137 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* Backup Playlists - Takes 1 column */}
-                  <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-md font-bold text-white flex items-center gap-2">
-                        <ListMusic className="w-4 h-4" />
-                        Playlists ({backupPlaylists.length}/10)
-                      </h3>
-                      <button
-                        onClick={() => setShowPlaylistModal(true)}
-                        disabled={backupPlaylists.length >= 10}
-                        className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors disabled:opacity-50"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="max-h-[calc(100vh-360px)] overflow-y-auto space-y-2">
-                      {backupPlaylists.length === 0 ? (
-                        <p className="text-gray-500 text-sm text-center py-4">No playlists yet</p>
-                      ) : (
-                        backupPlaylists.map((playlist: any) => (
-                          <div key={playlist.id} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
-                            {playlist.artworkUrl && (
-                              <img src={playlist.artworkUrl} alt="" className="w-10 h-10 rounded object-cover" />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-white text-sm font-medium truncate">{playlist.name || "Playlist"}</p>
-                              <p className="text-gray-400 text-xs">{playlist.trackCount || 0} tracks</p>
+                  {/* Right Sidebar - Playlists & Announcements */}
+                  <div className="space-y-4">
+                    {/* Backup Playlists */}
+                    <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-md font-bold text-white flex items-center gap-2">
+                          <ListMusic className="w-4 h-4" />
+                          Playlists ({backupPlaylists.length}/10)
+                        </h3>
+                        <button
+                          onClick={() => setShowPlaylistModal(true)}
+                          disabled={backupPlaylists.length >= 10}
+                          className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors disabled:opacity-50"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="max-h-32 overflow-y-auto space-y-2">
+                        {backupPlaylists.length === 0 ? (
+                          <p className="text-gray-500 text-sm text-center py-2">No playlists yet</p>
+                        ) : (
+                          backupPlaylists.map((playlist: any) => (
+                            <div key={playlist.id} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
+                              {playlist.artworkUrl && (
+                                <img src={playlist.artworkUrl} alt="" className="w-8 h-8 rounded object-cover" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white text-xs font-medium truncate">{playlist.name || "Playlist"}</p>
+                                <p className="text-gray-400 text-xs">{playlist.trackCount || 0} tracks</p>
+                              </div>
+                              <button
+                                onClick={() => removePlaylistMutation.mutate(playlist.id.toString())}
+                                className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
                             </div>
-                            <button
-                              onClick={() => removePlaylistMutation.mutate(playlist.id.toString())}
-                              className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Announcements */}
+                    <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-md font-bold text-white flex items-center gap-2">
+                          <Volume2 className="w-4 h-4" />
+                          Announcements ({announcements.length})
+                        </h3>
+                        <button
+                          onClick={() => setShowAnnouncementModal(true)}
+                          className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                      
+                      {/* Announcement Settings */}
+                      <div className="mb-3 p-2 bg-white/5 rounded-lg space-y-2">
+                        <div className="flex items-center gap-2">
+                          <label className="text-gray-400 text-xs">Play every:</label>
+                          <select
+                            value={selectedVenue.announcementFrequencyType || "disabled"}
+                            onChange={(e) => updateAnnouncementSettingsMutation.mutate({ 
+                              frequencyType: e.target.value === "disabled" ? null : e.target.value 
+                            })}
+                            className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-xs focus:outline-none focus:border-indigo-500"
+                          >
+                            <option value="disabled" className="bg-gray-900">Disabled</option>
+                            <option value="songs" className="bg-gray-900">X songs</option>
+                            <option value="minutes" className="bg-gray-900">X minutes</option>
+                          </select>
+                        </div>
+                        {selectedVenue.announcementFrequencyType && (
+                          <div className="flex items-center gap-2">
+                            <label className="text-gray-400 text-xs">
+                              {selectedVenue.announcementFrequencyType === 'songs' ? 'Songs:' : 'Minutes:'}
+                            </label>
+                            <select
+                              value={selectedVenue.announcementFrequency || 5}
+                              onChange={(e) => updateAnnouncementSettingsMutation.mutate({ frequency: parseInt(e.target.value) })}
+                              className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-xs focus:outline-none focus:border-indigo-500"
                             >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
+                              {selectedVenue.announcementFrequencyType === 'songs' 
+                                ? [1, 2, 3, 4, 5, 10, 15, 20].map(n => (
+                                    <option key={n} value={n} className="bg-gray-900">{n}</option>
+                                  ))
+                                : [5, 10, 15, 30, 45, 60, 90, 120].map(n => (
+                                    <option key={n} value={n} className="bg-gray-900">{n}</option>
+                                  ))
+                              }
+                            </select>
+                            <select
+                              value={selectedVenue.announcementPlayMode || "sequential"}
+                              onChange={(e) => updateAnnouncementSettingsMutation.mutate({ playMode: e.target.value })}
+                              className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-xs focus:outline-none focus:border-indigo-500"
+                            >
+                              <option value="sequential" className="bg-gray-900">Sequential</option>
+                              <option value="random" className="bg-gray-900">Random</option>
+                            </select>
                           </div>
-                        ))
-                      )}
+                        )}
+                      </div>
+
+                      <div className="max-h-32 overflow-y-auto space-y-2">
+                        {announcements.length === 0 ? (
+                          <p className="text-gray-500 text-sm text-center py-2">No announcements yet</p>
+                        ) : (
+                          announcements.map((announcement: Announcement) => (
+                            <div key={announcement.id} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
+                              <Volume2 className={`w-4 h-4 ${announcement.isActive ? 'text-green-400' : 'text-gray-500'}`} />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white text-xs font-medium truncate">{announcement.name}</p>
+                              </div>
+                              <button
+                                onClick={() => toggleAnnouncementMutation.mutate({ id: announcement.id, isActive: !announcement.isActive })}
+                                className={`p-1 text-xs rounded ${announcement.isActive ? 'text-green-400' : 'text-gray-500'}`}
+                                title={announcement.isActive ? "Disable" : "Enable"}
+                              >
+                                {announcement.isActive ? "On" : "Off"}
+                              </button>
+                              <button
+                                onClick={() => deleteAnnouncementMutation.mutate(announcement.id)}
+                                className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -631,6 +789,58 @@ export default function AdminPage() {
                 className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
               >
                 {addPlaylistMutation.isPending ? "Adding..." : "Add Playlist"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAnnouncementModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-900 rounded-2xl border border-white/10 p-6 w-full max-w-md mx-4">
+            <h2 className="text-xl font-bold text-white mb-4">Add Announcement</h2>
+            <p className="text-gray-400 mb-4">
+              Upload an audio file (MP3, WAV, etc.) that will play between songs.
+            </p>
+            <input
+              type="text"
+              value={announcementName}
+              onChange={(e) => setAnnouncementName(e.target.value)}
+              placeholder="Announcement name (e.g., Happy Hour Special)"
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 mb-4"
+              autoFocus
+            />
+            <label className="block w-full">
+              <div className="flex items-center justify-center gap-2 px-4 py-3 bg-white/5 border border-dashed border-white/20 rounded-lg text-gray-300 hover:bg-white/10 cursor-pointer transition-colors">
+                <Upload className="w-5 h-5" />
+                {isUploading || createAnnouncementMutation.isPending ? "Uploading..." : "Choose Audio File"}
+              </div>
+              <input
+                type="file"
+                accept="audio/*"
+                className="hidden"
+                disabled={isUploading || createAnnouncementMutation.isPending}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    handleAnnouncementUpload(file);
+                  }
+                }}
+              />
+            </label>
+            {announcementError && (
+              <p className="text-red-400 text-sm mt-2">{announcementError}</p>
+            )}
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => {
+                  setShowAnnouncementModal(false);
+                  setAnnouncementName("");
+                  setAnnouncementError("");
+                }}
+                className="flex-1 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors"
+              >
+                Cancel
               </button>
             </div>
           </div>

@@ -200,6 +200,9 @@ router.get("/api/v1/venues/:code", async (req: Request, res: Response) => {
       autoApprove: venue.autoApprove,
       dailyRequestLimit: venue.dailyRequestLimit,
       isActive: venue.isActive,
+      announcementFrequencyType: venue.announcementFrequencyType,
+      announcementFrequency: venue.announcementFrequency,
+      announcementPlayMode: venue.announcementPlayMode,
     });
   } catch (error) {
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
@@ -1302,6 +1305,296 @@ router.delete("/api/me/venues/:venueId/backup-playlists/:playlistId", isAuthenti
     res.json({ success: true });
   } catch (error) {
     console.error("Remove playlist error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// ==================== Announcements ====================
+
+// Get all announcements for a venue
+router.get("/api/me/venues/:venueId/announcements", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "No organization found" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const announcements = await storage.getAnnouncementsByVenue(venue.id);
+    res.json({ announcements });
+  } catch (error) {
+    console.error("Get announcements error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Create a new announcement
+router.post("/api/me/venues/:venueId/announcements", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "No organization found" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const { name, audioUrl, duration } = req.body;
+    if (!name || !audioUrl) {
+      return res.status(400).json({ error: "MISSING_FIELDS", message: "Name and audio URL are required" });
+    }
+
+    const count = await storage.getAnnouncementCount(venue.id);
+    
+    const announcement = await storage.createAnnouncement({
+      venueId: venue.id,
+      name,
+      audioUrl,
+      duration: duration || null,
+      isActive: true,
+      position: count,
+    });
+
+    res.json({ success: true, announcement });
+  } catch (error) {
+    console.error("Create announcement error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Update an announcement
+router.patch("/api/me/venues/:venueId/announcements/:announcementId", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "No organization found" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const announcementId = parseInt(req.params.announcementId);
+    const announcement = await storage.getAnnouncement(announcementId);
+    if (!announcement || announcement.venueId !== venue.id) {
+      return res.status(404).json({ error: "ANNOUNCEMENT_NOT_FOUND", message: "Announcement not found" });
+    }
+
+    const { name, isActive } = req.body;
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const updated = await storage.updateAnnouncement(announcementId, updateData);
+    res.json({ success: true, announcement: updated });
+  } catch (error) {
+    console.error("Update announcement error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Delete an announcement
+router.delete("/api/me/venues/:venueId/announcements/:announcementId", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "No organization found" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const announcementId = parseInt(req.params.announcementId);
+    const announcement = await storage.getAnnouncement(announcementId);
+    if (!announcement || announcement.venueId !== venue.id) {
+      return res.status(404).json({ error: "ANNOUNCEMENT_NOT_FOUND", message: "Announcement not found" });
+    }
+
+    await storage.deleteAnnouncement(announcementId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Delete announcement error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Update venue announcement settings
+router.patch("/api/me/venues/:venueId/announcement-settings", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "No organization found" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const { frequencyType, frequency, playMode } = req.body;
+    const updateData: any = {};
+    
+    // frequencyType: null (disabled), 'songs', or 'minutes'
+    if (frequencyType !== undefined) updateData.announcementFrequencyType = frequencyType;
+    if (frequency !== undefined) updateData.announcementFrequency = frequency;
+    if (playMode !== undefined) updateData.announcementPlayMode = playMode;
+
+    const updated = await storage.updateVenue(venueId, updateData);
+    res.json({ success: true, venue: updated });
+  } catch (error) {
+    console.error("Update announcement settings error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Get next announcement to play (used by kiosk)
+router.get("/api/v1/venues/:code/next-announcement", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    // Check if announcements are enabled
+    if (!venue.announcementFrequencyType) {
+      return res.json({ shouldPlay: false, announcement: null });
+    }
+
+    const activeAnnouncements = await storage.getActiveAnnouncementsByVenue(venue.id);
+    if (activeAnnouncements.length === 0) {
+      return res.json({ shouldPlay: false, announcement: null });
+    }
+
+    let shouldPlay = false;
+
+    if (venue.announcementFrequencyType === 'songs') {
+      // Play after every X songs
+      const songsSince = venue.songsSinceAnnouncement || 0;
+      const frequency = venue.announcementFrequency || 5;
+      shouldPlay = songsSince >= frequency;
+    } else if (venue.announcementFrequencyType === 'minutes') {
+      // Play every X minutes
+      const lastPlayed = venue.lastAnnouncementAt;
+      const frequency = venue.announcementFrequency || 30;
+      if (!lastPlayed) {
+        shouldPlay = true;
+      } else {
+        const minutesSince = (Date.now() - new Date(lastPlayed).getTime()) / 60000;
+        shouldPlay = minutesSince >= frequency;
+      }
+    }
+
+    if (!shouldPlay) {
+      return res.json({ shouldPlay: false, announcement: null });
+    }
+
+    // Pick announcement based on play mode
+    let announcement;
+    if (venue.announcementPlayMode === 'random') {
+      const randomIndex = Math.floor(Math.random() * activeAnnouncements.length);
+      announcement = activeAnnouncements[randomIndex];
+    } else {
+      // Sequential - need to track which one was last played
+      // For simplicity, we'll just use the first one (can be enhanced later)
+      announcement = activeAnnouncements[0];
+    }
+
+    res.json({ 
+      shouldPlay: true, 
+      announcement: {
+        id: announcement.id,
+        name: announcement.name,
+        audioUrl: announcement.audioUrl,
+        duration: announcement.duration,
+      }
+    });
+  } catch (error) {
+    console.error("Get next announcement error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Mark announcement as played (update counters)
+router.post("/api/v1/venues/:code/announcement-played", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    // Reset song counter and update last played time
+    await storage.updateVenue(venue.id, {
+      songsSinceAnnouncement: 0,
+      lastAnnouncementAt: new Date(),
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Announcement played error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Increment song counter (called when a song finishes)
+router.post("/api/v1/venues/:code/song-finished", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const currentCount = venue.songsSinceAnnouncement || 0;
+    await storage.updateVenue(venue.id, {
+      songsSinceAnnouncement: currentCount + 1,
+    });
+
+    res.json({ success: true, songsSinceAnnouncement: currentCount + 1 });
+  } catch (error) {
+    console.error("Song finished error:", error);
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }
 });

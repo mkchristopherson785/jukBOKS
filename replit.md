@@ -13,6 +13,7 @@ Jukboks is a standalone SaaS platform that enables businesses (bars, restaurants
 - **Upvote/Downvote System**: Guests can thumbs up or thumbs down songs in the queue
 - **Duplicate Song Prevention**: Songs can't be requested again within 2 hours of playing
 - **Backup Playlists**: Up to 10 playlists per venue for auto-play when queue is empty
+- **Announcements**: Pre-recorded audio announcements that play between songs (configurable by song count or time interval, with sequential or random play modes)
 - **Multi-Organization Support**: Each business manages their own venues
 - **Team Management**: Invite team members by email to share admin access to venues
 - **Integration API**: External apps can embed Jukboks functionality
@@ -68,7 +69,13 @@ jukboks/
 - **party_sessions**: Daily QR codes for guest access
 - **guests**: Anonymous party attendees with request limits
 - **backup_playlists**: Apple Music playlists for auto-play when queue is empty (max 10 per venue)
+- **announcements**: Pre-recorded audio files that play between songs (name, audioUrl, isActive, position)
 - **auth_users**: Authentication users from Replit Auth (linked via ownerId)
+
+## Venue Settings
+- **announcementFrequencyType**: null (disabled), 'songs' (every X songs), or 'minutes' (every X minutes)
+- **announcementFrequency**: Number of songs or minutes between announcements (default: 5)
+- **announcementPlayMode**: 'sequential' or 'random' for multiple announcements
 
 ## API Endpoints
 

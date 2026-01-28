@@ -229,3 +229,88 @@ export async function fetchListeners(venueCode: string) {
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
   return res.json();
 }
+
+// Announcements
+export interface Announcement {
+  id: number;
+  venueId: number;
+  name: string;
+  audioUrl: string;
+  duration: number | null;
+  isActive: boolean;
+  position: number;
+  createdAt: string;
+}
+
+export async function fetchAnnouncements(venueId: number): Promise<{ announcements: Announcement[] }> {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/announcements`, { credentials: "include" });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function createAnnouncement(venueId: number, data: { name: string; audioUrl: string; duration?: number }) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/announcements`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errData = await res.json();
+    throw new Error(errData.message || `${res.status}: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function updateAnnouncement(venueId: number, announcementId: number, data: { name?: string; isActive?: boolean }) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/announcements/${announcementId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function deleteAnnouncement(venueId: number, announcementId: number) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/announcements/${announcementId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function updateAnnouncementSettings(venueId: number, settings: { frequencyType?: string | null; frequency?: number; playMode?: string }) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/announcement-settings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(settings),
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function fetchNextAnnouncement(venueCode: string) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/next-announcement`);
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function markAnnouncementPlayed(venueCode: string) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/announcement-played`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function markSongFinished(venueCode: string) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/song-finished`, {
+    method: "POST",
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
