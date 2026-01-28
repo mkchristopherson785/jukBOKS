@@ -208,7 +208,14 @@ export default function KioskPage() {
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-white font-medium truncate text-sm">{item.title}</p>
+                <p className="text-white font-medium truncate text-sm flex items-center gap-1">
+                  {item.title}
+                  {item.isExplicit && (
+                    <span className="inline-flex items-center justify-center w-3.5 h-3.5 bg-gray-600 text-[8px] font-bold rounded text-gray-300">
+                      E
+                    </span>
+                  )}
+                </p>
                 <p className="text-gray-400 text-xs truncate">{item.artist}</p>
                 {!item.previewUrl && (
                   <p className="text-yellow-500 text-xs">No preview available</p>

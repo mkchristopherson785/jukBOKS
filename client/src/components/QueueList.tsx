@@ -9,6 +9,7 @@ interface QueueItem {
   albumCover?: string;
   requesterName?: string;
   isAutoPlay: boolean;
+  isExplicit?: boolean;
   upvotes: number;
   downvotes: number;
   netVotes: number;
@@ -62,7 +63,14 @@ export function QueueList({ items, onVote, userVotes = new Map() }: QueueListPro
             )}
 
             <div className="flex-1 min-w-0">
-              <p className="text-white font-medium truncate">{item.title}</p>
+              <p className="text-white font-medium truncate flex items-center gap-1.5">
+                {item.title}
+                {item.isExplicit && (
+                  <span className="inline-flex items-center justify-center w-4 h-4 bg-gray-600 text-[10px] font-bold rounded text-gray-300">
+                    E
+                  </span>
+                )}
+              </p>
               <p className="text-gray-400 text-sm truncate">{item.artist}</p>
               {item.requesterName && (
                 <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
