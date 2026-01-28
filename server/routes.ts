@@ -1,10 +1,70 @@
 import { Router, type Request, type Response } from "express";
 import { nanoid } from "nanoid";
 import QRCode from "qrcode";
+import jwt from "jsonwebtoken";
 import { storage } from "./storage";
 import type { InsertRequest, InsertVote } from "../shared/schema";
 
 const router = Router();
+
+// Apple Music developer token generation
+function generateAppleMusicToken(): string | null {
+  const teamId = process.env.APPLE_TEAM_ID;
+  const keyId = process.env.APPLE_KEY_ID;
+  const privateKey = process.env.APPLE_MUSIC_PRIVATE_KEY;
+
+  if (!teamId || !keyId || !privateKey) {
+    console.error("Missing Apple Music credentials");
+    return null;
+  }
+
+  try {
+    const token = jwt.sign({}, privateKey.replace(/\\n/g, '\n'), {
+      algorithm: "ES256",
+      expiresIn: "180d",
+      issuer: teamId,
+      header: {
+        alg: "ES256",
+        kid: keyId,
+      },
+    });
+    return token;
+  } catch (error) {
+    console.error("Failed to generate Apple Music token:", error);
+    return null;
+  }
+}
+
+// Cache the token to avoid regenerating on every request
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+function getAppleMusicToken(): string | null {
+  const now = Date.now();
+  // Regenerate if no cache or expires in less than 7 days
+  if (!cachedToken || cachedToken.expiresAt < now + 7 * 24 * 60 * 60 * 1000) {
+    const token = generateAppleMusicToken();
+    if (token) {
+      // Token valid for 180 days
+      cachedToken = {
+        token,
+        expiresAt: now + 180 * 24 * 60 * 60 * 1000,
+      };
+    }
+  }
+  return cachedToken?.token || null;
+}
+
+// Endpoint to get Apple Music developer token
+router.get("/api/apple-music/token", async (_req: Request, res: Response) => {
+  const token = getAppleMusicToken();
+  if (!token) {
+    return res.status(500).json({ 
+      error: "APPLE_MUSIC_ERROR", 
+      message: "Apple Music credentials not configured" 
+    });
+  }
+  res.json({ token });
+});
 
 async function validateGuestToken(guestToken: string | undefined, venueId: number) {
   if (!guestToken) return null;

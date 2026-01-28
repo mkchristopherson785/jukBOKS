@@ -2,7 +2,7 @@ import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, Users, SkipForward } from "lucide-react";
 import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode } from "../lib/api";
-import { AudioPlayer } from "../components/AudioPlayer";
+import { MusicKitPlayer } from "../components/MusicKitPlayer";
 import { useState, useEffect, useCallback } from "react";
 
 const API_BASE = "";
@@ -73,7 +73,7 @@ export default function KioskPage() {
     
     const playableItems = queue.items.filter((item: any) => 
       (item.status === "approved" || item.status === "pending") && 
-      item.previewUrl
+      (item.previewUrl || item.trackId)
     );
     
     playableItems.sort((a: any, b: any) => b.voteCount - a.voteCount);
@@ -164,13 +164,11 @@ export default function KioskPage() {
             <p className="text-xl text-gray-300">{displayArtist || "Request a song to get started"}</p>
           </div>
 
-          <AudioPlayer
+          <MusicKitPlayer
+            trackId={currentSong?.trackId || null}
             previewUrl={displayPreview}
-            title={displayTitle}
-            artist={displayArtist}
-            albumCover={displayCover}
             onEnded={handleSongEnded}
-            autoPlay={true}
+            onSkip={handleSkip}
           />
 
           {currentSong && (
