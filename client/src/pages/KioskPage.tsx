@@ -1,6 +1,6 @@
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, ThumbsUp, SkipForward } from "lucide-react";
+import { Music2, ThumbsUp, SkipForward, Play } from "lucide-react";
 import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode } from "../lib/api";
 import { MusicKitPlayer } from "../components/MusicKitPlayer";
 import { useState, useEffect, useCallback } from "react";
@@ -12,6 +12,7 @@ export default function KioskPage() {
   const queryClient = useQueryClient();
   const [currentSong, setCurrentSong] = useState<any>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isStarted, setIsStarted] = useState(false);
 
   const { data: venue } = useQuery({
     queryKey: ["venue", code],
@@ -86,13 +87,14 @@ export default function KioskPage() {
   }, [queue?.items, isTransitioning, playNextMutation]);
 
   useEffect(() => {
+    if (!isStarted) return;
     if (!currentSong && !isTransitioning && queue?.items?.length > 0) {
       const hasPlayingSong = queue.items.some((item: any) => item.status === "playing");
       if (!hasPlayingSong) {
         playNextSong();
       }
     }
-  }, [queue?.items, currentSong, isTransitioning, playNextSong]);
+  }, [queue?.items, currentSong, isTransitioning, playNextSong, isStarted]);
 
   const handleSongEnded = useCallback(() => {
     if (currentSong) {
@@ -130,6 +132,34 @@ export default function KioskPage() {
     item.status !== "played" && 
     item.status !== "playing"
   ).sort((a: any, b: any) => (b.netVotes || 0) - (a.netVotes || 0)).slice(0, 8) || [];
+
+  if (!isStarted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="mb-8 flex justify-center">
+            {venue?.logoUrl ? (
+              <img src={venue.logoUrl} alt="" className="h-24 w-auto" />
+            ) : (
+              <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                <Music2 className="w-14 h-14 text-white" />
+              </div>
+            )}
+          </div>
+          <h1 className="text-4xl font-bold text-white mb-2">{venue?.name || "Jukboks"}</h1>
+          <p className="text-gray-400 mb-8">Kiosk Mode</p>
+          <button
+            onClick={() => setIsStarted(true)}
+            className="px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full text-white text-xl font-semibold flex items-center gap-3 mx-auto hover:scale-105 transition-transform"
+          >
+            <Play className="w-6 h-6" />
+            Start Kiosk
+          </button>
+          <p className="text-gray-500 text-sm mt-6">Click to enable music playback</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex">
