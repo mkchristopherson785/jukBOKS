@@ -138,6 +138,19 @@ export class DatabaseStorage implements IStorage {
     return venue;
   }
 
+  async deleteVenue(id: number): Promise<void> {
+    await db.delete(backupPlaylists).where(eq(backupPlaylists.venueId, id));
+    await db.delete(votes).where(
+      sql`request_id IN (SELECT id FROM requests WHERE venue_id = ${id})`
+    );
+    await db.delete(requests).where(eq(requests.venueId, id));
+    await db.delete(guests).where(
+      sql`party_session_id IN (SELECT id FROM party_sessions WHERE venue_id = ${id})`
+    );
+    await db.delete(partySessions).where(eq(partySessions.venueId, id));
+    await db.delete(venues).where(eq(venues.id, id));
+  }
+
   async createRequest(data: InsertRequest): Promise<Request> {
     const [request] = await db.insert(requests).values(data).returning();
     return request;

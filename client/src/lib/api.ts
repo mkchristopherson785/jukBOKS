@@ -128,6 +128,15 @@ export async function updateVenue(venueId: number, data: {
   return res.json();
 }
 
+export async function deleteVenue(venueId: number) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
 // Team management
 export async function fetchTeam() {
   const res = await fetch(`${API_BASE}/api/me/team`, { credentials: "include" });

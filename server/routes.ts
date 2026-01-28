@@ -901,6 +901,35 @@ router.patch("/api/me/venues/:venueId", isAuthenticated, async (req: any, res) =
   }
 });
 
+// Delete venue
+router.delete("/api/me/venues/:venueId", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Organization not found" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Venue not found" });
+    }
+
+    await storage.deleteVenue(venueId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting venue:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
 // Get team members
 router.get("/api/me/team", isAuthenticated, async (req: any, res) => {
   try {

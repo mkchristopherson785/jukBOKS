@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X, Copy, Check } from "lucide-react";
-import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist } from "../lib/api";
+import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, deleteVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist } from "../lib/api";
 import { QueueList } from "../components/QueueList";
 import { useAuth } from "../hooks/use-auth";
 
@@ -133,6 +133,20 @@ export default function AdminPage() {
     },
   });
 
+  const deleteVenueMutation = useMutation({
+    mutationFn: (venueId: number) => deleteVenue(venueId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["myVenues"] });
+      setSelectedVenueCode(null);
+    },
+  });
+
+  const handleDeleteVenue = (venueId: number, venueName: string) => {
+    if (confirm(`Are you sure you want to delete "${venueName}"? This will permanently remove all requests, playlists, and party data for this venue.`)) {
+      deleteVenueMutation.mutate(venueId);
+    }
+  };
+
   const handleSettingChange = (field: string, value: any) => {
     if (selectedVenue) {
       updateVenueMutation.mutate({ venueId: selectedVenue.id, data: { [field]: value } });
@@ -252,18 +266,34 @@ export default function AdminPage() {
           <div className="grid lg:grid-cols-4 gap-6">
             <div className="space-y-2">
               {venues.map((venue: any) => (
-                <button
+                <div
                   key={venue.id}
-                  onClick={() => setSelectedVenueCode(venue.code)}
-                  className={`w-full text-left p-4 rounded-xl transition-colors ${
+                  className={`w-full p-4 rounded-xl transition-colors ${
                     selectedVenueCode === venue.code
                       ? "bg-indigo-600/30 border border-indigo-500"
                       : "bg-white/5 border border-white/10 hover:bg-white/10"
                   }`}
                 >
-                  <p className="text-white font-medium">{venue.name}</p>
-                  <p className="text-gray-400 text-sm font-mono">{venue.code}</p>
-                </button>
+                  <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => setSelectedVenueCode(venue.code)}
+                      className="flex-1 text-left"
+                    >
+                      <p className="text-white font-medium">{venue.name}</p>
+                      <p className="text-gray-400 text-sm font-mono">{venue.code}</p>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteVenue(venue.id, venue.name);
+                      }}
+                      className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                      title="Delete venue"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
 
