@@ -114,3 +114,16 @@ npm run dev        # Start development server
 
 ## Environment Variables
 - `DATABASE_URL` - PostgreSQL connection string (auto-configured)
+- `APPLE_TEAM_ID` - Apple Developer Team ID (10 characters)
+- `APPLE_KEY_ID` - MusicKit Key ID (10 characters)
+- `APPLE_MUSIC_PRIVATE_KEY` - Contents of .p8 private key file
+
+## Apple Music Integration
+The app uses MusicKit JS for full song playback with Apple Music subscriptions. The server generates JWT developer tokens (ES256 algorithm, 180-day expiry) using the Apple credentials. 
+
+Key components:
+- `/api/apple-music/token` - Server endpoint that generates and caches JWT tokens
+- `useMusicKit` hook - Manages MusicKit configuration, authorization, and playback state
+- `MusicKitPlayer` component - Unified player with Apple Music streaming and preview fallback
+
+If a user doesn't have Apple Music, the player falls back to 30-second iTunes previews.
