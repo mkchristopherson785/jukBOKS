@@ -36,6 +36,7 @@ export default function AdminPage() {
     queryKey: ["myVenues"],
     queryFn: fetchMyVenues,
     enabled: isAuthenticated,
+    retry: false,
   });
 
   useEffect(() => {
@@ -90,12 +91,14 @@ export default function AdminPage() {
     queryKey: ["team"],
     queryFn: fetchTeam,
     enabled: isAuthenticated,
+    retry: false,
   });
 
   const { data: organization } = useQuery({
     queryKey: ["organization"],
     queryFn: fetchMyOrganization,
     enabled: isAuthenticated,
+    retry: false,
   });
 
   const updateOrgMutation = useMutation({
