@@ -1,48 +1,57 @@
 import { Router, type Request, type Response } from "express";
 import { nanoid } from "nanoid";
 import QRCode from "qrcode";
-import jwt from "jsonwebtoken";
+import { SignJWT, importPKCS8 } from "jose";
 import { storage } from "./storage";
 import type { InsertRequest, InsertVote } from "../shared/schema";
 
 const router = Router();
 
-// Apple Music developer token generation
-function generateAppleMusicToken(): string | null {
+// Cache the token to avoid regenerating on every request
+let cachedToken: { token: string; expiresAt: number } | null = null;
+
+// Apple Music developer token generation using jose library
+async function generateAppleMusicToken(): Promise<string | null> {
   const teamId = process.env.APPLE_TEAM_ID;
   const keyId = process.env.APPLE_KEY_ID;
   const privateKey = process.env.APPLE_MUSIC_PRIVATE_KEY;
 
-  console.log("Apple Music credentials check:", {
-    hasTeamId: !!teamId,
-    hasKeyId: !!keyId,
-    hasPrivateKey: !!privateKey,
-    teamIdLength: teamId?.length,
-    keyIdLength: keyId?.length,
-    privateKeyLength: privateKey?.length,
-  });
-
   if (!teamId || !keyId || !privateKey) {
-    console.error("Missing Apple Music credentials - teamId:", !!teamId, "keyId:", !!keyId, "privateKey:", !!privateKey);
+    console.error("Missing Apple Music credentials");
     return null;
   }
 
   try {
-    // Handle different formats of private key (literal \n vs actual newlines)
-    let formattedKey = privateKey;
-    if (privateKey.includes('\\n')) {
-      formattedKey = privateKey.replace(/\\n/g, '\n');
+    // Handle different formats of private key
+    let formattedKey = privateKey.trim();
+    
+    // Replace literal \n with actual newlines
+    if (formattedKey.includes('\\n')) {
+      formattedKey = formattedKey.replace(/\\n/g, '\n');
     }
     
-    const token = jwt.sign({}, formattedKey, {
-      algorithm: "ES256",
-      expiresIn: "180d",
-      issuer: teamId,
-      header: {
-        alg: "ES256",
-        kid: keyId,
-      },
-    });
+    // If the key doesn't have proper PEM headers, add them
+    if (!formattedKey.includes('-----BEGIN PRIVATE KEY-----')) {
+      // Remove any existing partial headers or whitespace
+      formattedKey = formattedKey.replace(/-----.*-----/g, '').trim();
+      // Wrap with proper headers
+      formattedKey = `-----BEGIN PRIVATE KEY-----\n${formattedKey}\n-----END PRIVATE KEY-----`;
+    }
+    
+    console.log("Formatted key starts with:", formattedKey.substring(0, 30));
+    console.log("Formatted key ends with:", formattedKey.substring(formattedKey.length - 30));
+    
+    // Import the PKCS8 private key
+    const key = await importPKCS8(formattedKey, 'ES256');
+    
+    // Create the JWT
+    const token = await new SignJWT({})
+      .setProtectedHeader({ alg: 'ES256', kid: keyId })
+      .setIssuer(teamId)
+      .setIssuedAt()
+      .setExpirationTime('180d')
+      .sign(key);
+    
     console.log("Apple Music token generated successfully");
     return token;
   } catch (error) {
@@ -51,14 +60,11 @@ function generateAppleMusicToken(): string | null {
   }
 }
 
-// Cache the token to avoid regenerating on every request
-let cachedToken: { token: string; expiresAt: number } | null = null;
-
-function getAppleMusicToken(): string | null {
+async function getAppleMusicToken(): Promise<string | null> {
   const now = Date.now();
   // Regenerate if no cache or expires in less than 7 days
   if (!cachedToken || cachedToken.expiresAt < now + 7 * 24 * 60 * 60 * 1000) {
-    const token = generateAppleMusicToken();
+    const token = await generateAppleMusicToken();
     if (token) {
       // Token valid for 180 days
       cachedToken = {
@@ -72,7 +78,7 @@ function getAppleMusicToken(): string | null {
 
 // Endpoint to get Apple Music developer token
 router.get("/api/apple-music/token", async (_req: Request, res: Response) => {
-  const token = getAppleMusicToken();
+  const token = await getAppleMusicToken();
   if (!token) {
     return res.status(500).json({ 
       error: "APPLE_MUSIC_ERROR", 
