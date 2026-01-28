@@ -1526,6 +1526,27 @@ router.get("/api/v1/venues/:code/next-announcement", async (req: Request, res: R
         const minutesSince = (Date.now() - new Date(lastPlayed).getTime()) / 60000;
         shouldPlay = minutesSince >= frequency;
       }
+    } else if (venue.announcementFrequencyType === 'hourly') {
+      // Play at the top of each hour
+      const now = new Date();
+      const lastPlayed = venue.lastAnnouncementAt;
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      
+      // Check if we're within the first 5 minutes of the hour
+      if (currentMinute < 5) {
+        if (!lastPlayed) {
+          shouldPlay = true;
+        } else {
+          const lastPlayedDate = new Date(lastPlayed);
+          const lastPlayedHour = lastPlayedDate.getHours();
+          const lastPlayedDay = lastPlayedDate.toDateString();
+          const today = now.toDateString();
+          
+          // Play if we haven't played this hour yet
+          shouldPlay = lastPlayedDay !== today || lastPlayedHour !== currentHour;
+        }
+      }
     }
 
     if (!shouldPlay) {

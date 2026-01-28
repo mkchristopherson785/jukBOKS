@@ -73,8 +73,8 @@ jukboks/
 - **auth_users**: Authentication users from Replit Auth (linked via ownerId)
 
 ## Venue Settings
-- **announcementFrequencyType**: null (disabled), 'songs' (every X songs), or 'minutes' (every X minutes)
-- **announcementFrequency**: Number of songs or minutes between announcements (default: 5)
+- **announcementFrequencyType**: null (disabled), 'songs' (every X songs), 'minutes' (every X minutes), or 'hourly' (top of each hour)
+- **announcementFrequency**: Number of songs or minutes between announcements (default: 5, not used for 'hourly')
 - **announcementPlayMode**: 'sequential' or 'random' for multiple announcements
 
 ## API Endpoints
