@@ -269,10 +269,21 @@ export default function AdminPage() {
             {selectedVenue && (
               <div className="lg:col-span-3 space-y-6">
                 <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-6">
-                  <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                    <Settings className="w-5 h-5" />
-                    {selectedVenue.name} Settings
-                  </h2>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                      <Settings className="w-5 h-5" />
+                      {selectedVenue.name} Settings
+                    </h2>
+                    <a
+                      href={`/kiosk/${selectedVenueCode}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                    >
+                      <Tv className="w-5 h-5" />
+                      Open Kiosk
+                    </a>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="p-4 bg-white/5 rounded-xl">
                       <label className="text-gray-400 text-sm block mb-2">Limit in Queue</label>
