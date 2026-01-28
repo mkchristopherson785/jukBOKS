@@ -323,3 +323,36 @@ export async function markSongFinished(venueCode: string) {
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
   return res.json();
 }
+
+// Play History & Banned Songs
+export async function fetchPlayHistory(venueId: number) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/history`, { credentials: "include" });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function fetchBannedSongs(venueId: number) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/banned`, { credentials: "include" });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function banSong(venueId: number, song: { trackId: string; title: string; artist: string; albumCover?: string }) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/ban`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(song),
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function unbanSong(venueId: number, trackId: string) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/ban/${encodeURIComponent(trackId)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}

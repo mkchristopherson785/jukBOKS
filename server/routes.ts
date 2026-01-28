@@ -428,6 +428,12 @@ router.post("/api/v1/venues/:code/request", async (req: Request, res: Response) 
       return res.status(400).json({ error: "EXPLICIT_NOT_ALLOWED", message: "This venue does not allow explicit content" });
     }
 
+    // Check if song is banned
+    const isBanned = await storage.isSongBanned(venue.id, trackId);
+    if (isBanned) {
+      return res.status(400).json({ error: "SONG_BANNED", message: "This song has been banned at this venue" });
+    }
+
     const wasPlayedRecently = await storage.wasTrackPlayedRecently(venue.id, trackId, 2);
     if (wasPlayedRecently) {
       return res.status(400).json({ 
@@ -836,6 +842,14 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
       if (tracks.length === 0) {
         return res.status(404).json({ error: "NO_CLEAN_TRACKS", message: "No clean tracks available in playlist" });
       }
+    }
+
+    // Filter out banned songs
+    const bannedSongs = await storage.getBannedSongs(venue.id);
+    const bannedTrackIds = new Set(bannedSongs.map(s => s.trackId));
+    tracks = tracks.filter((track: any) => !bannedTrackIds.has(track.id));
+    if (tracks.length === 0) {
+      return res.status(404).json({ error: "NO_AVAILABLE_TRACKS", message: "All tracks in playlist are banned" });
     }
 
     // Pick a random track
@@ -1624,6 +1638,88 @@ router.post("/api/v1/venues/:code/song-finished", async (req: Request, res: Resp
     res.json({ success: true, songsSinceAnnouncement: currentCount + 1 });
   } catch (error) {
     console.error("Song finished error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Get play history for a venue
+router.get("/api/me/venues/:id/history", isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const venueId = parseInt(req.params.id);
+    const venue = await storage.getVenue(venueId);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const history = await storage.getPlayHistory(venueId, 100);
+    res.json({ history });
+  } catch (error) {
+    console.error("Get play history error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Get banned songs for a venue
+router.get("/api/me/venues/:id/banned", isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const venueId = parseInt(req.params.id);
+    const venue = await storage.getVenue(venueId);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const bannedSongs = await storage.getBannedSongs(venueId);
+    res.json({ bannedSongs });
+  } catch (error) {
+    console.error("Get banned songs error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Ban a song
+router.post("/api/me/venues/:id/ban", isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const venueId = parseInt(req.params.id);
+    const { trackId, title, artist, albumCover } = req.body;
+
+    if (!trackId || !title || !artist) {
+      return res.status(400).json({ error: "MISSING_FIELDS", message: "trackId, title, and artist are required" });
+    }
+
+    const venue = await storage.getVenue(venueId);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    // Check if already banned
+    const alreadyBanned = await storage.isSongBanned(venueId, trackId);
+    if (alreadyBanned) {
+      return res.status(400).json({ error: "ALREADY_BANNED", message: "Song is already banned" });
+    }
+
+    const banned = await storage.banSong(venueId, trackId, title, artist, albumCover);
+    res.json({ success: true, banned });
+  } catch (error) {
+    console.error("Ban song error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Unban a song
+router.delete("/api/me/venues/:id/ban/:trackId", isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const venueId = parseInt(req.params.id);
+    const trackId = req.params.trackId;
+
+    const venue = await storage.getVenue(venueId);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    await storage.unbanSong(venueId, trackId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Unban song error:", error);
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }
 });
