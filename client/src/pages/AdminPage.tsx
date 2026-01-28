@@ -32,11 +32,12 @@ export default function AdminPage() {
     }
   }, [authLoading, isAuthenticated]);
 
-  const { data: venues = [], isLoading: venuesLoading } = useQuery({
+  const { data: venues = [], isLoading: venuesLoading, isError: venuesError } = useQuery({
     queryKey: ["myVenues"],
     queryFn: fetchMyVenues,
     enabled: isAuthenticated,
     retry: false,
+    throwOnError: false,
   });
 
   useEffect(() => {
@@ -92,6 +93,7 @@ export default function AdminPage() {
     queryFn: fetchTeam,
     enabled: isAuthenticated,
     retry: false,
+    throwOnError: false,
   });
 
   const { data: organization } = useQuery({
@@ -99,6 +101,7 @@ export default function AdminPage() {
     queryFn: fetchMyOrganization,
     enabled: isAuthenticated,
     retry: false,
+    throwOnError: false,
   });
 
   const updateOrgMutation = useMutation({
@@ -188,6 +191,7 @@ export default function AdminPage() {
     queryFn: () => fetchSonosStatus(selectedVenue?.code!),
     enabled: !!selectedVenue?.code,
     retry: false,
+    throwOnError: false,
   });
 
   const updateSonosMutation = useMutation({
@@ -310,9 +314,9 @@ export default function AdminPage() {
     }
   };
 
-  if (authLoading) {
+  if (authLoading || venuesLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
         <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
       </div>
     );
@@ -320,6 +324,23 @@ export default function AdminPage() {
 
   if (!isAuthenticated) {
     return null;
+  }
+
+  if (venuesError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
+        <div className="text-center text-white p-8">
+          <h1 className="text-2xl font-bold mb-4">Unable to load venues</h1>
+          <p className="text-gray-400 mb-6">There was a problem loading your data. Please try again.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 rounded-lg font-medium transition-colors"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
