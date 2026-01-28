@@ -339,13 +339,15 @@ export async function markSongFinished(venueCode: string) {
 export async function fetchPlayHistory(venueId: number) {
   const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/history`, { credentials: "include" });
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
-  return res.json();
+  const data = await res.json();
+  return data.history || [];
 }
 
 export async function fetchBannedSongs(venueId: number) {
   const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/banned`, { credentials: "include" });
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
-  return res.json();
+  const data = await res.json();
+  return data.bannedSongs || [];
 }
 
 export async function banSong(venueId: number, song: { trackId: string; title: string; artist: string; albumCover?: string }) {
