@@ -296,13 +296,15 @@ export default function KioskPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex relative">
-      <button
-        onClick={toggleFullscreen}
-        className="absolute top-4 right-4 p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors z-10"
-        title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-      >
-        {isFullscreen ? <Minimize className="w-6 h-6 text-white" /> : <Maximize className="w-6 h-6 text-white" />}
-      </button>
+      {!isFullscreen && (
+        <button
+          onClick={toggleFullscreen}
+          className="absolute top-4 right-4 p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors z-10"
+          title="Enter Fullscreen"
+        >
+          <Maximize className="w-6 h-6 text-white" />
+        </button>
+      )}
       <div className="flex-1 flex flex-col items-center justify-center p-8">
         <div className="w-full max-w-3xl">
           {isPlayingAnnouncement && currentAnnouncement ? (
