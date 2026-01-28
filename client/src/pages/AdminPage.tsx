@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X, Copy, Check, Radio, Volume2, Upload, SkipForward } from "lucide-react";
-import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, deleteVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchListeners, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, skipSong, type Announcement } from "../lib/api";
+import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X, Copy, Check, Radio, Volume2, Upload, SkipForward, History, Ban } from "lucide-react";
+import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, deleteVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchListeners, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, skipSong, fetchPlayHistory, fetchBannedSongs, banSong, unbanSong, type Announcement } from "../lib/api";
 import { useUpload } from "../hooks/use-upload";
 import { QueueList } from "../components/QueueList";
 import { useAuth } from "../hooks/use-auth";
@@ -152,6 +152,32 @@ export default function AdminPage() {
   });
 
   const announcements = announcementsData?.announcements || [];
+
+  const { data: playHistory = [] } = useQuery({
+    queryKey: ["playHistory", selectedVenue?.id],
+    queryFn: () => fetchPlayHistory(selectedVenue?.id!),
+    enabled: !!selectedVenue?.id,
+  });
+
+  const { data: bannedSongs = [] } = useQuery({
+    queryKey: ["bannedSongs", selectedVenue?.id],
+    queryFn: () => fetchBannedSongs(selectedVenue?.id!),
+    enabled: !!selectedVenue?.id,
+  });
+
+  const banSongMutation = useMutation({
+    mutationFn: (song: { trackId: string; title: string; artist: string; albumCover?: string }) => banSong(selectedVenue?.id!, song),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bannedSongs", selectedVenue?.id] });
+    },
+  });
+
+  const unbanSongMutation = useMutation({
+    mutationFn: (trackId: string) => unbanSong(selectedVenue?.id!, trackId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bannedSongs", selectedVenue?.id] });
+    },
+  });
 
   const createAnnouncementMutation = useMutation({
     mutationFn: (data: { name: string; audioUrl: string; duration?: number }) => createAnnouncement(selectedVenue?.id!, data),
@@ -636,6 +662,62 @@ export default function AdminPage() {
                           ))
                         )}
                       </div>
+                    </div>
+
+                    {/* Play History & Banned Songs */}
+                    <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
+                      <h3 className="text-md font-bold text-white flex items-center gap-2 mb-3">
+                        <History className="w-4 h-4" />
+                        Recent Plays
+                      </h3>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {playHistory.length === 0 ? (
+                          <p className="text-gray-500 text-xs text-center py-2">No play history yet</p>
+                        ) : (
+                          playHistory.slice(0, 10).map((song: any) => {
+                            const isBanned = bannedSongs.some((b: any) => b.trackId === song.trackId);
+                            return (
+                              <div key={song.id} className="flex items-center gap-2 p-2 bg-white/5 rounded">
+                                <img src={song.albumCover || "/placeholder.svg"} alt="" className="w-8 h-8 rounded object-cover" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-white text-xs font-medium truncate">{song.title}</p>
+                                  <p className="text-gray-400 text-xs truncate">{song.artist}</p>
+                                </div>
+                                <button
+                                  onClick={() => isBanned 
+                                    ? unbanSongMutation.mutate(song.trackId)
+                                    : banSongMutation.mutate({ trackId: song.trackId, title: song.title, artist: song.artist, albumCover: song.albumCover })
+                                  }
+                                  className={`p-1.5 rounded transition-colors ${isBanned ? 'text-red-400 hover:text-red-300' : 'text-gray-400 hover:text-red-400'}`}
+                                  title={isBanned ? "Unban" : "Ban this song"}
+                                >
+                                  <Ban className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {bannedSongs.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-white/10">
+                          <p className="text-xs text-gray-400 mb-2">Banned Songs ({bannedSongs.length})</p>
+                          <div className="space-y-1 max-h-24 overflow-y-auto">
+                            {bannedSongs.map((song: any) => (
+                              <div key={song.id} className="flex items-center gap-2 p-1.5 bg-red-500/10 rounded text-xs">
+                                <span className="text-red-400 truncate flex-1">{song.title} - {song.artist}</span>
+                                <button
+                                  onClick={() => unbanSongMutation.mutate(song.trackId)}
+                                  className="text-gray-400 hover:text-white transition-colors"
+                                  title="Unban"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
