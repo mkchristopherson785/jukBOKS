@@ -1,0 +1,120 @@
+
+431ee10e
+System
+system: received signal terminated
+2026-01-27 21:38:07.04
+ae885e7c
+System
+starting up user application
+2026-01-27 21:38:07.04
+ae885e7c
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-01-27 21:38:07.04
+ae885e7c
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-01-27 21:38:10.70
+ae885e7c
+User
+> jukboks@1.0.0 start
+2026-01-27 21:38:10.70
+ae885e7c
+User
+> NODE_ENV=production node dist/server/index.js
+2026-01-27 21:38:12.83
+ae885e7c
+User
+Jukboks server running on http://0.0.0.0:5000
+2026-01-27 21:38:25.01
+ae885e7c
+User
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+2026-01-27 21:38:25.01
+ae885e7c
+User
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+2026-01-27 21:38:25.01
+ae885e7c
+User
+(node:38) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-01-27 21:38:25.01
+ae885e7c
+User
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-01-27 21:38:25.01
+ae885e7c
+User
+To prepare for this change:
+2026-01-27 21:38:25.01
+ae885e7c
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-01-27 21:38:25.01
+ae885e7c
+User
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+2026-01-27 21:38:34.63
+ae885e7c
+User
+-----END PRIVATE KEY-----
+2026-01-27 21:38:34.63
+ae885e7c
+User
+Formatted key ends with: 2fZe
+2026-01-27 21:38:34.63
+ae885e7c
+User
+MI
+2026-01-27 21:38:34.63
+ae885e7c
+User
+Formatted key starts with: -----BEGIN PRIVATE KEY-----
+2026-01-27 21:38:34.64
+ae885e7c
+User
+Apple Music token generated successfully
+2026-01-27 21:43:26.84
+80392779
+System
+system: received signal terminated
+2026-01-27 21:45:19.76
+4c63fc92
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-01-27 21:45:19.76
+4c63fc92
+System
+starting up user application
+2026-01-27 21:45:19.76
+4c63fc92
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-01-27 21:45:21.45
+4c63fc92
+User
+> jukboks@1.0.0 start
+2026-01-27 21:45:21.45
+4c63fc92
+User
+> NODE_ENV=production node dist/server/index.js
+2026-01-27 21:45:22.79
+4c63fc92
+User
+Jukboks server running on http://0.0.0.0:5000
+2026-01-27 21:46:31.64
+4c63fc92
+User
+(node:40) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+2026-01-27 21:46:31.64
+4c63fc92
+User
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+2026-01-27 21:46:31.64
+4c63fc92
+User
+(Use `node --trace-warnings ...` to show where the warning was created)
+2026-01-27 21:46:31.64
+4c63fc92
+User
+To prepare for this change:
