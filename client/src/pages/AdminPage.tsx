@@ -329,35 +329,129 @@ export default function AdminPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex items-center gap-4 mb-8 border-b border-white/10 pb-4">
-          <button
-            onClick={() => setActiveTab("venues")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              activeTab === "venues" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"
-            }`}
-          >
-            <MapPin className="w-5 h-5" />
-            Venues
-          </button>
-          <button
-            onClick={() => setActiveTab("team")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-              activeTab === "team" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"
-            }`}
-          >
-            <Users className="w-5 h-5" />
-            Team
-          </button>
-          {teamData?.isOwner && (
+        <div className="flex flex-wrap items-center gap-4 mb-8 border-b border-white/10 pb-4">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setActiveTab("branding")}
+              onClick={() => setActiveTab("venues")}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                activeTab === "branding" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"
+                activeTab === "venues" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"
               }`}
             >
-              <Palette className="w-5 h-5" />
-              Branding
+              <MapPin className="w-5 h-5" />
+              Venues
             </button>
+            <button
+              onClick={() => setActiveTab("team")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                activeTab === "team" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <Users className="w-5 h-5" />
+              Team
+            </button>
+            {teamData?.isOwner && (
+              <button
+                onClick={() => setActiveTab("branding")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  activeTab === "branding" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <Palette className="w-5 h-5" />
+                Branding
+              </button>
+            )}
+          </div>
+
+          {activeTab === "venues" && selectedVenue && (
+            <>
+              <div className="h-6 w-px bg-white/20 hidden sm:block" />
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href={qrData?.partyUrl || `/party/${selectedVenueCode}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors"
+                >
+                  <QrCode className="w-4 h-4" />
+                  Party
+                </a>
+                <a
+                  href={`/kiosk/${selectedVenueCode}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors"
+                >
+                  <Tv className="w-4 h-4" />
+                  Kiosk
+                </a>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/party/${qrData?.partyCode || selectedVenueCode}`);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
+                >
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copied ? "Copied!" : "Copy Link"}
+                </button>
+              </div>
+              <div className="h-6 w-px bg-white/20 hidden sm:block" />
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <label className="text-gray-400 text-sm">Limit:</label>
+                  <select
+                    value={selectedVenue.dailyRequestLimit === 0 ? "unlimited" : selectedVenue.dailyRequestLimit}
+                    onChange={(e) => handleSettingChange("dailyRequestLimit", e.target.value === "unlimited" ? 0 : parseInt(e.target.value))}
+                    className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm focus:outline-none focus:border-indigo-500"
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                      <option key={n} value={n} className="bg-gray-900">{n}</option>
+                    ))}
+                    <option value="unlimited" className="bg-gray-900">∞</option>
+                  </select>
+                </div>
+                <button
+                  onClick={() => handleSettingChange("allowExplicit", !selectedVenue.allowExplicit)}
+                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                    selectedVenue.allowExplicit
+                      ? "bg-green-600/30 text-green-300"
+                      : "bg-red-600/30 text-red-300"
+                  }`}
+                >
+                  Explicit: {selectedVenue.allowExplicit ? "On" : "Off"}
+                </button>
+                <button
+                  onClick={() => handleSettingChange("autoApprove", !selectedVenue.autoApprove)}
+                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                    selectedVenue.autoApprove
+                      ? "bg-green-600/30 text-green-300"
+                      : "bg-gray-600/30 text-gray-300"
+                  }`}
+                >
+                  Auto-Approve: {selectedVenue.autoApprove ? "On" : "Off"}
+                </button>
+                <button
+                  onClick={() => handleSettingChange("isActive", !selectedVenue.isActive)}
+                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                    selectedVenue.isActive
+                      ? "bg-green-600/30 text-green-300"
+                      : "bg-gray-600/30 text-gray-300"
+                  }`}
+                >
+                  {selectedVenue.isActive ? "Active" : "Inactive"}
+                </button>
+                {listenersData?.count > 0 ? (
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                    <span className="text-green-400 font-semibold">{listenersData.count}</span>
+                    <span className="text-gray-400">listening</span>
+                  </div>
+                ) : (
+                  <span className="text-gray-500 text-sm">0 listening</span>
+                )}
+              </div>
+            </>
           )}
         </div>
 
@@ -425,101 +519,6 @@ export default function AdminPage() {
 
             {selectedVenue && (
               <div className="lg:col-span-3 space-y-4">
-                {/* Top bar: Title + Quick Actions */}
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-white">{selectedVenue.name}</h2>
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={qrData?.partyUrl || `/party/${selectedVenueCode}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors"
-                    >
-                      <QrCode className="w-4 h-4" />
-                      Party
-                    </a>
-                    <a
-                      href={`/kiosk/${selectedVenueCode}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors"
-                    >
-                      <Tv className="w-4 h-4" />
-                      Kiosk
-                    </a>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(`${window.location.origin}/party/${qrData?.partyCode || selectedVenueCode}`);
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                      }}
-                      className="flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
-                    >
-                      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      {copied ? "Copied!" : "Copy Link"}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Settings + Live Listeners Row */}
-                <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
-                  <div className="flex flex-wrap items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <label className="text-gray-400 text-sm">Limit:</label>
-                      <select
-                        value={selectedVenue.dailyRequestLimit === 0 ? "unlimited" : selectedVenue.dailyRequestLimit}
-                        onChange={(e) => handleSettingChange("dailyRequestLimit", e.target.value === "unlimited" ? 0 : parseInt(e.target.value))}
-                        className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm focus:outline-none focus:border-indigo-500"
-                      >
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
-                          <option key={n} value={n} className="bg-gray-900">{n}</option>
-                        ))}
-                        <option value="unlimited" className="bg-gray-900">∞</option>
-                      </select>
-                    </div>
-                    <button
-                      onClick={() => handleSettingChange("allowExplicit", !selectedVenue.allowExplicit)}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                        selectedVenue.allowExplicit
-                          ? "bg-green-600/30 text-green-300"
-                          : "bg-red-600/30 text-red-300"
-                      }`}
-                    >
-                      Explicit: {selectedVenue.allowExplicit ? "On" : "Off"}
-                    </button>
-                    <button
-                      onClick={() => handleSettingChange("autoApprove", !selectedVenue.autoApprove)}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                        selectedVenue.autoApprove
-                          ? "bg-green-600/30 text-green-300"
-                          : "bg-gray-600/30 text-gray-300"
-                      }`}
-                    >
-                      Auto-Approve: {selectedVenue.autoApprove ? "On" : "Off"}
-                    </button>
-                    <button
-                      onClick={() => handleSettingChange("isActive", !selectedVenue.isActive)}
-                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                        selectedVenue.isActive
-                          ? "bg-green-600/30 text-green-300"
-                          : "bg-gray-600/30 text-gray-300"
-                      }`}
-                    >
-                      {selectedVenue.isActive ? "Active" : "Inactive"}
-                    </button>
-                    <div className="flex-1" />
-                    {listenersData?.count > 0 ? (
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                        <span className="text-green-400 font-semibold">{listenersData.count}</span>
-                        <span className="text-gray-400">listening</span>
-                      </div>
-                    ) : (
-                      <span className="text-gray-500 text-sm">0 listening</span>
-                    )}
-                  </div>
-                </div>
-
                 {/* Main Content: Queue + Sidebar (Playlists + Announcements) */}
                 <div className="grid lg:grid-cols-3 gap-4">
                   {/* Queue - Takes 2 columns */}
