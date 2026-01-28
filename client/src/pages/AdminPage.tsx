@@ -305,222 +305,151 @@ export default function AdminPage() {
             </div>
 
             {selectedVenue && (
-              <div className="lg:col-span-3 space-y-6">
-                <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                      <Settings className="w-5 h-5" />
-                      {selectedVenue.name} Settings
-                    </h2>
+              <div className="lg:col-span-3 space-y-4">
+                {/* Top bar: Title + Quick Actions */}
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-white">{selectedVenue.name}</h2>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={qrData?.partyUrl || `/party/${selectedVenueCode}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors"
+                    >
+                      <QrCode className="w-4 h-4" />
+                      Party
+                    </a>
                     <a
                       href={`/kiosk/${selectedVenueCode}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                      className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors"
                     >
-                      <Tv className="w-5 h-5" />
-                      Open Kiosk
+                      <Tv className="w-4 h-4" />
+                      Kiosk
                     </a>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div className="p-4 bg-white/5 rounded-xl">
-                      <label className="text-gray-400 text-sm block mb-2">Limit in Queue</label>
-                      <select
-                        value={selectedVenue.dailyRequestLimit === 0 ? "unlimited" : selectedVenue.dailyRequestLimit}
-                        onChange={(e) => handleSettingChange("dailyRequestLimit", e.target.value === "unlimited" ? 0 : parseInt(e.target.value))}
-                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
-                      >
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
-                          <option key={n} value={n} className="bg-gray-900">{n} {n === 1 ? "request" : "requests"}</option>
-                        ))}
-                        <option value="unlimited" className="bg-gray-900">Unlimited</option>
-                      </select>
-                    </div>
-                    <div className="p-4 bg-white/5 rounded-xl">
-                      <label className="text-gray-400 text-sm block mb-2">Explicit Content</label>
-                      <button
-                        onClick={() => handleSettingChange("allowExplicit", !selectedVenue.allowExplicit)}
-                        className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${
-                          selectedVenue.allowExplicit
-                            ? "bg-green-600 hover:bg-green-700 text-white"
-                            : "bg-red-600/30 hover:bg-red-600/50 text-red-300"
-                        }`}
-                      >
-                        {selectedVenue.allowExplicit ? "Allowed" : "Blocked"}
-                      </button>
-                    </div>
-                    <div className="p-4 bg-white/5 rounded-xl">
-                      <label className="text-gray-400 text-sm block mb-2">Auto-Approve</label>
-                      <button
-                        onClick={() => handleSettingChange("autoApprove", !selectedVenue.autoApprove)}
-                        className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${
-                          selectedVenue.autoApprove
-                            ? "bg-green-600 hover:bg-green-700 text-white"
-                            : "bg-gray-600/30 hover:bg-gray-600/50 text-gray-300"
-                        }`}
-                      >
-                        {selectedVenue.autoApprove ? "On" : "Off"}
-                      </button>
-                    </div>
-                    <div className="p-4 bg-white/5 rounded-xl">
-                      <label className="text-gray-400 text-sm block mb-2">Status</label>
-                      <button
-                        onClick={() => handleSettingChange("isActive", !selectedVenue.isActive)}
-                        className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${
-                          selectedVenue.isActive
-                            ? "bg-green-600 hover:bg-green-700 text-white"
-                            : "bg-gray-600/30 hover:bg-gray-600/50 text-gray-300"
-                        }`}
-                      >
-                        {selectedVenue.isActive ? "Active" : "Inactive"}
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${window.location.origin}/party/${qrData?.partyCode || selectedVenueCode}`);
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
+                    >
+                      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      {copied ? "Copied!" : "Copy Link"}
+                    </button>
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-6">
-                    <h3 className="text-lg font-bold text-white mb-4">Quick Links</h3>
-                    <div className="space-y-3">
-                      <a
-                        href={qrData?.partyUrl || `/party/${selectedVenueCode}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-4 bg-indigo-600/20 rounded-xl hover:bg-indigo-600/30 transition-colors"
+                {/* Settings + Live Listeners Row */}
+                <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <label className="text-gray-400 text-sm">Limit:</label>
+                      <select
+                        value={selectedVenue.dailyRequestLimit === 0 ? "unlimited" : selectedVenue.dailyRequestLimit}
+                        onChange={(e) => handleSettingChange("dailyRequestLimit", e.target.value === "unlimited" ? 0 : parseInt(e.target.value))}
+                        className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm focus:outline-none focus:border-indigo-500"
                       >
-                        <QrCode className="w-6 h-6 text-indigo-400" />
-                        <div className="flex-1">
-                          <p className="text-white font-medium">Party Page</p>
-                          <p className="text-gray-400 text-sm">Share with guests</p>
-                        </div>
-                        <ExternalLink className="w-5 h-5 text-gray-400" />
-                      </a>
-                      <a
-                        href={`/kiosk/${selectedVenueCode}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-4 bg-purple-600/20 rounded-xl hover:bg-purple-600/30 transition-colors"
-                      >
-                        <Tv className="w-6 h-6 text-purple-400" />
-                        <div className="flex-1">
-                          <p className="text-white font-medium">Kiosk Display</p>
-                          <p className="text-gray-400 text-sm">Now playing screen</p>
-                        </div>
-                        <ExternalLink className="w-5 h-5 text-gray-400" />
-                      </a>
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                          <option key={n} value={n} className="bg-gray-900">{n}</option>
+                        ))}
+                        <option value="unlimited" className="bg-gray-900">∞</option>
+                      </select>
                     </div>
-                  </div>
-
-                  {qrData?.qrCode && (
-                    <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-6">
-                      <h3 className="text-lg font-bold text-white mb-4">QR Code</h3>
-                      <div className="bg-white rounded-2xl p-4 flex flex-col items-center">
-                        <img src={qrData.qrCode} alt="Party QR Code" className="w-40 h-40" />
-                        <p className="text-gray-600 text-sm mt-2 text-center">Scan to join</p>
-                      </div>
-                      <div className="mt-4">
-                        <p className="text-gray-400 text-sm mb-2">Or share this link:</p>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            readOnly
-                            value={`${window.location.origin}/party/${qrData.partyCode || selectedVenueCode}`}
-                            className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm"
-                          />
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(`${window.location.origin}/party/${qrData.partyCode || selectedVenueCode}`);
-                              setCopied(true);
-                              setTimeout(() => setCopied(false), 2000);
-                            }}
-                            className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-1"
-                          >
-                            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                            {copied ? "Copied!" : "Copy"}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-6">
-                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                      <Radio className="w-5 h-5 text-purple-400" />
-                      Live Listeners
-                    </h3>
+                    <button
+                      onClick={() => handleSettingChange("allowExplicit", !selectedVenue.allowExplicit)}
+                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                        selectedVenue.allowExplicit
+                          ? "bg-green-600/30 text-green-300"
+                          : "bg-red-600/30 text-red-300"
+                      }`}
+                    >
+                      Explicit: {selectedVenue.allowExplicit ? "On" : "Off"}
+                    </button>
+                    <button
+                      onClick={() => handleSettingChange("autoApprove", !selectedVenue.autoApprove)}
+                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                        selectedVenue.autoApprove
+                          ? "bg-green-600/30 text-green-300"
+                          : "bg-gray-600/30 text-gray-300"
+                      }`}
+                    >
+                      Auto-Approve: {selectedVenue.autoApprove ? "On" : "Off"}
+                    </button>
+                    <button
+                      onClick={() => handleSettingChange("isActive", !selectedVenue.isActive)}
+                      className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                        selectedVenue.isActive
+                          ? "bg-green-600/30 text-green-300"
+                          : "bg-gray-600/30 text-gray-300"
+                      }`}
+                    >
+                      {selectedVenue.isActive ? "Active" : "Inactive"}
+                    </button>
+                    <div className="flex-1" />
                     {listenersData?.count > 0 ? (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                          <span className="text-green-400 font-semibold">{listenersData.count}</span>
-                          <span className="text-gray-400">
-                            {listenersData.count === 1 ? "person" : "people"} listening live
-                          </span>
-                        </div>
-                        <div className="space-y-2">
-                          {listenersData.listeners.map((listener: { id: string; name: string }) => (
-                            <div key={listener.id} className="flex items-center gap-2 text-sm text-gray-400">
-                              <User className="w-4 h-4" />
-                              {listener.name}
-                            </div>
-                          ))}
-                        </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                        <span className="text-green-400 font-semibold">{listenersData.count}</span>
+                        <span className="text-gray-400">listening</span>
                       </div>
                     ) : (
-                      <p className="text-gray-500 text-sm">
-                        No one is listening live right now. Guests can tap "Listen Live" on the party page to sync their playback.
-                      </p>
+                      <span className="text-gray-500 text-sm">0 listening</span>
                     )}
                   </div>
                 </div>
 
-                <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                      <ListMusic className="w-5 h-5" />
-                      Backup Playlists
-                    </h3>
-                    <button
-                      onClick={() => setShowPlaylistModal(true)}
-                      disabled={backupPlaylists.length >= 10}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Playlist
-                    </button>
-                  </div>
-                  <p className="text-gray-400 text-sm mb-4">
-                    When the queue is empty, songs will auto-play from these playlists. ({backupPlaylists.length}/10)
-                  </p>
-                  {backupPlaylists.length === 0 ? (
-                    <p className="text-gray-500 text-center py-4">No backup playlists added yet.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {backupPlaylists.map((playlist: any) => (
-                        <div key={playlist.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
-                          {playlist.artworkUrl && (
-                            <img src={playlist.artworkUrl} alt="" className="w-12 h-12 rounded-lg object-cover" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white font-medium truncate">{playlist.name || "Apple Music Playlist"}</p>
-                            <p className="text-gray-400 text-sm truncate">{playlist.trackCount || 0} tracks</p>
-                          </div>
-                          <button
-                            onClick={() => removePlaylistMutation.mutate(playlist.id.toString())}
-                            className="p-2 text-gray-400 hover:text-red-400 transition-colors"
-                            title="Remove playlist"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
+                {/* Main Content: Queue + Playlists side by side */}
+                <div className="grid lg:grid-cols-3 gap-4">
+                  {/* Queue - Takes 2 columns */}
+                  <div className="lg:col-span-2 bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
+                    <h3 className="text-lg font-bold text-white mb-3">Queue ({queue?.items?.length || 0})</h3>
+                    <div className="max-h-[calc(100vh-320px)] overflow-y-auto">
+                      <QueueList items={queue?.items || []} />
                     </div>
-                  )}
-                </div>
+                  </div>
 
-                <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-6">
-                  <h3 className="text-lg font-bold text-white mb-4">Queue ({queue?.items?.length || 0} songs)</h3>
-                  <QueueList items={queue?.items || []} />
+                  {/* Backup Playlists - Takes 1 column */}
+                  <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-md font-bold text-white flex items-center gap-2">
+                        <ListMusic className="w-4 h-4" />
+                        Playlists ({backupPlaylists.length}/10)
+                      </h3>
+                      <button
+                        onClick={() => setShowPlaylistModal(true)}
+                        disabled={backupPlaylists.length >= 10}
+                        className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors disabled:opacity-50"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="max-h-[calc(100vh-360px)] overflow-y-auto space-y-2">
+                      {backupPlaylists.length === 0 ? (
+                        <p className="text-gray-500 text-sm text-center py-4">No playlists yet</p>
+                      ) : (
+                        backupPlaylists.map((playlist: any) => (
+                          <div key={playlist.id} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
+                            {playlist.artworkUrl && (
+                              <img src={playlist.artworkUrl} alt="" className="w-10 h-10 rounded object-cover" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-white text-sm font-medium truncate">{playlist.name || "Playlist"}</p>
+                              <p className="text-gray-400 text-xs">{playlist.trackCount || 0} tracks</p>
+                            </div>
+                            <button
+                              onClick={() => removePlaylistMutation.mutate(playlist.id.toString())}
+                              className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
