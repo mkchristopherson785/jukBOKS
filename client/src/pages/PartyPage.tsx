@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Tv } from "lucide-react";
+import { Music2, Tv, Radio, Pause, AlertCircle } from "lucide-react";
 import { fetchParty, joinParty, submitRequest, submitVote } from "../lib/api";
 import { SongSearch } from "../components/SongSearch";
 import { QueueList } from "../components/QueueList";
 import { NowPlaying } from "../components/NowPlaying";
+import { useMusicKit } from "../hooks/useMusicKit";
 import type { Track } from "../hooks/useAppleMusic";
 
 export default function PartyPage() {
@@ -15,6 +16,19 @@ export default function PartyPage() {
   const [guestName, setGuestName] = useState("");
   const [showJoinForm, setShowJoinForm] = useState(true);
   const [userVotes, setUserVotes] = useState<Map<number, "up" | "down">>(new Map());
+  const [isListening, setIsListening] = useState(false);
+  const [listeningTrackId, setListeningTrackId] = useState<string | null>(null);
+  
+  const { 
+    isConfigured, 
+    isAuthorized, 
+    isPlaying, 
+    configure, 
+    authorize, 
+    playSong, 
+    stop,
+    error: musicKitError 
+  } = useMusicKit();
 
   useEffect(() => {
     const savedToken = localStorage.getItem(`jukboks_guest_${code}`);
@@ -30,6 +44,45 @@ export default function PartyPage() {
     enabled: !!code && !showJoinForm,
     refetchInterval: 5000,
   });
+
+  // Sync playback when listening and the now playing changes
+  useEffect(() => {
+    if (isListening && isAuthorized && party?.nowPlaying?.trackId) {
+      const currentTrackId = party.nowPlaying.trackId;
+      if (currentTrackId !== listeningTrackId) {
+        setListeningTrackId(currentTrackId);
+        playSong(currentTrackId);
+      }
+    }
+  }, [isListening, isAuthorized, party?.nowPlaying?.trackId, listeningTrackId, playSong]);
+
+  const handleListenLive = useCallback(async () => {
+    if (isListening) {
+      // Stop listening
+      stop();
+      setIsListening(false);
+      setListeningTrackId(null);
+      return;
+    }
+
+    // Start listening
+    if (!isConfigured) {
+      await configure();
+    }
+    
+    if (!isAuthorized) {
+      const success = await authorize();
+      if (!success) return;
+    }
+
+    setIsListening(true);
+    
+    // Start playing the current song
+    if (party?.nowPlaying?.trackId) {
+      setListeningTrackId(party.nowPlaying.trackId);
+      playSong(party.nowPlaying.trackId);
+    }
+  }, [isListening, isConfigured, isAuthorized, configure, authorize, stop, playSong, party?.nowPlaying?.trackId]);
 
   const joinMutation = useMutation({
     mutationFn: () => joinParty(code!, guestName),
@@ -177,6 +230,43 @@ export default function PartyPage() {
             albumCover={party.nowPlaying?.albumCover}
             compact
           />
+          
+          {/* Listen Live Button */}
+          <div className="mt-4 flex flex-col items-center gap-2">
+            <button
+              onClick={handleListenLive}
+              className={`flex items-center gap-2 px-6 py-3 rounded-full font-semibold transition-all ${
+                isListening && isPlaying
+                  ? "bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30"
+                  : "bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700"
+              }`}
+            >
+              {isListening && isPlaying ? (
+                <>
+                  <Pause className="w-5 h-5" />
+                  Stop Listening
+                </>
+              ) : (
+                <>
+                  <Radio className="w-5 h-5" />
+                  Listen Live
+                </>
+              )}
+            </button>
+            {isListening && isPlaying && (
+              <p className="text-xs text-green-400 flex items-center gap-1">
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                Synced with venue
+              </p>
+            )}
+            {musicKitError && (
+              <p className="text-xs text-amber-400 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                {musicKitError}
+              </p>
+            )}
+            <p className="text-xs text-gray-500">Requires Apple Music subscription</p>
+          </div>
         </div>
 
         <div className="mb-8">
