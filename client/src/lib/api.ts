@@ -157,3 +157,35 @@ export async function removeTeamMember(memberId: number) {
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
   return res.json();
 }
+
+// Backup playlists
+export async function fetchBackupPlaylists(venueCode: string) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/backup-playlists`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function addBackupPlaylist(venueCode: string, playlistUrl: string) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/backup-playlists`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ playlistUrl }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.message || `${res.status}: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function removeBackupPlaylist(venueCode: string, playlistId: string) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/backup-playlists/${playlistId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
