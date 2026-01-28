@@ -81,3 +81,49 @@ export async function setupDemo() {
   if (!res.ok) throw new Error("Failed to setup demo");
   return res.json();
 }
+
+// Authenticated user endpoints
+export async function fetchMyOrganization() {
+  const res = await fetch(`${API_BASE}/api/me/organization`, { credentials: "include" });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function fetchMyVenues() {
+  const res = await fetch(`${API_BASE}/api/me/venues`, { credentials: "include" });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function createVenue(data: {
+  name: string;
+  allowExplicit?: boolean;
+  autoApprove?: boolean;
+  dailyRequestLimit?: number;
+}) {
+  const res = await fetch(`${API_BASE}/api/me/venues`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function updateVenue(venueId: number, data: {
+  name?: string;
+  allowExplicit?: boolean;
+  autoApprove?: boolean;
+  dailyRequestLimit?: number;
+  isActive?: boolean;
+}) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}

@@ -118,6 +118,7 @@ router.get("/api/v1/venues/:code", async (req: Request, res: Response) => {
     const org = await storage.getOrganization(venue.organizationId);
     
     res.json({
+      id: venue.id,
       code: venue.code,
       name: venue.name,
       organizationName: org?.name || "",
@@ -125,7 +126,9 @@ router.get("/api/v1/venues/:code", async (req: Request, res: Response) => {
       logoDarkUrl: org?.logoDarkUrl,
       primaryColor: org?.primaryColor,
       allowExplicit: venue.allowExplicit,
+      autoApprove: venue.autoApprove,
       dailyRequestLimit: venue.dailyRequestLimit,
+      isActive: venue.isActive,
     });
   } catch (error) {
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
