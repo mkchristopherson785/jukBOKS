@@ -25,17 +25,20 @@ export function useMusicKit() {
   
   const musicKitRef = useRef<any>(null);
   const initializingRef = useRef(false);
+  const configuredRef = useRef(false);
 
   const configure = useCallback(async () => {
-    if (initializingRef.current || state.isConfigured) return;
+    if (initializingRef.current || configuredRef.current) return;
     initializingRef.current = true;
 
     try {
+      console.log("Fetching Apple Music token...");
       const response = await fetch("/api/apple-music/token");
       if (!response.ok) {
         throw new Error("Failed to get Apple Music token");
       }
       const { token } = await response.json();
+      console.log("Token received, configuring MusicKit...");
 
       await window.MusicKit.configure({
         developerToken: token,
@@ -46,6 +49,7 @@ export function useMusicKit() {
       });
 
       musicKitRef.current = window.MusicKit.getInstance();
+      console.log("MusicKit instance created");
       
       musicKitRef.current.addEventListener("playbackStateDidChange", () => {
         const isPlaying = musicKitRef.current.playbackState === window.MusicKit.PlaybackStates.playing;
@@ -53,19 +57,21 @@ export function useMusicKit() {
       });
 
       const alreadyAuthorized = musicKitRef.current.isAuthorized;
+      configuredRef.current = true;
       setState(prev => ({ 
         ...prev, 
         isConfigured: true, 
         isAuthorized: alreadyAuthorized,
         error: null 
       }));
+      console.log("MusicKit configured successfully, authorized:", alreadyAuthorized);
     } catch (error: any) {
       console.error("MusicKit configuration failed:", error);
       setState(prev => ({ ...prev, error: error.message }));
     } finally {
       initializingRef.current = false;
     }
-  }, [state.isConfigured]);
+  }, []);
 
   const authorize = useCallback(async () => {
     if (!musicKitRef.current) return false;
