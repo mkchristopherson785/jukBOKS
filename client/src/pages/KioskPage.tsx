@@ -308,9 +308,9 @@ export default function KioskPage() {
 
         {qrData?.qrCode && (
           <div className="mt-6 pt-6 border-t border-white/10">
-            <div className="bg-white rounded-2xl p-4 flex flex-col items-center">
+            <div className="flex flex-col items-center">
               <img src={qrData.qrCode} alt="Scan to join" className="w-32 h-32" />
-              <p className="text-gray-800 font-medium mt-2 text-center text-sm">
+              <p className="text-white font-medium mt-2 text-center text-sm">
                 Scan to request songs
               </p>
             </div>

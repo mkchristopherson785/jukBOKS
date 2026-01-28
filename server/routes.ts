@@ -672,7 +672,7 @@ router.get("/api/v1/venues/:code/qrcode", async (req: Request, res: Response) =>
     const qrCodeDataUrl = await QRCode.toDataURL(partyUrl, {
       width: 300,
       margin: 2,
-      color: { dark: "#000000", light: "#ffffff" },
+      color: { dark: "#ffffff", light: "#00000000" },
     });
 
     res.json({
