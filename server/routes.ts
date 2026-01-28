@@ -108,6 +108,37 @@ async function validateApiKey(apiKey: string | undefined) {
   return await storage.getOrganizationByApiKey(apiKey);
 }
 
+async function fetchApplePlaylistDetails(playlistId: string) {
+  const token = await getAppleMusicToken();
+  if (!token) return null;
+
+  try {
+    const response = await fetch(
+      `https://api.music.apple.com/v1/catalog/us/playlists/${playlistId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    const playlist = data.data?.[0];
+    if (!playlist) return null;
+
+    return {
+      name: playlist.attributes?.name || "Unknown Playlist",
+      trackCount: playlist.attributes?.trackCount || 0,
+      artworkUrl: playlist.attributes?.artwork?.url?.replace("{w}x{h}", "300x300") || null,
+    };
+  } catch (error) {
+    console.error("Error fetching Apple playlist:", error);
+    return null;
+  }
+}
+
 router.get("/api/v1/venues/:code", async (req: Request, res: Response) => {
   try {
     const venue = await storage.getVenueByCode(req.params.code);
@@ -997,12 +1028,15 @@ router.post("/api/me/venues/:venueId/backup-playlists", isAuthenticated, async (
     }
     const applePlaylistId = `pl.${urlMatch[1]}`;
 
+    // Fetch playlist details from Apple Music
+    const playlistDetails = await fetchApplePlaylistDetails(applePlaylistId);
+
     const playlist = await storage.createBackupPlaylist({
       venueId: venue.id,
-      name: "Apple Music Playlist",
+      name: playlistDetails?.name || "Apple Music Playlist",
       applePlaylistId,
-      trackCount: 0,
-      artworkUrl: null,
+      trackCount: playlistDetails?.trackCount || 0,
+      artworkUrl: playlistDetails?.artworkUrl || null,
       position: count,
     });
 
