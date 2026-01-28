@@ -117,11 +117,40 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl }: MusicKi
     }
   };
 
-  if (!isConfigured) {
+  if (!isConfigured && !error) {
     return (
-      <div className="flex items-center gap-2 text-white/60">
-        <Music className="w-5 h-5 animate-pulse" />
-        <span className="text-sm">Connecting to Apple Music...</span>
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex items-center gap-2 text-white/60">
+          <Music className="w-5 h-5 animate-pulse" />
+          <span className="text-sm">Connecting to Apple Music...</span>
+        </div>
+        {previewUrl && (
+          <button
+            onClick={() => setUsePreview(true)}
+            className="text-white/60 text-sm hover:text-white/80"
+          >
+            Skip - use 30-second previews instead
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  if (error && !usePreview) {
+    return (
+      <div className="flex flex-col items-center gap-3">
+        <div className="flex items-center gap-2 text-red-400 text-sm">
+          <AlertCircle className="w-4 h-4" />
+          {error}
+        </div>
+        {previewUrl && (
+          <button
+            onClick={() => setUsePreview(true)}
+            className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm"
+          >
+            Use 30-second previews instead
+          </button>
+        )}
       </div>
     );
   }

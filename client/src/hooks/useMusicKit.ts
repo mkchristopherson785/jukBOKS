@@ -139,11 +139,21 @@ export function useMusicKit() {
   }, []);
 
   useEffect(() => {
+    let attempts = 0;
+    const maxAttempts = 50; // 5 seconds max
+    
     const checkMusicKit = () => {
+      attempts++;
+      console.log("Checking for MusicKit, attempt:", attempts, "available:", !!window.MusicKit);
+      
       if (window.MusicKit) {
+        console.log("MusicKit found, configuring...");
         configure();
-      } else {
+      } else if (attempts < maxAttempts) {
         setTimeout(checkMusicKit, 100);
+      } else {
+        console.error("MusicKit failed to load after 5 seconds");
+        setState(prev => ({ ...prev, error: "MusicKit failed to load. Please refresh the page." }));
       }
     };
     checkMusicKit();
