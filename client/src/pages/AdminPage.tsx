@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X, Copy, Check, Radio, Volume2, Upload } from "lucide-react";
-import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, deleteVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchListeners, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, type Announcement } from "../lib/api";
+import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X, Copy, Check, Radio, Volume2, Upload, SkipForward } from "lucide-react";
+import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, deleteVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchListeners, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, skipSong, type Announcement } from "../lib/api";
 import { useUpload } from "../hooks/use-upload";
 import { QueueList } from "../components/QueueList";
 import { useAuth } from "../hooks/use-auth";
@@ -203,6 +203,13 @@ export default function AdminPage() {
       });
     }
   };
+
+  const skipSongMutation = useMutation({
+    mutationFn: (requestId: number) => skipSong(selectedVenueCode!, requestId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["queue", selectedVenueCode] });
+    },
+  });
 
   const deleteVenueMutation = useMutation({
     mutationFn: (venueId: number) => deleteVenue(venueId),
@@ -466,7 +473,20 @@ export default function AdminPage() {
                 <div className="grid lg:grid-cols-3 gap-4">
                   {/* Queue - Takes 2 columns */}
                   <div className="lg:col-span-2 bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
-                    <h3 className="text-lg font-bold text-white mb-3">Queue ({queue?.items?.length || 0})</h3>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-lg font-bold text-white">Queue ({queue?.items?.length || 0})</h3>
+                      {queue?.items?.[0] && (
+                        <button
+                          onClick={() => skipSongMutation.mutate(queue.items[0].id)}
+                          disabled={skipSongMutation.isPending}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                          title="Skip current song"
+                        >
+                          <SkipForward className="w-4 h-4" />
+                          Skip
+                        </button>
+                      )}
+                    </div>
                     <div className="max-h-[calc(100vh-320px)] overflow-y-auto">
                       <QueueList items={queue?.items || []} />
                     </div>

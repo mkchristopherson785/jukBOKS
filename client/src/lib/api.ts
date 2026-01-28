@@ -18,6 +18,15 @@ export async function fetchNowPlaying(code: string) {
   return res.json();
 }
 
+export async function skipSong(venueCode: string, requestId: number) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/played/${requestId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) throw new Error("Failed to skip song");
+  return res.json();
+}
+
 export async function fetchParty(partyCode: string) {
   const res = await fetch(`${API_BASE}/api/v1/party/${partyCode}`);
   if (!res.ok) throw new Error("Party not found");
