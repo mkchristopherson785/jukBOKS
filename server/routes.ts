@@ -1779,8 +1779,9 @@ router.get("/api/sonos/connect/:venueCode", isAuthenticated, async (req: any, re
     
     // Check if user is owner or team member
     const isOwner = org.ownerId === userId;
-    const member = await storage.getOrganizationMemberByAuthUserId(org.id, userId);
-    if (!isOwner && !member) {
+    const memberOrgs = await storage.getOrganizationsByMemberAuthId(userId);
+    const isMember = memberOrgs.some(o => o.id === org.id);
+    if (!isOwner && !isMember) {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
 
@@ -1989,8 +1990,9 @@ router.patch("/api/venues/:code/sonos", isAuthenticated, async (req: any, res) =
     }
 
     const isOwner = org.ownerId === userId;
-    const member = await storage.getOrganizationMemberByAuthUserId(org.id, userId);
-    if (!isOwner && !member) {
+    const memberOrgs = await storage.getOrganizationsByMemberAuthId(userId);
+    const isMember = memberOrgs.some(o => o.id === org.id);
+    if (!isOwner && !isMember) {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
 
@@ -2045,8 +2047,9 @@ router.delete("/api/venues/:code/sonos", isAuthenticated, async (req: any, res) 
     }
 
     const isOwner = org.ownerId === userId;
-    const member = await storage.getOrganizationMemberByAuthUserId(org.id, userId);
-    if (!isOwner && !member) {
+    const memberOrgs = await storage.getOrganizationsByMemberAuthId(userId);
+    const isMember = memberOrgs.some(o => o.id === org.id);
+    if (!isOwner && !isMember) {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
 

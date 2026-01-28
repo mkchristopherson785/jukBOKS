@@ -367,3 +367,45 @@ export async function unbanSong(venueId: number, trackId: string) {
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
   return res.json();
 }
+
+// Sonos integration
+export interface SonosStatus {
+  enabled: boolean;
+  connected: boolean;
+  householdId: string | null;
+  groupId: string | null;
+  groupName: string | null;
+  groups: { id: string; name: string }[];
+}
+
+export async function fetchSonosStatus(venueCode: string): Promise<SonosStatus> {
+  const res = await fetch(`${API_BASE}/api/venues/${venueCode}/sonos`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function updateSonosSettings(venueCode: string, data: { groupId?: string; enabled?: boolean }) {
+  const res = await fetch(`${API_BASE}/api/venues/${venueCode}/sonos`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function disconnectSonos(venueCode: string) {
+  const res = await fetch(`${API_BASE}/api/venues/${venueCode}/sonos`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export function getSonosConnectUrl(venueCode: string): string {
+  return `${API_BASE}/api/sonos/connect/${venueCode}`;
+}
