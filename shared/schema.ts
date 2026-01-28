@@ -72,6 +72,13 @@ export const venues = pgTable("venues", {
   announcementPlayMode: text("announcement_play_mode").default("sequential"),
   lastAnnouncementAt: timestamp("last_announcement_at"),
   songsSinceAnnouncement: integer("songs_since_announcement").default(0),
+  sonosEnabled: boolean("sonos_enabled").default(false),
+  sonosAccessToken: text("sonos_access_token"),
+  sonosRefreshToken: text("sonos_refresh_token"),
+  sonosTokenExpiresAt: timestamp("sonos_token_expires_at"),
+  sonosHouseholdId: text("sonos_household_id"),
+  sonosGroupId: text("sonos_group_id"),
+  sonosGroupName: text("sonos_group_name"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({

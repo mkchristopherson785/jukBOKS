@@ -1754,4 +1754,449 @@ router.delete("/api/me/venues/:id/ban/:trackId", isAuthenticated, async (req: an
   }
 });
 
+// ============ SONOS INTEGRATION ============
+
+const SONOS_AUTH_URL = "https://api.sonos.com/login/v3/oauth";
+const SONOS_TOKEN_URL = "https://api.sonos.com/login/v3/oauth/access";
+const SONOS_API_URL = "https://api.ws.sonos.com/control/api/v1";
+
+// Start Sonos OAuth flow for a venue
+router.get("/api/sonos/connect/:venueCode", isAuthenticated, async (req: any, res) => {
+  try {
+    const { venueCode } = req.params;
+    const userId = req.user?.claims?.sub;
+    
+    // Verify user has access to this venue
+    const venue = await storage.getVenueByCode(venueCode);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND" });
+    }
+    
+    const org = await storage.getOrganization(venue.organizationId);
+    if (!org) {
+      return res.status(404).json({ error: "ORG_NOT_FOUND" });
+    }
+    
+    // Check if user is owner or team member
+    const isOwner = org.ownerId === userId;
+    const member = await storage.getOrganizationMemberByAuthUserId(org.id, userId);
+    if (!isOwner && !member) {
+      return res.status(403).json({ error: "FORBIDDEN" });
+    }
+
+    const clientId = process.env.SONOS_CLIENT_ID;
+    if (!clientId) {
+      return res.status(500).json({ error: "SONOS_NOT_CONFIGURED" });
+    }
+
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/sonos/callback`;
+    const state = Buffer.from(JSON.stringify({ venueCode, userId })).toString('base64');
+
+    const authUrl = `${SONOS_AUTH_URL}?` + new URLSearchParams({
+      client_id: clientId,
+      response_type: "code",
+      state: state,
+      scope: "playback-control-all",
+      redirect_uri: redirectUri,
+    }).toString();
+
+    res.redirect(authUrl);
+  } catch (error) {
+    console.error("Sonos connect error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// Sonos OAuth callback
+router.get("/api/sonos/callback", async (req, res) => {
+  try {
+    const { code, state, error } = req.query;
+
+    if (error) {
+      console.error("Sonos OAuth error:", error);
+      return res.redirect("/admin?sonos_error=auth_denied");
+    }
+
+    if (!code || !state) {
+      return res.redirect("/admin?sonos_error=missing_params");
+    }
+
+    // Decode state to get venue code
+    let stateData: { venueCode: string; userId: string };
+    try {
+      stateData = JSON.parse(Buffer.from(state as string, 'base64').toString());
+    } catch {
+      return res.redirect("/admin?sonos_error=invalid_state");
+    }
+
+    const { venueCode } = stateData;
+    const venue = await storage.getVenueByCode(venueCode);
+    if (!venue) {
+      return res.redirect("/admin?sonos_error=venue_not_found");
+    }
+
+    // Exchange code for tokens
+    const clientId = process.env.SONOS_CLIENT_ID;
+    const clientSecret = process.env.SONOS_CLIENT_SECRET;
+    const redirectUri = `${req.protocol}://${req.get('host')}/api/sonos/callback`;
+
+    const tokenResponse = await fetch(SONOS_TOKEN_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Authorization": `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+      },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code: code as string,
+        redirect_uri: redirectUri,
+      }).toString(),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error("Sonos token exchange failed:", errorText);
+      return res.redirect("/admin?sonos_error=token_exchange_failed");
+    }
+
+    const tokens = await tokenResponse.json() as {
+      access_token: string;
+      refresh_token: string;
+      expires_in: number;
+    };
+
+    // Get households to find available groups
+    const householdsResponse = await fetch(`${SONOS_API_URL}/households`, {
+      headers: { "Authorization": `Bearer ${tokens.access_token}` },
+    });
+
+    if (!householdsResponse.ok) {
+      return res.redirect("/admin?sonos_error=households_failed");
+    }
+
+    const householdsData = await householdsResponse.json() as { households: { id: string }[] };
+    const householdId = householdsData.households?.[0]?.id;
+
+    if (!householdId) {
+      return res.redirect("/admin?sonos_error=no_households");
+    }
+
+    // Get groups in the household
+    const groupsResponse = await fetch(`${SONOS_API_URL}/households/${householdId}/groups`, {
+      headers: { "Authorization": `Bearer ${tokens.access_token}` },
+    });
+
+    if (!groupsResponse.ok) {
+      return res.redirect("/admin?sonos_error=groups_failed");
+    }
+
+    const groupsData = await groupsResponse.json() as { groups: { id: string; name: string }[] };
+    const firstGroup = groupsData.groups?.[0];
+
+    // Save tokens to venue
+    const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
+    await storage.updateVenue(venue.id, {
+      sonosEnabled: true,
+      sonosAccessToken: tokens.access_token,
+      sonosRefreshToken: tokens.refresh_token,
+      sonosTokenExpiresAt: expiresAt,
+      sonosHouseholdId: householdId,
+      sonosGroupId: firstGroup?.id || null,
+      sonosGroupName: firstGroup?.name || null,
+    });
+
+    res.redirect(`/admin?sonos_connected=true&venue=${venueCode}`);
+  } catch (error) {
+    console.error("Sonos callback error:", error);
+    res.redirect("/admin?sonos_error=callback_failed");
+  }
+});
+
+// Get Sonos status for a venue
+router.get("/api/venues/:code/sonos", isAuthenticated, async (req: any, res) => {
+  try {
+    const { code } = req.params;
+    const venue = await storage.getVenueByCode(code);
+    
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND" });
+    }
+
+    // Refresh token if needed
+    if (venue.sonosEnabled && venue.sonosTokenExpiresAt) {
+      const now = new Date();
+      const expiresAt = new Date(venue.sonosTokenExpiresAt);
+      
+      // Refresh if expires in less than 5 minutes
+      if (expiresAt.getTime() - now.getTime() < 5 * 60 * 1000 && venue.sonosRefreshToken) {
+        try {
+          const refreshed = await refreshSonosToken(venue);
+          if (refreshed) {
+            venue.sonosAccessToken = refreshed.accessToken;
+            venue.sonosTokenExpiresAt = refreshed.expiresAt;
+          }
+        } catch (err) {
+          console.error("Failed to refresh Sonos token:", err);
+        }
+      }
+    }
+
+    // Get current groups if connected
+    let groups: { id: string; name: string }[] = [];
+    if (venue.sonosEnabled && venue.sonosAccessToken && venue.sonosHouseholdId) {
+      try {
+        const groupsResponse = await fetch(`${SONOS_API_URL}/households/${venue.sonosHouseholdId}/groups`, {
+          headers: { "Authorization": `Bearer ${venue.sonosAccessToken}` },
+        });
+        if (groupsResponse.ok) {
+          const data = await groupsResponse.json() as { groups: { id: string; name: string }[] };
+          groups = data.groups || [];
+        }
+      } catch (err) {
+        console.error("Failed to fetch Sonos groups:", err);
+      }
+    }
+
+    res.json({
+      enabled: venue.sonosEnabled,
+      connected: !!(venue.sonosAccessToken && venue.sonosHouseholdId),
+      householdId: venue.sonosHouseholdId,
+      groupId: venue.sonosGroupId,
+      groupName: venue.sonosGroupName,
+      groups,
+    });
+  } catch (error) {
+    console.error("Sonos status error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// Update Sonos settings for a venue
+router.patch("/api/venues/:code/sonos", isAuthenticated, async (req: any, res) => {
+  try {
+    const { code } = req.params;
+    const { groupId, enabled } = req.body;
+    const userId = req.user?.claims?.sub;
+    
+    const venue = await storage.getVenueByCode(code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND" });
+    }
+
+    const org = await storage.getOrganization(venue.organizationId);
+    if (!org) {
+      return res.status(404).json({ error: "ORG_NOT_FOUND" });
+    }
+
+    const isOwner = org.ownerId === userId;
+    const member = await storage.getOrganizationMemberByAuthUserId(org.id, userId);
+    if (!isOwner && !member) {
+      return res.status(403).json({ error: "FORBIDDEN" });
+    }
+
+    const updates: any = {};
+    
+    if (typeof enabled === "boolean") {
+      updates.sonosEnabled = enabled;
+    }
+    
+    if (groupId !== undefined) {
+      updates.sonosGroupId = groupId;
+      
+      // Get group name
+      if (groupId && venue.sonosAccessToken && venue.sonosHouseholdId) {
+        try {
+          const groupsResponse = await fetch(`${SONOS_API_URL}/households/${venue.sonosHouseholdId}/groups`, {
+            headers: { "Authorization": `Bearer ${venue.sonosAccessToken}` },
+          });
+          if (groupsResponse.ok) {
+            const data = await groupsResponse.json() as { groups: { id: string; name: string }[] };
+            const group = data.groups?.find((g: any) => g.id === groupId);
+            updates.sonosGroupName = group?.name || null;
+          }
+        } catch (err) {
+          console.error("Failed to fetch group name:", err);
+        }
+      }
+    }
+
+    await storage.updateVenue(venue.id, updates);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Sonos update error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// Disconnect Sonos from a venue
+router.delete("/api/venues/:code/sonos", isAuthenticated, async (req: any, res) => {
+  try {
+    const { code } = req.params;
+    const userId = req.user?.claims?.sub;
+    
+    const venue = await storage.getVenueByCode(code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND" });
+    }
+
+    const org = await storage.getOrganization(venue.organizationId);
+    if (!org) {
+      return res.status(404).json({ error: "ORG_NOT_FOUND" });
+    }
+
+    const isOwner = org.ownerId === userId;
+    const member = await storage.getOrganizationMemberByAuthUserId(org.id, userId);
+    if (!isOwner && !member) {
+      return res.status(403).json({ error: "FORBIDDEN" });
+    }
+
+    await storage.updateVenue(venue.id, {
+      sonosEnabled: false,
+      sonosAccessToken: null,
+      sonosRefreshToken: null,
+      sonosTokenExpiresAt: null,
+      sonosHouseholdId: null,
+      sonosGroupId: null,
+      sonosGroupName: null,
+    });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Sonos disconnect error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// Play a track on Sonos
+router.post("/api/venues/:code/sonos/play", isAuthenticated, async (req: any, res) => {
+  try {
+    const { code } = req.params;
+    const { trackUri, trackName } = req.body;
+    
+    const venue = await storage.getVenueByCode(code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND" });
+    }
+
+    if (!venue.sonosEnabled || !venue.sonosAccessToken || !venue.sonosGroupId) {
+      return res.status(400).json({ error: "SONOS_NOT_CONFIGURED" });
+    }
+
+    // Use the musicServiceId for Apple Music on Sonos
+    // For Apple Music, we need to use the proper container format
+    const playResponse = await fetch(`${SONOS_API_URL}/groups/${venue.sonosGroupId}/playback/loadStreamUrl`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${venue.sonosAccessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        streamUrl: trackUri,
+        playOnCompletion: true,
+        itemId: trackUri,
+        trackMetadata: {
+          name: trackName || "Unknown Track",
+          type: "track",
+        },
+      }),
+    });
+
+    if (!playResponse.ok) {
+      const errorText = await playResponse.text();
+      console.error("Sonos play failed:", errorText);
+      return res.status(400).json({ error: "PLAY_FAILED", details: errorText });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Sonos play error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// Sonos playback control (pause, skip, etc.)
+router.post("/api/venues/:code/sonos/control", isAuthenticated, async (req: any, res) => {
+  try {
+    const { code } = req.params;
+    const { action } = req.body; // play, pause, skipToNextTrack
+    
+    const venue = await storage.getVenueByCode(code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND" });
+    }
+
+    if (!venue.sonosEnabled || !venue.sonosAccessToken || !venue.sonosGroupId) {
+      return res.status(400).json({ error: "SONOS_NOT_CONFIGURED" });
+    }
+
+    const controlResponse = await fetch(`${SONOS_API_URL}/groups/${venue.sonosGroupId}/playback/${action}`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${venue.sonosAccessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!controlResponse.ok) {
+      const errorText = await controlResponse.text();
+      console.error(`Sonos ${action} failed:`, errorText);
+      return res.status(400).json({ error: "CONTROL_FAILED", details: errorText });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Sonos control error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// Sonos event webhook
+router.post("/api/sonos/events", async (req, res) => {
+  // Handle Sonos webhook events (playback state changes, etc.)
+  console.log("Sonos event received:", JSON.stringify(req.body));
+  res.status(200).send("OK");
+});
+
+// Helper function to refresh Sonos token
+async function refreshSonosToken(venue: any): Promise<{ accessToken: string; expiresAt: Date } | null> {
+  const clientId = process.env.SONOS_CLIENT_ID;
+  const clientSecret = process.env.SONOS_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret || !venue.sonosRefreshToken) {
+    return null;
+  }
+
+  const tokenResponse = await fetch(SONOS_TOKEN_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Authorization": `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`,
+    },
+    body: new URLSearchParams({
+      grant_type: "refresh_token",
+      refresh_token: venue.sonosRefreshToken,
+    }).toString(),
+  });
+
+  if (!tokenResponse.ok) {
+    throw new Error("Failed to refresh Sonos token");
+  }
+
+  const tokens = await tokenResponse.json() as {
+    access_token: string;
+    refresh_token?: string;
+    expires_in: number;
+  };
+
+  const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
+
+  await storage.updateVenue(venue.id, {
+    sonosAccessToken: tokens.access_token,
+    sonosRefreshToken: tokens.refresh_token || venue.sonosRefreshToken,
+    sonosTokenExpiresAt: expiresAt,
+  });
+
+  return { accessToken: tokens.access_token, expiresAt };
+}
+
 export default router;
