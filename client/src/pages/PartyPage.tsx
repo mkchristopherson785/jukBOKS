@@ -52,11 +52,15 @@ export default function PartyPage() {
           albumCover: track.albumCover,
           duration: track.duration,
           isExplicit: track.isExplicit,
+          previewUrl: track.previewUrl,
         },
         guestToken || undefined
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["party", code] });
+    },
+    onError: (error: Error) => {
+      alert(error.message || "Failed to add song. Please try again.");
     },
   });
 

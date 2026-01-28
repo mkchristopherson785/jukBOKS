@@ -44,6 +44,7 @@ export async function submitRequest(
     albumCover?: string;
     duration?: number;
     isExplicit?: boolean;
+    previewUrl?: string;
   },
   guestToken?: string
 ) {
@@ -55,7 +56,11 @@ export async function submitRequest(
     headers,
     body: JSON.stringify(song),
   });
-  return res.json();
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || `Failed to submit request: ${res.status}`);
+  }
+  return data;
 }
 
 export async function submitVote(venueCode: string, requestId: number, voteType: "up" | "down" = "up", guestToken?: string) {

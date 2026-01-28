@@ -300,7 +300,7 @@ router.post("/api/v1/venues/:code/request", async (req: Request, res: Response) 
       return res.status(403).json({ error: "FORBIDDEN", message: "API key not authorized for this venue" });
     }
 
-    const { trackId, title, artist, album, albumCover, duration, isExplicit, requesterName } = req.body;
+    const { trackId, title, artist, album, albumCover, duration, isExplicit, previewUrl, requesterName } = req.body;
 
     if (!trackId || !title || !artist) {
       return res.status(400).json({ error: "INVALID_REQUEST", message: "trackId, title, and artist are required" });
@@ -327,6 +327,7 @@ router.post("/api/v1/venues/:code/request", async (req: Request, res: Response) 
       albumCover,
       duration,
       isExplicit: isExplicit === true,
+      previewUrl,
       requesterName,
       status: venue.autoApprove ? "approved" : "pending",
     };
