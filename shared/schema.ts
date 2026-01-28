@@ -5,6 +5,7 @@ import { z } from "zod";
 
 export const organizations = pgTable("organizations", {
   id: serial("id").primaryKey(),
+  ownerId: text("owner_id"),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   logoUrl: text("logo_url"),

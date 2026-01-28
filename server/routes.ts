@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import { SignJWT, importPKCS8 } from "jose";
 import { storage } from "./storage";
 import type { InsertRequest, InsertVote } from "../shared/schema";
+import { isAuthenticated } from "./replit_integrations/auth";
 
 const router = Router();
 
@@ -682,6 +683,160 @@ router.delete("/api/v1/venues/:code/backup-playlists/:playlistId", async (req: R
 
     res.json({ success: true });
   } catch (error) {
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// ============================================
+// AUTHENTICATED USER ROUTES
+// ============================================
+
+// Get or create user's organization
+router.get("/api/me/organization", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    let org = await storage.getOrganizationByOwnerId(userId);
+    
+    if (!org) {
+      // Create a new organization for this user
+      const userEmail = req.user?.claims?.email || "";
+      const userName = req.user?.claims?.first_name || userEmail.split("@")[0] || "My";
+      const slug = `${userName.toLowerCase().replace(/[^a-z0-9]/g, "-")}-${nanoid(6)}`;
+      
+      org = await storage.createOrganization({
+        ownerId: userId,
+        name: `${userName}'s Organization`,
+        slug,
+        subscriptionStatus: "free",
+        subscriptionPlan: "free",
+      });
+    }
+
+    res.json(org);
+  } catch (error) {
+    console.error("Error getting organization:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Get user's venues
+router.get("/api/me/venues", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const org = await storage.getOrganizationByOwnerId(userId);
+    if (!org) {
+      return res.json([]);
+    }
+
+    const venues = await storage.getVenuesByOrganization(org.id);
+    res.json(venues);
+  } catch (error) {
+    console.error("Error getting venues:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Create a new venue
+router.post("/api/me/venues", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    // Get or create organization
+    let org = await storage.getOrganizationByOwnerId(userId);
+    if (!org) {
+      const userEmail = req.user?.claims?.email || "";
+      const userName = req.user?.claims?.first_name || userEmail.split("@")[0] || "My";
+      const slug = `${userName.toLowerCase().replace(/[^a-z0-9]/g, "-")}-${nanoid(6)}`;
+      
+      org = await storage.createOrganization({
+        ownerId: userId,
+        name: `${userName}'s Organization`,
+        slug,
+        subscriptionStatus: "free",
+        subscriptionPlan: "free",
+      });
+    }
+
+    const { name, allowExplicit, autoApprove, dailyRequestLimit } = req.body;
+    
+    if (!name || name.trim().length === 0) {
+      return res.status(400).json({ error: "BAD_REQUEST", message: "Venue name is required" });
+    }
+
+    // Generate unique venue code
+    const code = `${name.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 20)}-${nanoid(6)}`;
+
+    const venue = await storage.createVenue({
+      organizationId: org.id,
+      name: name.trim(),
+      code,
+      isActive: true,
+      allowExplicit: allowExplicit ?? false,
+      autoApprove: autoApprove ?? true,
+      dailyRequestLimit: dailyRequestLimit ?? 5,
+    });
+
+    // Create a party session for this venue
+    const today = new Date().toISOString().split("T")[0];
+    const partyCode = nanoid(8);
+    await storage.createPartySession({
+      venueId: venue.id,
+      date: today,
+      code: partyCode,
+      isActive: true,
+    });
+
+    res.json(venue);
+  } catch (error) {
+    console.error("Error creating venue:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Update a venue
+router.patch("/api/me/venues/:venueId", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const org = await storage.getOrganizationByOwnerId(userId);
+    if (!org) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Organization not found" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Venue not found" });
+    }
+
+    const { name, allowExplicit, autoApprove, dailyRequestLimit, isActive } = req.body;
+    
+    const updatedVenue = await storage.updateVenue(venueId, {
+      ...(name !== undefined && { name }),
+      ...(allowExplicit !== undefined && { allowExplicit }),
+      ...(autoApprove !== undefined && { autoApprove }),
+      ...(dailyRequestLimit !== undefined && { dailyRequestLimit }),
+      ...(isActive !== undefined && { isActive }),
+    });
+
+    res.json(updatedVenue);
+  } catch (error) {
+    console.error("Error updating venue:", error);
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }
 });
