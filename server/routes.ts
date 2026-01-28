@@ -824,10 +824,18 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
     }
 
     const data = await response.json();
-    const tracks = data.data?.[0]?.relationships?.tracks?.data || [];
+    let tracks = data.data?.[0]?.relationships?.tracks?.data || [];
     
     if (tracks.length === 0) {
       return res.status(404).json({ error: "NO_TRACKS", message: "Playlist has no tracks" });
+    }
+
+    // Filter out explicit tracks if venue doesn't allow explicit content
+    if (!venue.allowExplicit) {
+      tracks = tracks.filter((track: any) => track.attributes?.contentRating !== "explicit");
+      if (tracks.length === 0) {
+        return res.status(404).json({ error: "NO_CLEAN_TRACKS", message: "No clean tracks available in playlist" });
+      }
     }
 
     // Pick a random track
