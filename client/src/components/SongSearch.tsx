@@ -51,7 +51,7 @@ export function SongSearch({ onSelect, allowExplicit = false }: SongSearchProps)
       </div>
 
       {(results.length > 0 || isSearching) && (
-        <div className="absolute z-50 w-full mt-2 bg-gray-900/95 backdrop-blur-lg border border-white/20 rounded-2xl shadow-2xl max-h-96 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-2 bg-gray-900/95 backdrop-blur-lg border border-white/20 rounded-2xl shadow-2xl flex flex-col max-h-96">
           {isSearching ? (
             <div className="p-8 text-center text-gray-400">
               <div className="animate-spin w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full mx-auto mb-2" />
@@ -59,46 +59,48 @@ export function SongSearch({ onSelect, allowExplicit = false }: SongSearchProps)
             </div>
           ) : (
             <>
-              {results.map((track) => (
-                <button
-                  key={track.id}
-                  onClick={() => handleSelect(track)}
-                  disabled={!allowExplicit && track.isExplicit}
-                  className={cn(
-                    "w-full flex items-center gap-4 p-4 hover:bg-white/10 transition-colors text-left border-b border-white/10",
-                    !allowExplicit && track.isExplicit && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  {track.albumCover ? (
-                    <img
-                      src={track.albumCover}
-                      alt={track.album}
-                      className="w-14 h-14 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="w-14 h-14 rounded-lg bg-gray-700 flex items-center justify-center">
-                      <Music className="w-6 h-6 text-gray-500" />
+              <div className="flex-1 overflow-y-auto">
+                {results.map((track) => (
+                  <button
+                    key={track.id}
+                    onClick={() => handleSelect(track)}
+                    disabled={!allowExplicit && track.isExplicit}
+                    className={cn(
+                      "w-full flex items-center gap-4 p-4 hover:bg-white/10 transition-colors text-left border-b border-white/10",
+                      !allowExplicit && track.isExplicit && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    {track.albumCover ? (
+                      <img
+                        src={track.albumCover}
+                        alt={track.album}
+                        className="w-14 h-14 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg bg-gray-700 flex items-center justify-center">
+                        <Music className="w-6 h-6 text-gray-500" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-white font-medium truncate">{track.title}</p>
+                        {track.isExplicit && (
+                          <span className="px-1.5 py-0.5 text-xs bg-gray-700 text-gray-300 rounded">E</span>
+                        )}
+                      </div>
+                      <p className="text-gray-400 text-sm truncate">{track.artist}</p>
                     </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-white font-medium truncate">{track.title}</p>
-                      {track.isExplicit && (
-                        <span className="px-1.5 py-0.5 text-xs bg-gray-700 text-gray-300 rounded">E</span>
-                      )}
-                    </div>
-                    <p className="text-gray-400 text-sm truncate">{track.artist}</p>
-                  </div>
-                  {!allowExplicit && track.isExplicit && (
-                    <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />
-                  )}
-                </button>
-              ))}
+                    {!allowExplicit && track.isExplicit && (
+                      <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </div>
               {hasMore && (
                 <button
                   onClick={loadMore}
                   disabled={isLoadingMore}
-                  className="w-full py-3 text-center text-indigo-400 hover:text-indigo-300 hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-3 text-center text-indigo-400 hover:text-indigo-300 bg-gray-800/90 border-t border-white/10 transition-colors flex items-center justify-center gap-2 rounded-b-2xl flex-shrink-0"
                 >
                   {isLoadingMore ? (
                     <>
