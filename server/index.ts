@@ -4,6 +4,7 @@ import routes from "./routes";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.env.NODE_ENV === "production";
@@ -14,6 +15,11 @@ async function createServer() {
 
   app.use(cors());
   app.use(express.json());
+
+  // Setup Replit Auth (must come before other routes)
+  await setupAuth(app);
+  registerAuthRoutes(app);
+
   app.use(routes);
 
   if (isProduction) {

@@ -272,3 +272,6 @@ export const queueItemSchema = z.object({
 export type VenuePublic = z.infer<typeof venuePublicSchema>;
 export type NowPlaying = z.infer<typeof nowPlayingSchema>;
 export type QueueItem = z.infer<typeof queueItemSchema>;
+
+// Auth tables for Replit Auth
+export * from "./models/auth";

@@ -1,12 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Music2, Settings, QrCode, Tv, ExternalLink } from "lucide-react";
+import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User } from "lucide-react";
 import { fetchVenue, fetchQueue, fetchQRCode, setupDemo } from "../lib/api";
 import { QueueList } from "../components/QueueList";
+import { useAuth } from "../hooks/use-auth";
 
 export default function AdminPage() {
+  const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [venueCode, setVenueCode] = useState("demo-venue");
   const [isSettingUp, setIsSettingUp] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      window.location.href = "/api/login";
+    }
+  }, [authLoading, isAuthenticated]);
 
   const { data: venue, refetch: refetchVenue } = useQuery({
     queryKey: ["venue", venueCode],
@@ -40,17 +48,31 @@ export default function AdminPage() {
     }
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen">
       <header className="border-b border-white/10 backdrop-blur-lg bg-black/20">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-              <Music2 className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold text-white">Jukboks Admin</span>
+            <a href="/" className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                <Music2 className="w-6 h-6 text-white" />
+              </div>
+              <span className="text-2xl font-bold text-white">Jukboks Admin</span>
+            </a>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <button
               onClick={handleSetupDemo}
               disabled={isSettingUp}
@@ -58,6 +80,20 @@ export default function AdminPage() {
             >
               {isSettingUp ? "Setting up..." : "Setup Demo"}
             </button>
+            <div className="flex items-center gap-2 text-gray-300">
+              {user?.profileImageUrl ? (
+                <img src={user.profileImageUrl} alt="" className="w-8 h-8 rounded-full" />
+              ) : (
+                <User className="w-5 h-5" />
+              )}
+              <span className="hidden sm:inline">{user?.firstName || user?.email}</span>
+            </div>
+            <a
+              href="/api/logout"
+              className="px-3 py-2 text-gray-300 hover:text-white font-medium transition-colors flex items-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+            </a>
           </div>
         </div>
       </header>

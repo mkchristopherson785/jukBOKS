@@ -33,7 +33,7 @@ Organizations (businesses)
 - **Frontend**: React + Vite + TailwindCSS + shadcn/ui
 - **Database**: PostgreSQL with Drizzle ORM
 - **Music**: Apple Music API (MusicKit JS)
-- **Auth**: Session-based for org users, tokens for API access
+- **Auth**: Replit Auth (Google, Apple, email/password) for venue owners, tokens for guest/API access
 
 ## Directory Structure
 ```
