@@ -412,12 +412,19 @@ export function getSonosConnectUrl(venueCode: string): string {
   return `${API_BASE}/api/sonos/connect/${venueCode}`;
 }
 
-export async function sonosPlayTrack(venueCode: string, trackUri: string, trackName: string) {
+export async function sonosPlayTrack(
+  venueCode: string, 
+  trackUri: string | undefined, 
+  trackName: string,
+  trackId?: string,
+  artist?: string,
+  album?: string
+) {
   const res = await fetch(`${API_BASE}/api/venues/${venueCode}/sonos/play`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ trackUri, trackName }),
+    body: JSON.stringify({ trackUri, trackName, trackId, artist, album }),
   });
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
   return res.json();

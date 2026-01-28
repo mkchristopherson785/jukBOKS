@@ -74,17 +74,13 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
     if (sonosEnabled && venueCode && trackId && !usePreview) {
       if (sonosTrackRef.current !== trackId) {
         sonosTrackRef.current = trackId;
-        if (previewUrl) {
-          sonosPlayTrack(venueCode, previewUrl, trackName || "Unknown Track")
-            .then(() => setSonosPlaying(true))
-            .catch((err) => {
-              console.error("Sonos playback failed:", err);
-              setSonosPlaying(false);
-            });
-        } else {
-          console.warn("No preview URL available for Sonos playback");
-          setSonosPlaying(false);
-        }
+        // Pass both the preview URL and trackId - server will try Apple Music first, fallback to preview
+        sonosPlayTrack(venueCode, previewUrl, trackName || "Unknown Track", trackId)
+          .then(() => setSonosPlaying(true))
+          .catch((err) => {
+            console.error("Sonos playback failed:", err);
+            setSonosPlaying(false);
+          });
       }
       return;
     }

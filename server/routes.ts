@@ -2131,11 +2131,11 @@ router.delete("/api/venues/:code/sonos", isAuthenticated, async (req: any, res) 
   }
 });
 
-// Play a track on Sonos
+// Play a track on Sonos using Apple Music
 router.post("/api/venues/:code/sonos/play", isAuthenticated, async (req: any, res) => {
   try {
     const { code } = req.params;
-    const { trackUri, trackName } = req.body;
+    const { trackUri, trackName, trackId, artist, album } = req.body;
     
     const venue = await storage.getVenueByCode(code);
     if (!venue) {
@@ -2146,32 +2146,72 @@ router.post("/api/venues/:code/sonos/play", isAuthenticated, async (req: any, re
       return res.status(400).json({ error: "SONOS_NOT_CONFIGURED" });
     }
 
-    // Use the musicServiceId for Apple Music on Sonos
-    // For Apple Music, we need to use the proper container format
-    const playResponse = await fetch(`${SONOS_API_URL}/groups/${venue.sonosGroupId}/playback/loadStreamUrl`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${venue.sonosAccessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        streamUrl: trackUri,
-        playOnCompletion: true,
-        itemId: trackUri,
-        trackMetadata: {
-          name: trackName || "Unknown Track",
-          type: "track",
-        },
-      }),
-    });
-
-    if (!playResponse.ok) {
-      const errorText = await playResponse.text();
-      console.error("Sonos play failed:", errorText);
-      return res.status(400).json({ error: "PLAY_FAILED", details: errorText });
+    // Refresh token if needed
+    let accessToken = venue.sonosAccessToken;
+    if (venue.sonosTokenExpiresAt && new Date(venue.sonosTokenExpiresAt) < new Date()) {
+      const refreshed = await refreshSonosToken(venue);
+      if (refreshed) {
+        accessToken = refreshed.accessToken;
+      }
     }
 
-    res.json({ success: true });
+    // Try to play using Apple Music's musicObjectId format
+    // Apple Music service ID on Sonos is typically 204
+    // Format: x-sonos-http:song:{trackId}.mp4?sid=204&flags=8224&sn=1
+    if (trackId) {
+      const appleMusicObjectId = `x-sonos-http:song:${trackId}.mp4?sid=204&flags=8224&sn=1`;
+      
+      // First try the favorites/playback approach
+      const playResponse = await fetch(`${SONOS_API_URL}/groups/${venue.sonosGroupId}/playback`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          appId: "com.jukboks.app",
+          appContext: trackId,
+        }),
+      });
+
+      if (playResponse.ok) {
+        return res.json({ success: true, method: "playback" });
+      }
+      
+      console.log("Direct playback failed, trying loadStreamUrl with preview");
+    }
+
+    // Fallback: If we have a direct stream URL (preview), use loadStreamUrl
+    if (trackUri && trackUri.startsWith("http")) {
+      const streamResponse = await fetch(`${SONOS_API_URL}/groups/${venue.sonosGroupId}/playback/loadStreamUrl`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          streamUrl: trackUri,
+          playOnCompletion: true,
+          itemId: trackId || trackUri,
+          trackMetadata: {
+            name: trackName || "Unknown Track",
+            type: "track",
+            artist: artist ? { name: artist } : undefined,
+            album: album ? { name: album } : undefined,
+          },
+        }),
+      });
+
+      if (!streamResponse.ok) {
+        const errorText = await streamResponse.text();
+        console.error("Sonos loadStreamUrl failed:", errorText);
+        return res.status(400).json({ error: "PLAY_FAILED", details: errorText });
+      }
+
+      return res.json({ success: true, method: "streamUrl" });
+    }
+
+    return res.status(400).json({ error: "NO_PLAYABLE_URL", message: "No valid stream URL or track ID provided" });
   } catch (error) {
     console.error("Sonos play error:", error);
     res.status(500).json({ error: "SERVER_ERROR" });
