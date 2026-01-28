@@ -18,6 +18,7 @@ Jukboks is a standalone SaaS platform that enables businesses (bars, restaurants
 - **Multi-Organization Support**: Each business manages their own venues
 - **Team Management**: Invite team members by email to share admin access to venues
 - **Integration API**: External apps can embed Jukboks functionality
+- **Super Admin**: Platform-wide admin access for designated emails to view all organizations and venues
 
 ## Architecture
 
@@ -98,6 +99,20 @@ jukboks/
 
 ### Admin
 - `POST /api/setup/demo` - Create demo organization and venue
+
+### Super Admin
+- `GET /api/super-admin/check` - Check if current user is a super admin
+- `GET /api/super-admin/organizations` - Get all organizations (super admin only)
+- `GET /api/super-admin/venues` - Get all venues (super admin only)
+
+## Admin Interface Structure
+The admin page (`/admin`) has four main tabs:
+- **Venues**: Manage venues, view queue, recent plays, banned songs
+- **Team**: Invite and manage team members
+- **Branding**: Customize organization name, logo, and colors
+- **Settings**: Configure backup playlists, Sonos integration, and announcements
+
+Super admins can access the `/super-admin` page via a shield icon in the header.
 
 ## Integration API
 

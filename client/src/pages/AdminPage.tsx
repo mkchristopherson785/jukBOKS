@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X, Copy, Check, Radio, Volume2, Upload, SkipForward, History, Ban, Palette, Speaker, Link2, Unlink } from "lucide-react";
-import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, deleteVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchListeners, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, skipSong, fetchPlayHistory, fetchBannedSongs, banSong, unbanSong, fetchMyOrganization, updateOrganization, fetchSonosStatus, updateSonosSettings, disconnectSonos, getSonosConnectUrl, type Announcement, type SonosStatus } from "../lib/api";
+import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X, Copy, Check, Radio, Volume2, Upload, SkipForward, History, Ban, Palette, Speaker, Link2, Unlink, Shield } from "lucide-react";
+import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, deleteVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchListeners, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, skipSong, fetchPlayHistory, fetchBannedSongs, banSong, unbanSong, fetchMyOrganization, updateOrganization, fetchSonosStatus, updateSonosSettings, disconnectSonos, getSonosConnectUrl, checkSuperAdmin, type Announcement, type SonosStatus } from "../lib/api";
 import { useUpload } from "../hooks/use-upload";
 import { QueueList } from "../components/QueueList";
 import { useAuth } from "../hooks/use-auth";
@@ -9,10 +9,17 @@ import { useAuth } from "../hooks/use-auth";
 export default function AdminPage() {
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
+  
+  const { data: superAdminCheck } = useQuery({
+    queryKey: ["super-admin-check"],
+    queryFn: checkSuperAdmin,
+    enabled: isAuthenticated,
+  });
+  
   const [selectedVenueCode, setSelectedVenueCode] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newVenueName, setNewVenueName] = useState("");
-  const [activeTab, setActiveTab] = useState<"venues" | "team" | "branding">("venues");
+  const [activeTab, setActiveTab] = useState<"venues" | "team" | "branding" | "settings">("venues");
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteError, setInviteError] = useState("");
@@ -364,6 +371,15 @@ export default function AdminPage() {
               )}
               <span className="hidden sm:inline">{user?.firstName || user?.email}</span>
             </div>
+            {superAdminCheck?.isSuperAdmin && (
+              <a
+                href="/super-admin"
+                className="px-3 py-2 text-amber-400 hover:text-amber-300 font-medium transition-colors flex items-center gap-2"
+                title="Super Admin"
+              >
+                <Shield className="w-4 h-4" />
+              </a>
+            )}
             <a
               href="/api/logout"
               className="px-3 py-2 text-gray-300 hover:text-white font-medium transition-colors flex items-center gap-2"
@@ -406,6 +422,15 @@ export default function AdminPage() {
                 Branding
               </button>
             )}
+            <button
+              onClick={() => setActiveTab("settings")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                activeTab === "settings" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <Settings className="w-5 h-5" />
+              Settings
+            </button>
           </div>
 
           {activeTab === "venues" && selectedVenue && (
@@ -622,152 +647,8 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* Right Sidebar - Playlists & Announcements */}
+                  {/* Right Sidebar - Play History */}
                   <div className="space-y-4">
-                    {/* Backup Playlists */}
-                    <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-md font-bold text-white flex items-center gap-2">
-                          <ListMusic className="w-4 h-4" />
-                          Playlists ({backupPlaylists.length}/10)
-                        </h3>
-                        <button
-                          onClick={() => setShowPlaylistModal(true)}
-                          disabled={backupPlaylists.length >= 10}
-                          className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors disabled:opacity-50"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </div>
-                      <div className="max-h-32 overflow-y-auto space-y-2">
-                        {backupPlaylists.length === 0 ? (
-                          <p className="text-gray-500 text-sm text-center py-2">No playlists yet</p>
-                        ) : (
-                          backupPlaylists.map((playlist: any) => (
-                            <div key={playlist.id} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
-                              {playlist.artworkUrl && (
-                                <img src={playlist.artworkUrl} alt="" className="w-8 h-8 rounded object-cover" />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-white text-xs font-medium truncate">{playlist.name || "Playlist"}</p>
-                                <p className="text-gray-400 text-xs">{playlist.trackCount || 0} tracks</p>
-                              </div>
-                              <button
-                                onClick={() => removePlaylistMutation.mutate(playlist.id.toString())}
-                                className="p-1 text-gray-400 hover:text-red-400 transition-colors"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Announcements */}
-                    <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-md font-bold text-white flex items-center gap-2">
-                          <Volume2 className="w-4 h-4" />
-                          Announcements ({announcements.length})
-                        </h3>
-                        <button
-                          onClick={() => setShowAnnouncementModal(true)}
-                          className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </div>
-                      
-                      {/* Announcement Settings */}
-                      <div className="mb-3 p-2 bg-white/5 rounded-lg space-y-2">
-                        <div className="flex items-center gap-2">
-                          <label className="text-gray-400 text-xs">Play every:</label>
-                          <select
-                            value={selectedVenue.announcementFrequencyType || "disabled"}
-                            onChange={(e) => updateAnnouncementSettingsMutation.mutate({ 
-                              frequencyType: e.target.value === "disabled" ? null : e.target.value 
-                            })}
-                            className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-xs focus:outline-none focus:border-indigo-500"
-                          >
-                            <option value="disabled" className="bg-gray-900">Disabled</option>
-                            <option value="songs" className="bg-gray-900">X songs</option>
-                            <option value="minutes" className="bg-gray-900">X minutes</option>
-                            <option value="hourly" className="bg-gray-900">Top of each hour</option>
-                          </select>
-                        </div>
-                        {selectedVenue.announcementFrequencyType && selectedVenue.announcementFrequencyType !== 'hourly' && (
-                          <div className="flex items-center gap-2">
-                            <label className="text-gray-400 text-xs">
-                              {selectedVenue.announcementFrequencyType === 'songs' ? 'Songs:' : 'Minutes:'}
-                            </label>
-                            <select
-                              value={selectedVenue.announcementFrequency || 5}
-                              onChange={(e) => updateAnnouncementSettingsMutation.mutate({ frequency: parseInt(e.target.value) })}
-                              className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-xs focus:outline-none focus:border-indigo-500"
-                            >
-                              {selectedVenue.announcementFrequencyType === 'songs' 
-                                ? [1, 2, 3, 4, 5, 10, 15, 20].map(n => (
-                                    <option key={n} value={n} className="bg-gray-900">{n}</option>
-                                  ))
-                                : [5, 10, 15, 30, 45, 60, 90, 120].map(n => (
-                                    <option key={n} value={n} className="bg-gray-900">{n}</option>
-                                  ))
-                              }
-                            </select>
-                            <select
-                              value={selectedVenue.announcementPlayMode || "sequential"}
-                              onChange={(e) => updateAnnouncementSettingsMutation.mutate({ playMode: e.target.value })}
-                              className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-xs focus:outline-none focus:border-indigo-500"
-                            >
-                              <option value="sequential" className="bg-gray-900">Sequential</option>
-                              <option value="random" className="bg-gray-900">Random</option>
-                            </select>
-                          </div>
-                        )}
-                        {selectedVenue.announcementFrequencyType === 'hourly' && (
-                          <div className="flex items-center gap-2">
-                            <select
-                              value={selectedVenue.announcementPlayMode || "sequential"}
-                              onChange={(e) => updateAnnouncementSettingsMutation.mutate({ playMode: e.target.value })}
-                              className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-xs focus:outline-none focus:border-indigo-500"
-                            >
-                              <option value="sequential" className="bg-gray-900">Sequential</option>
-                              <option value="random" className="bg-gray-900">Random</option>
-                            </select>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="max-h-32 overflow-y-auto space-y-2">
-                        {announcements.length === 0 ? (
-                          <p className="text-gray-500 text-sm text-center py-2">No announcements yet</p>
-                        ) : (
-                          announcements.map((announcement: Announcement) => (
-                            <div key={announcement.id} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
-                              <Volume2 className={`w-4 h-4 ${announcement.isActive ? 'text-green-400' : 'text-gray-500'}`} />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-white text-xs font-medium truncate">{announcement.name}</p>
-                              </div>
-                              <button
-                                onClick={() => toggleAnnouncementMutation.mutate({ id: announcement.id, isActive: !announcement.isActive })}
-                                className={`p-1 text-xs rounded ${announcement.isActive ? 'text-green-400' : 'text-gray-500'}`}
-                                title={announcement.isActive ? "Disable" : "Enable"}
-                              >
-                                {announcement.isActive ? "On" : "Off"}
-                              </button>
-                              <button
-                                onClick={() => deleteAnnouncementMutation.mutate(announcement.id)}
-                                className="p-1 text-gray-400 hover:text-red-400 transition-colors"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </button>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-
                     {/* Play History & Banned Songs */}
                     <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
                       <h3 className="text-md font-bold text-white flex items-center gap-2 mb-3">
@@ -820,78 +701,6 @@ export default function AdminPage() {
                               </div>
                             ))}
                           </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Sonos Integration */}
-                    <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
-                      <h3 className="text-md font-bold text-white flex items-center gap-2 mb-3">
-                        <Speaker className="w-4 h-4" />
-                        Sonos
-                      </h3>
-                      
-                      {sonosStatus?.connected ? (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2 text-green-400 text-sm">
-                            <Check className="w-4 h-4" />
-                            <span>Connected</span>
-                          </div>
-                          
-                          {sonosStatus.groups && sonosStatus.groups.length > 0 && (
-                            <div className="space-y-2">
-                              <label className="text-gray-400 text-xs">Speaker Group:</label>
-                              <select
-                                value={sonosStatus.groupId || ""}
-                                onChange={(e) => updateSonosMutation.mutate({ groupId: e.target.value })}
-                                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white text-sm focus:outline-none focus:border-indigo-500"
-                              >
-                                <option value="" className="bg-gray-900">Select a group</option>
-                                {sonosStatus.groups.map((group) => (
-                                  <option key={group.id} value={group.id} className="bg-gray-900">
-                                    {group.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          )}
-                          
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-400 text-sm">Enable Sonos playback</span>
-                            <button
-                              onClick={() => updateSonosMutation.mutate({ enabled: !sonosStatus.enabled })}
-                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                sonosStatus.enabled ? 'bg-indigo-600' : 'bg-gray-600'
-                              }`}
-                            >
-                              <span
-                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                  sonosStatus.enabled ? 'translate-x-6' : 'translate-x-1'
-                                }`}
-                              />
-                            </button>
-                          </div>
-                          
-                          <button
-                            onClick={() => disconnectSonosMutation.mutate()}
-                            className="flex items-center gap-2 text-red-400 hover:text-red-300 text-sm transition-colors"
-                          >
-                            <Unlink className="w-3 h-3" />
-                            Disconnect
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <p className="text-gray-400 text-sm">
-                            Connect Sonos to play music on your speakers.
-                          </p>
-                          <a
-                            href={getSonosConnectUrl(selectedVenue?.code || "")}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded transition-colors"
-                          >
-                            <Link2 className="w-4 h-4" />
-                            Connect Sonos
-                          </a>
                         </div>
                       )}
                     </div>
@@ -1076,6 +885,238 @@ export default function AdminPage() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === "settings" && selectedVenue && (
+          <div className="max-w-4xl">
+            <h1 className="text-3xl font-bold text-white mb-8">Venue Settings</h1>
+            <p className="text-gray-400 mb-6">
+              Configure backup playlists, announcements, and speaker connections for <span className="text-white font-medium">{selectedVenue.name}</span>.
+            </p>
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Backup Playlists */}
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <ListMusic className="w-5 h-5" />
+                    Backup Playlists ({backupPlaylists.length}/10)
+                  </h3>
+                  <button
+                    onClick={() => setShowPlaylistModal(true)}
+                    disabled={backupPlaylists.length >= 10}
+                    className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors disabled:opacity-50"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                <p className="text-gray-400 text-sm mb-4">
+                  Songs from these Apple Music playlists will play automatically when the queue is empty.
+                </p>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {backupPlaylists.length === 0 ? (
+                    <p className="text-gray-500 text-sm text-center py-4">No playlists added yet</p>
+                  ) : (
+                    backupPlaylists.map((playlist: any) => (
+                      <div key={playlist.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
+                        {playlist.artworkUrl && (
+                          <img src={playlist.artworkUrl} alt="" className="w-12 h-12 rounded object-cover" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-medium truncate">{playlist.name || "Playlist"}</p>
+                          <p className="text-gray-400 text-sm">{playlist.trackCount || 0} tracks</p>
+                        </div>
+                        <button
+                          onClick={() => removePlaylistMutation.mutate(playlist.id.toString())}
+                          className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Sonos Integration */}
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2 mb-4">
+                  <Speaker className="w-5 h-5" />
+                  Sonos Speakers
+                </h3>
+                <p className="text-gray-400 text-sm mb-4">
+                  Connect Sonos speakers to play music throughout your venue.
+                </p>
+                
+                {sonosStatus?.connected ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-green-400">
+                      <Check className="w-5 h-5" />
+                      <span className="font-medium">Connected</span>
+                    </div>
+                    
+                    {sonosStatus.groups && sonosStatus.groups.length > 0 && (
+                      <div className="space-y-2">
+                        <label className="text-gray-400 text-sm">Speaker Group:</label>
+                        <select
+                          value={sonosStatus.groupId || ""}
+                          onChange={(e) => updateSonosMutation.mutate({ groupId: e.target.value })}
+                          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                        >
+                          <option value="" className="bg-gray-900">Select a group</option>
+                          {sonosStatus.groups.map((group) => (
+                            <option key={group.id} value={group.id} className="bg-gray-900">
+                              {group.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-300">Enable Sonos playback</span>
+                      <button
+                        onClick={() => updateSonosMutation.mutate({ enabled: !sonosStatus.enabled })}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          sonosStatus.enabled ? 'bg-indigo-600' : 'bg-gray-600'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            sonosStatus.enabled ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                    
+                    <button
+                      onClick={() => disconnectSonosMutation.mutate()}
+                      className="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors"
+                    >
+                      <Unlink className="w-4 h-4" />
+                      Disconnect Sonos
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <a
+                      href={getSonosConnectUrl(selectedVenue?.code || "")}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                    >
+                      <Link2 className="w-4 h-4" />
+                      Connect Sonos
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {/* Announcements */}
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6 md:col-span-2">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Volume2 className="w-5 h-5" />
+                    Announcements ({announcements.length})
+                  </h3>
+                  <button
+                    onClick={() => setShowAnnouncementModal(true)}
+                    className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+                <p className="text-gray-400 text-sm mb-4">
+                  Pre-recorded audio messages that play between songs.
+                </p>
+                
+                {/* Announcement Settings */}
+                <div className="mb-4 p-4 bg-white/5 rounded-lg">
+                  <h4 className="text-white font-medium mb-3">Frequency Settings</h4>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <label className="text-gray-400 text-sm">Play every:</label>
+                      <select
+                        value={selectedVenue.announcementFrequencyType || "disabled"}
+                        onChange={(e) => updateAnnouncementSettingsMutation.mutate({ 
+                          frequencyType: e.target.value === "disabled" ? null : e.target.value 
+                        })}
+                        className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                      >
+                        <option value="disabled" className="bg-gray-900">Disabled</option>
+                        <option value="songs" className="bg-gray-900">X songs</option>
+                        <option value="minutes" className="bg-gray-900">X minutes</option>
+                        <option value="hourly" className="bg-gray-900">Top of each hour</option>
+                      </select>
+                    </div>
+                    {selectedVenue.announcementFrequencyType && selectedVenue.announcementFrequencyType !== 'hourly' && (
+                      <div className="flex items-center gap-2">
+                        <label className="text-gray-400 text-sm">
+                          {selectedVenue.announcementFrequencyType === 'songs' ? 'Songs:' : 'Minutes:'}
+                        </label>
+                        <select
+                          value={selectedVenue.announcementFrequency || 5}
+                          onChange={(e) => updateAnnouncementSettingsMutation.mutate({ frequency: parseInt(e.target.value) })}
+                          className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                        >
+                          {selectedVenue.announcementFrequencyType === 'songs' 
+                            ? [1, 2, 3, 4, 5, 10, 15, 20].map(n => (
+                                <option key={n} value={n} className="bg-gray-900">{n}</option>
+                              ))
+                            : [5, 10, 15, 30, 45, 60, 90, 120].map(n => (
+                                <option key={n} value={n} className="bg-gray-900">{n}</option>
+                              ))
+                          }
+                        </select>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <label className="text-gray-400 text-sm">Order:</label>
+                      <select
+                        value={selectedVenue.announcementPlayMode || "sequential"}
+                        onChange={(e) => updateAnnouncementSettingsMutation.mutate({ playMode: e.target.value })}
+                        className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                      >
+                        <option value="sequential" className="bg-gray-900">Sequential</option>
+                        <option value="random" className="bg-gray-900">Random</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {announcements.length === 0 ? (
+                    <p className="text-gray-500 text-sm text-center py-4 col-span-full">No announcements yet</p>
+                  ) : (
+                    announcements.map((announcement: Announcement) => (
+                      <div key={announcement.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
+                        <Volume2 className={`w-5 h-5 ${announcement.isActive ? 'text-green-400' : 'text-gray-500'}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-medium truncate">{announcement.name}</p>
+                        </div>
+                        <button
+                          onClick={() => toggleAnnouncementMutation.mutate({ id: announcement.id, isActive: !announcement.isActive })}
+                          className={`px-2 py-1 text-xs rounded ${announcement.isActive ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}
+                        >
+                          {announcement.isActive ? "On" : "Off"}
+                        </button>
+                        <button
+                          onClick={() => deleteAnnouncementMutation.mutate(announcement.id)}
+                          className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "settings" && !selectedVenue && (
+          <div className="text-center py-12">
+            <p className="text-gray-400">Please select a venue first to configure settings.</p>
           </div>
         )}
       </main>

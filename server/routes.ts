@@ -2263,4 +2263,47 @@ async function refreshSonosToken(venue: any): Promise<{ accessToken: string; exp
   return { accessToken: tokens.access_token, expiresAt };
 }
 
+// Super Admin Routes
+const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+
+function isSuperAdmin(email: string | undefined): boolean {
+  if (!email) return false;
+  return SUPER_ADMIN_EMAILS.includes(email.toLowerCase());
+}
+
+router.get("/api/super-admin/check", isAuthenticated, async (req: any, res) => {
+  const userEmail = req.user?.claims?.email;
+  res.json({ isSuperAdmin: isSuperAdmin(userEmail) });
+});
+
+router.get("/api/super-admin/organizations", isAuthenticated, async (req: any, res) => {
+  try {
+    const userEmail = req.user?.claims?.email;
+    if (!isSuperAdmin(userEmail)) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "Super admin access required" });
+    }
+
+    const orgs = await storage.getAllOrganizations();
+    res.json({ organizations: orgs });
+  } catch (error) {
+    console.error("Super admin get orgs error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+router.get("/api/super-admin/venues", isAuthenticated, async (req: any, res) => {
+  try {
+    const userEmail = req.user?.claims?.email;
+    if (!isSuperAdmin(userEmail)) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "Super admin access required" });
+    }
+
+    const venues = await storage.getAllVenues();
+    res.json({ venues });
+  } catch (error) {
+    console.error("Super admin get venues error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 export default router;

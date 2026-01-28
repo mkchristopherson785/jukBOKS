@@ -433,3 +433,27 @@ export async function sonosControl(venueCode: string, action: 'play' | 'pause' |
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
   return res.json();
 }
+
+export async function checkSuperAdmin(): Promise<{ isSuperAdmin: boolean }> {
+  const res = await fetch(`${API_BASE}/api/super-admin/check`, {
+    credentials: "include",
+  });
+  if (!res.ok) return { isSuperAdmin: false };
+  return res.json();
+}
+
+export async function fetchAllOrganizations() {
+  const res = await fetch(`${API_BASE}/api/super-admin/organizations`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to fetch organizations");
+  return res.json();
+}
+
+export async function fetchAllVenues() {
+  const res = await fetch(`${API_BASE}/api/super-admin/venues`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to fetch venues");
+  return res.json();
+}
