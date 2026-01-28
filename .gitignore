@@ -5,3 +5,10 @@ dist/
 *.log
 .DS_Store
 drizzle/
+
+# iOS
+ios/App/Pods/
+ios/App/App/public/
+ios/App/DerivedData/
+*.xcuserdata/
+*.xcworkspacedata
