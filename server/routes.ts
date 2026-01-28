@@ -65,6 +65,7 @@ router.get("/api/v1/venues/:code/queue", async (req: Request, res: Response) => 
         title: item.title,
         artist: item.artist,
         albumCover: item.albumCover,
+        previewUrl: item.previewUrl,
         requesterName: item.requesterName,
         isAutoPlay: item.isAutoPlay,
         voteCount: item.voteCount,
@@ -91,6 +92,68 @@ router.get("/api/v1/venues/:code/now-playing", async (req: Request, res: Respons
       startedAt: venue.currentlyPlayingStartedAt?.toISOString() || null,
       duration: venue.currentlyPlayingDuration,
     });
+  } catch (error) {
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+router.post("/api/v1/venues/:code/play/:requestId", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const requestId = parseInt(req.params.requestId);
+    const songRequest = await storage.getRequest(requestId);
+    
+    if (!songRequest || songRequest.venueId !== venue.id) {
+      return res.status(404).json({ error: "REQUEST_NOT_FOUND", message: "Song request not found" });
+    }
+
+    await storage.updateRequest(requestId, { status: "playing" });
+    
+    await storage.updateVenue(venue.id, {
+      currentlyPlayingId: songRequest.trackId,
+      currentlyPlayingTitle: songRequest.title,
+      currentlyPlayingArtist: songRequest.artist,
+      currentlyPlayingAlbumCover: songRequest.albumCover,
+      currentlyPlayingStartedAt: new Date(),
+      currentlyPlayingDuration: songRequest.duration,
+    });
+
+    res.json({ success: true, message: "Now playing", previewUrl: songRequest.previewUrl });
+  } catch (error) {
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+router.post("/api/v1/venues/:code/played/:requestId", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const requestId = parseInt(req.params.requestId);
+    const songRequest = await storage.getRequest(requestId);
+    
+    if (!songRequest || songRequest.venueId !== venue.id) {
+      return res.status(404).json({ error: "REQUEST_NOT_FOUND", message: "Song request not found" });
+    }
+
+    await storage.updateRequest(requestId, { status: "played", playedAt: new Date() });
+    
+    await storage.updateVenue(venue.id, {
+      currentlyPlayingId: null,
+      currentlyPlayingTitle: null,
+      currentlyPlayingArtist: null,
+      currentlyPlayingAlbumCover: null,
+      currentlyPlayingStartedAt: null,
+      currentlyPlayingDuration: null,
+    });
+
+    res.json({ success: true, message: "Song marked as played" });
   } catch (error) {
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }

@@ -1,11 +1,17 @@
 import { useParams } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { Music2, Users } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Music2, Users, SkipForward } from "lucide-react";
 import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode } from "../lib/api";
-import { NowPlaying } from "../components/NowPlaying";
+import { AudioPlayer } from "../components/AudioPlayer";
+import { useState, useEffect, useCallback } from "react";
+
+const API_BASE = "";
 
 export default function KioskPage() {
   const { code } = useParams<{ code: string }>();
+  const queryClient = useQueryClient();
+  const [currentSong, setCurrentSong] = useState<any>(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const { data: venue } = useQuery({
     queryKey: ["venue", code],
@@ -17,10 +23,10 @@ export default function KioskPage() {
     queryKey: ["nowPlaying", code],
     queryFn: () => fetchNowPlaying(code!),
     enabled: !!code,
-    refetchInterval: 3000,
+    refetchInterval: 5000,
   });
 
-  const { data: queue } = useQuery({
+  const { data: queue, refetch: refetchQueue } = useQuery({
     queryKey: ["queue", code],
     queryFn: () => fetchQueue(code!),
     enabled: !!code,
@@ -33,6 +39,97 @@ export default function KioskPage() {
     enabled: !!code,
     staleTime: 1000 * 60 * 60,
   });
+
+  const playNextMutation = useMutation({
+    mutationFn: async (requestId: number) => {
+      const res = await fetch(`${API_BASE}/api/v1/venues/${code}/play/${requestId}`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to play song");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["queue", code] });
+      queryClient.invalidateQueries({ queryKey: ["nowPlaying", code] });
+    },
+  });
+
+  const markPlayedMutation = useMutation({
+    mutationFn: async (requestId: number) => {
+      const res = await fetch(`${API_BASE}/api/v1/venues/${code}/played/${requestId}`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("Failed to mark as played");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["queue", code] });
+      queryClient.invalidateQueries({ queryKey: ["nowPlaying", code] });
+    },
+  });
+
+  const playNextSong = useCallback(() => {
+    if (isTransitioning || !queue?.items) return;
+    
+    const playableItems = queue.items.filter((item: any) => 
+      (item.status === "approved" || item.status === "pending") && 
+      item.previewUrl
+    );
+    
+    playableItems.sort((a: any, b: any) => b.voteCount - a.voteCount);
+    
+    if (playableItems.length > 0) {
+      const nextSong = playableItems[0];
+      setCurrentSong(nextSong);
+      playNextMutation.mutate(nextSong.id);
+    }
+  }, [queue?.items, isTransitioning, playNextMutation]);
+
+  useEffect(() => {
+    if (!currentSong && !isTransitioning && queue?.items?.length > 0) {
+      const hasPlayingSong = queue.items.some((item: any) => item.status === "playing");
+      if (!hasPlayingSong) {
+        playNextSong();
+      }
+    }
+  }, [queue?.items, currentSong, isTransitioning, playNextSong]);
+
+  const handleSongEnded = useCallback(() => {
+    if (currentSong) {
+      setIsTransitioning(true);
+      markPlayedMutation.mutate(currentSong.id, {
+        onSettled: () => {
+          setCurrentSong(null);
+          setIsTransitioning(false);
+          refetchQueue();
+        },
+      });
+    }
+  }, [currentSong, markPlayedMutation, refetchQueue]);
+
+  const handleSkip = useCallback(() => {
+    if (currentSong) {
+      setIsTransitioning(true);
+      markPlayedMutation.mutate(currentSong.id, {
+        onSettled: () => {
+          setCurrentSong(null);
+          setIsTransitioning(false);
+          refetchQueue();
+        },
+      });
+    }
+  }, [currentSong, markPlayedMutation, refetchQueue]);
+
+  const displayTitle = currentSong?.title || nowPlaying?.title;
+  const displayArtist = currentSong?.artist || nowPlaying?.artist;
+  const displayCover = currentSong?.albumCover || nowPlaying?.albumCover;
+  const displayPreview = currentSong?.previewUrl;
+
+  const upNextItems = queue?.items?.filter((item: any) => 
+    item.id !== currentSong?.id && 
+    item.status !== "played" && 
+    item.status !== "playing"
+  ).sort((a: any, b: any) => b.voteCount - a.voteCount).slice(0, 8) || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex">
@@ -51,21 +148,56 @@ export default function KioskPage() {
           </div>
         </div>
 
-        <NowPlaying
-          title={nowPlaying?.title}
-          artist={nowPlaying?.artist}
-          albumCover={nowPlaying?.albumCover}
-        />
+        <div className="w-full max-w-2xl">
+          {displayCover && (
+            <div className="mb-8 flex justify-center">
+              <img 
+                src={displayCover} 
+                alt={displayTitle || "Album"} 
+                className="w-64 h-64 rounded-2xl shadow-2xl object-cover"
+              />
+            </div>
+          )}
+          
+          <div className="text-center mb-8">
+            <h2 className="text-4xl font-bold text-white mb-2">{displayTitle || "No song playing"}</h2>
+            <p className="text-xl text-gray-300">{displayArtist || "Request a song to get started"}</p>
+          </div>
+
+          <AudioPlayer
+            previewUrl={displayPreview}
+            title={displayTitle}
+            artist={displayArtist}
+            albumCover={displayCover}
+            onEnded={handleSongEnded}
+            autoPlay={true}
+          />
+
+          {currentSong && (
+            <div className="mt-4 flex justify-center">
+              <button
+                onClick={handleSkip}
+                disabled={isTransitioning}
+                className="flex items-center gap-2 px-6 py-3 bg-gray-700/50 hover:bg-gray-600/50 rounded-xl transition-colors text-gray-300 disabled:opacity-50"
+              >
+                <SkipForward className="w-5 h-5" />
+                {isTransitioning ? "Skipping..." : "Skip Song"}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="w-96 bg-black/30 backdrop-blur-lg border-l border-white/10 p-6 flex flex-col">
         <h2 className="text-xl font-bold text-white mb-6">Up Next</h2>
 
         <div className="flex-1 overflow-y-auto space-y-3">
-          {queue?.items?.slice(0, 8).map((item: any, index: number) => (
+          {upNextItems.map((item: any, index: number) => (
             <div
               key={item.id}
-              className="flex items-center gap-3 p-3 bg-white/5 rounded-xl"
+              className={`flex items-center gap-3 p-3 rounded-xl ${
+                item.previewUrl ? "bg-white/5" : "bg-white/5 opacity-50"
+              }`}
             >
               <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-sm">
                 {index + 1}
@@ -80,6 +212,9 @@ export default function KioskPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-white font-medium truncate text-sm">{item.title}</p>
                 <p className="text-gray-400 text-xs truncate">{item.artist}</p>
+                {!item.previewUrl && (
+                  <p className="text-yellow-500 text-xs">No preview available</p>
+                )}
               </div>
               <div className="flex items-center gap-1 text-indigo-400 text-sm">
                 <Users className="w-4 h-4" />
@@ -88,7 +223,7 @@ export default function KioskPage() {
             </div>
           ))}
 
-          {(!queue?.items || queue.items.length === 0) && (
+          {upNextItems.length === 0 && (
             <div className="text-center text-gray-400 py-8">
               <Music2 className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>No songs in queue</p>
