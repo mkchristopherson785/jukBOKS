@@ -20,6 +20,7 @@ export default function AdminPage() {
   const [playlistUrl, setPlaylistUrl] = useState("");
   const [playlistError, setPlaylistError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [showSettingsPopover, setShowSettingsPopover] = useState(false);
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [announcementName, setAnnouncementName] = useState("");
   const [announcementError, setAnnouncementError] = useState("");
@@ -397,58 +398,92 @@ export default function AdminPage() {
                 </button>
               </div>
               <div className="h-6 w-px bg-white/20 hidden sm:block" />
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1.5">
-                  <label className="text-gray-400 text-sm">Limit:</label>
-                  <select
-                    value={selectedVenue.dailyRequestLimit === 0 ? "unlimited" : selectedVenue.dailyRequestLimit}
-                    onChange={(e) => handleSettingChange("dailyRequestLimit", e.target.value === "unlimited" ? 0 : parseInt(e.target.value))}
-                    className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm focus:outline-none focus:border-indigo-500"
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
-                      <option key={n} value={n} className="bg-gray-900">{n}</option>
-                    ))}
-                    <option value="unlimited" className="bg-gray-900">∞</option>
-                  </select>
-                </div>
+              <div className="relative">
                 <button
-                  onClick={() => handleSettingChange("allowExplicit", !selectedVenue.allowExplicit)}
-                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                    selectedVenue.allowExplicit
-                      ? "bg-green-600/30 text-green-300"
-                      : "bg-red-600/30 text-red-300"
-                  }`}
+                  onClick={() => setShowSettingsPopover(!showSettingsPopover)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
                 >
-                  Explicit: {selectedVenue.allowExplicit ? "On" : "Off"}
+                  <Settings className="w-4 h-4" />
+                  Settings
+                  {listenersData?.count > 0 && (
+                    <span className="flex items-center gap-1 ml-1 text-green-400">
+                      <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                      {listenersData.count}
+                    </span>
+                  )}
                 </button>
-                <button
-                  onClick={() => handleSettingChange("autoApprove", !selectedVenue.autoApprove)}
-                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                    selectedVenue.autoApprove
-                      ? "bg-green-600/30 text-green-300"
-                      : "bg-gray-600/30 text-gray-300"
-                  }`}
-                >
-                  Auto-Approve: {selectedVenue.autoApprove ? "On" : "Off"}
-                </button>
-                <button
-                  onClick={() => handleSettingChange("isActive", !selectedVenue.isActive)}
-                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                    selectedVenue.isActive
-                      ? "bg-green-600/30 text-green-300"
-                      : "bg-gray-600/30 text-gray-300"
-                  }`}
-                >
-                  {selectedVenue.isActive ? "Active" : "Inactive"}
-                </button>
-                {listenersData?.count > 0 ? (
-                  <div className="flex items-center gap-1.5 text-sm">
-                    <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                    <span className="text-green-400 font-semibold">{listenersData.count}</span>
-                    <span className="text-gray-400">listening</span>
-                  </div>
-                ) : (
-                  <span className="text-gray-500 text-sm">0 listening</span>
+                {showSettingsPopover && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowSettingsPopover(false)} 
+                    />
+                    <div className="absolute top-full left-0 mt-2 w-64 bg-gray-900 border border-white/10 rounded-xl shadow-xl z-50 p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <label className="text-gray-400 text-sm">Request Limit</label>
+                        <select
+                          value={selectedVenue.dailyRequestLimit === 0 ? "unlimited" : selectedVenue.dailyRequestLimit}
+                          onChange={(e) => handleSettingChange("dailyRequestLimit", e.target.value === "unlimited" ? 0 : parseInt(e.target.value))}
+                          className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm focus:outline-none focus:border-indigo-500"
+                        >
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                            <option key={n} value={n} className="bg-gray-900">{n}</option>
+                          ))}
+                          <option value="unlimited" className="bg-gray-900">∞</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <label className="text-gray-400 text-sm">Allow Explicit</label>
+                        <button
+                          onClick={() => handleSettingChange("allowExplicit", !selectedVenue.allowExplicit)}
+                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                            selectedVenue.allowExplicit
+                              ? "bg-green-600/30 text-green-300"
+                              : "bg-red-600/30 text-red-300"
+                          }`}
+                        >
+                          {selectedVenue.allowExplicit ? "On" : "Off"}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <label className="text-gray-400 text-sm">Auto-Approve</label>
+                        <button
+                          onClick={() => handleSettingChange("autoApprove", !selectedVenue.autoApprove)}
+                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                            selectedVenue.autoApprove
+                              ? "bg-green-600/30 text-green-300"
+                              : "bg-gray-600/30 text-gray-300"
+                          }`}
+                        >
+                          {selectedVenue.autoApprove ? "On" : "Off"}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <label className="text-gray-400 text-sm">Venue Active</label>
+                        <button
+                          onClick={() => handleSettingChange("isActive", !selectedVenue.isActive)}
+                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                            selectedVenue.isActive
+                              ? "bg-green-600/30 text-green-300"
+                              : "bg-gray-600/30 text-gray-300"
+                          }`}
+                        >
+                          {selectedVenue.isActive ? "On" : "Off"}
+                        </button>
+                      </div>
+                      <div className="border-t border-white/10 pt-3 flex items-center justify-between">
+                        <span className="text-gray-400 text-sm">Listening</span>
+                        {listenersData?.count > 0 ? (
+                          <div className="flex items-center gap-1.5 text-sm">
+                            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                            <span className="text-green-400 font-semibold">{listenersData.count}</span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-500 text-sm">0</span>
+                        )}
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             </>
