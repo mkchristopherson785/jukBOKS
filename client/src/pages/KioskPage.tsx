@@ -356,7 +356,7 @@ export default function KioskPage() {
                 onSkipHandler={(handler) => setSkipHandler(() => handler)}
                 trackName={currentSong?.title}
                 venueCode={code}
-                sonosEnabled={sonosStatus?.enabled && sonosStatus?.connected}
+                sonosEnabled={false}
               />
             </>
           )}

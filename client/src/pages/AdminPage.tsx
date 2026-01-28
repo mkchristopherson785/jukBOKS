@@ -939,76 +939,16 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Sonos Integration */}
-              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6">
+              {/* Sonos Integration - Coming Soon */}
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6 opacity-60">
                 <h3 className="text-xl font-bold text-white flex items-center gap-2 mb-4">
                   <Speaker className="w-5 h-5" />
                   Sonos Speakers
+                  <span className="text-xs bg-indigo-600/50 text-indigo-200 px-2 py-0.5 rounded-full ml-2">Coming Soon</span>
                 </h3>
-                <p className="text-gray-400 text-sm mb-4">
-                  Connect Sonos speakers to play music throughout your venue.
+                <p className="text-gray-400 text-sm">
+                  Connect Sonos speakers to play music throughout your venue. This feature is currently in development.
                 </p>
-                
-                {sonosStatus?.connected ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-green-400">
-                      <Check className="w-5 h-5" />
-                      <span className="font-medium">Connected</span>
-                    </div>
-                    
-                    {sonosStatus.groups && sonosStatus.groups.length > 0 && (
-                      <div className="space-y-2">
-                        <label className="text-gray-400 text-sm">Speaker Group:</label>
-                        <select
-                          value={sonosStatus.groupId || ""}
-                          onChange={(e) => updateSonosMutation.mutate({ groupId: e.target.value })}
-                          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
-                        >
-                          <option value="" className="bg-gray-900">Select a group</option>
-                          {sonosStatus.groups.map((group) => (
-                            <option key={group.id} value={group.id} className="bg-gray-900">
-                              {group.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-300">Enable Sonos playback</span>
-                      <button
-                        onClick={() => updateSonosMutation.mutate({ enabled: !sonosStatus.enabled })}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          sonosStatus.enabled ? 'bg-indigo-600' : 'bg-gray-600'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            sonosStatus.enabled ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                    
-                    <button
-                      onClick={() => disconnectSonosMutation.mutate()}
-                      className="flex items-center gap-2 text-red-400 hover:text-red-300 transition-colors"
-                    >
-                      <Unlink className="w-4 h-4" />
-                      Disconnect Sonos
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <a
-                      href={getSonosConnectUrl(selectedVenue?.code || "")}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
-                    >
-                      <Link2 className="w-4 h-4" />
-                      Connect Sonos
-                    </a>
-                  </div>
-                )}
               </div>
 
               {/* Announcements */}
