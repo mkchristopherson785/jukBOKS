@@ -41,3 +41,8 @@ externalPort = 3001
 deploymentTarget = "autoscale"
 run = ["npm", "run", "start"]
 build = ["npm", "run", "build"]
+
+[userenv]
+
+[userenv.production]
+ALLOW_DEMO_SETUP = "true"
