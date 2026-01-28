@@ -30,7 +30,7 @@ export function useAppleMusic() {
     setIsSearching(true);
     try {
       const response = await fetch(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=20`
+        `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=100`
       );
       const data = await response.json();
 
