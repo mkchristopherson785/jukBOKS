@@ -1,0 +1,311 @@
+/api/apple-music/token:1  Failed to load resource: the server responded with a status of 500 ()Understand this error
+index-D8l4Egqb.js:158 MusicKit configuration failed: Error: Failed to get Apple Music token
+    at index-D8l4Egqb.js:158:38037
+(anonymous) @ index-D8l4Egqb.js:158Understand this error
+6-69iAZl:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+queue:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+now-playing:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+qrcode:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+6-69iAZl:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+qrcode:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+now-playing:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+queue:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+6-69iAZl:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+qrcode:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+now-playing:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+queue:1  Failed to load resource: the server responded with a status of 404 ()Understand this error
+index-D8l4Egqb.js:158  GET https://jukboks.replit.app/api/v1/venues/6-69iAZl 404 (Not Found)
+bh @ index-D8l4Egqb.js:158
+queryFn @ index-D8l4Egqb.js:158
+i @ index-D8l4Egqb.js:40
+k @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40Understand this error
+index-D8l4Egqb.js:158  GET https://jukboks.replit.app/api/v1/venues/6-69iAZl/qrcode 404 (Not Found)
+Mh @ index-D8l4Egqb.js:158
+queryFn @ index-D8l4Egqb.js:158
+i @ index-D8l4Egqb.js:40
+k @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40Understand this error
+index-D8l4Egqb.js:158  GET https://jukboks.replit.app/api/v1/venues/6-69iAZl/queue 404 (Not Found)
+Rh @ index-D8l4Egqb.js:158
+queryFn @ index-D8l4Egqb.js:158
+i @ index-D8l4Egqb.js:40
+k @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40Understand this error
+index-D8l4Egqb.js:158  GET https://jukboks.replit.app/api/v1/venues/6-69iAZl/now-playing 404 (Not Found)
+Ag @ index-D8l4Egqb.js:158
+queryFn @ index-D8l4Egqb.js:158
+i @ index-D8l4Egqb.js:40
+k @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40Understand this error
+index-D8l4Egqb.js:158  GET https://jukboks.replit.app/api/v1/venues/6-69iAZl 404 (Not Found)
+bh @ index-D8l4Egqb.js:158
+queryFn @ index-D8l4Egqb.js:158
+i @ index-D8l4Egqb.js:40
+k @ index-D8l4Egqb.js:40
+start @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40
+Xr @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+setInterval
+setInterval @ index-D8l4Egqb.js:40
+setInterval @ index-D8l4Egqb.js:40
+Uo @ index-D8l4Egqb.js:40
+Qo @ index-D8l4Egqb.js:40
+onQueryUpdate @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+batch @ index-D8l4Egqb.js:40
+mt @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40Understand this error
+index-D8l4Egqb.js:158  GET https://jukboks.replit.app/api/v1/venues/6-69iAZl/qrcode 404 (Not Found)
+Mh @ index-D8l4Egqb.js:158
+queryFn @ index-D8l4Egqb.js:158
+i @ index-D8l4Egqb.js:40
+k @ index-D8l4Egqb.js:40
+start @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40
+Xr @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+setInterval
+setInterval @ index-D8l4Egqb.js:40
+setInterval @ index-D8l4Egqb.js:40
+Uo @ index-D8l4Egqb.js:40
+Qo @ index-D8l4Egqb.js:40
+onQueryUpdate @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+batch @ index-D8l4Egqb.js:40
+mt @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40Understand this error
+index-D8l4Egqb.js:158  GET https://jukboks.replit.app/api/v1/venues/6-69iAZl/queue 404 (Not Found)
+Rh @ index-D8l4Egqb.js:158
+queryFn @ index-D8l4Egqb.js:158
+i @ index-D8l4Egqb.js:40
+k @ index-D8l4Egqb.js:40
+start @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40
+Xr @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+setInterval
+setInterval @ index-D8l4Egqb.js:40
+setInterval @ index-D8l4Egqb.js:40
+Uo @ index-D8l4Egqb.js:40
+Qo @ index-D8l4Egqb.js:40
+onQueryUpdate @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+batch @ index-D8l4Egqb.js:40
+mt @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40Understand this error
+index-D8l4Egqb.js:158  GET https://jukboks.replit.app/api/v1/venues/6-69iAZl/now-playing 404 (Not Found)
+Ag @ index-D8l4Egqb.js:158
+queryFn @ index-D8l4Egqb.js:158
+i @ index-D8l4Egqb.js:40
+k @ index-D8l4Egqb.js:40
+start @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40
+Xr @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+setInterval
+setInterval @ index-D8l4Egqb.js:40
+setInterval @ index-D8l4Egqb.js:40
+Uo @ index-D8l4Egqb.js:40
+Qo @ index-D8l4Egqb.js:40
+onQueryUpdate @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+batch @ index-D8l4Egqb.js:40
+mt @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40Understand this error
+index-D8l4Egqb.js:158  GET https://jukboks.replit.app/api/v1/venues/6-69iAZl 404 (Not Found)
+bh @ index-D8l4Egqb.js:158
+queryFn @ index-D8l4Egqb.js:158
+i @ index-D8l4Egqb.js:40
+k @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.then
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.catch
+k @ index-D8l4Egqb.js:40
+start @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40
+Xr @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+setInterval
+setInterval @ index-D8l4Egqb.js:40
+setInterval @ index-D8l4Egqb.js:40
+Uo @ index-D8l4Egqb.js:40
+Qo @ index-D8l4Egqb.js:40
+onQueryUpdate @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+batch @ index-D8l4Egqb.js:40
+mt @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40Understand this error
+index-D8l4Egqb.js:158  GET https://jukboks.replit.app/api/v1/venues/6-69iAZl/qrcode 404 (Not Found)
+Mh @ index-D8l4Egqb.js:158
+queryFn @ index-D8l4Egqb.js:158
+i @ index-D8l4Egqb.js:40
+k @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.then
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.catch
+k @ index-D8l4Egqb.js:40
+start @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40
+Xr @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+setInterval
+setInterval @ index-D8l4Egqb.js:40
+setInterval @ index-D8l4Egqb.js:40
+Uo @ index-D8l4Egqb.js:40
+Qo @ index-D8l4Egqb.js:40
+onQueryUpdate @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+batch @ index-D8l4Egqb.js:40
+mt @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40Understand this error
+index-D8l4Egqb.js:158  GET https://jukboks.replit.app/api/v1/venues/6-69iAZl/now-playing 404 (Not Found)
+Ag @ index-D8l4Egqb.js:158
+queryFn @ index-D8l4Egqb.js:158
+i @ index-D8l4Egqb.js:40
+k @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.then
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.catch
+k @ index-D8l4Egqb.js:40
+start @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40
+Xr @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+setInterval
+setInterval @ index-D8l4Egqb.js:40
+setInterval @ index-D8l4Egqb.js:40
+Uo @ index-D8l4Egqb.js:40
+Qo @ index-D8l4Egqb.js:40
+onQueryUpdate @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+batch @ index-D8l4Egqb.js:40
+mt @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40Understand this error
+index-D8l4Egqb.js:158  GET https://jukboks.replit.app/api/v1/venues/6-69iAZl/queue 404 (Not Found)
+Rh @ index-D8l4Egqb.js:158
+queryFn @ index-D8l4Egqb.js:158
+i @ index-D8l4Egqb.js:40
+k @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.then
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.catch
+k @ index-D8l4Egqb.js:40
+start @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40
+Xr @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+setInterval
+setInterval @ index-D8l4Egqb.js:40
+setInterval @ index-D8l4Egqb.js:40
+Uo @ index-D8l4Egqb.js:40
+Qo @ index-D8l4Egqb.js:40
+onQueryUpdate @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+batch @ index-D8l4Egqb.js:40
+mt @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40Understand this error
+index-D8l4Egqb.js:158  GET https://jukboks.replit.app/api/v1/venues/6-69iAZl 404 (Not Found)
+bh @ index-D8l4Egqb.js:158
+queryFn @ index-D8l4Egqb.js:158
+i @ index-D8l4Egqb.js:40
+k @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.then
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.catch
+k @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.then
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.catch
+k @ index-D8l4Egqb.js:40
+start @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40
+Xr @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+setInterval
+setInterval @ index-D8l4Egqb.js:40
+setInterval @ index-D8l4Egqb.js:40
+Uo @ index-D8l4Egqb.js:40
+Qo @ index-D8l4Egqb.js:40
+onQueryUpdate @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+batch @ index-D8l4Egqb.js:40
+mt @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40Understand this error
+index-D8l4Egqb.js:158  GET https://jukboks.replit.app/api/v1/venues/6-69iAZl/qrcode 404 (Not Found)
+Mh @ index-D8l4Egqb.js:158
+queryFn @ index-D8l4Egqb.js:158
+i @ index-D8l4Egqb.js:40
+k @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.then
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.catch
+k @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.then
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.catch
+k @ index-D8l4Egqb.js:40
+start @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40
+Xr @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+setInterval
+setInterval @ index-D8l4Egqb.js:40
+setInterval @ index-D8l4Egqb.js:40
+Uo @ index-D8l4Egqb.js:40
+Qo @ index-D8l4Egqb.js:40
+onQueryUpdate @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+batch @ index-D8l4Egqb.js:40
+mt @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40Understand this error
+index-D8l4Egqb.js:158  GET https://jukboks.replit.app/api/v1/venues/6-69iAZl/now-playing 404 (Not Found)
+Ag @ index-D8l4Egqb.js:158
+queryFn @ index-D8l4Egqb.js:158
+i @ index-D8l4Egqb.js:40
+k @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.then
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.catch
+k @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.then
+(anonymous) @ index-D8l4Egqb.js:40
+Promise.catch
+k @ index-D8l4Egqb.js:40
+start @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40
+Xr @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+setInterval
+setInterval @ index-D8l4Egqb.js:40
+setInterval @ index-D8l4Egqb.js:40
+Uo @ index-D8l4Egqb.js:40
+Qo @ index-D8l4Egqb.js:40
+onQueryUpdate @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+(anonymous) @ index-D8l4Egqb.js:40
+batch @ index-D8l4Egqb.js:40
+mt @ index-D8l4Egqb.js:40
+fetch @ index-D8l4Egqb.js:40Understand this error
+index-D8l4Egqb.js:158  GET https://jukboks.replit.app/api/v1/venues/6-69iAZl/queue 404 (Not Found)

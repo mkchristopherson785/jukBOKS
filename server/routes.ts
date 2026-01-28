@@ -13,13 +13,28 @@ function generateAppleMusicToken(): string | null {
   const keyId = process.env.APPLE_KEY_ID;
   const privateKey = process.env.APPLE_MUSIC_PRIVATE_KEY;
 
+  console.log("Apple Music credentials check:", {
+    hasTeamId: !!teamId,
+    hasKeyId: !!keyId,
+    hasPrivateKey: !!privateKey,
+    teamIdLength: teamId?.length,
+    keyIdLength: keyId?.length,
+    privateKeyLength: privateKey?.length,
+  });
+
   if (!teamId || !keyId || !privateKey) {
-    console.error("Missing Apple Music credentials");
+    console.error("Missing Apple Music credentials - teamId:", !!teamId, "keyId:", !!keyId, "privateKey:", !!privateKey);
     return null;
   }
 
   try {
-    const token = jwt.sign({}, privateKey.replace(/\\n/g, '\n'), {
+    // Handle different formats of private key (literal \n vs actual newlines)
+    let formattedKey = privateKey;
+    if (privateKey.includes('\\n')) {
+      formattedKey = privateKey.replace(/\\n/g, '\n');
+    }
+    
+    const token = jwt.sign({}, formattedKey, {
       algorithm: "ES256",
       expiresIn: "180d",
       issuer: teamId,
@@ -28,6 +43,7 @@ function generateAppleMusicToken(): string | null {
         kid: keyId,
       },
     });
+    console.log("Apple Music token generated successfully");
     return token;
   } catch (error) {
     console.error("Failed to generate Apple Music token:", error);
