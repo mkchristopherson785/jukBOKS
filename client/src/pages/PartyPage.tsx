@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Tv, Radio, Pause, AlertCircle } from "lucide-react";
+import { Music2, Radio, Pause, AlertCircle } from "lucide-react";
 import { fetchParty, joinParty, submitRequest, submitVote, registerListener, unregisterListener } from "../lib/api";
 import { SongSearch } from "../components/SongSearch";
 import { QueueList } from "../components/QueueList";
@@ -243,13 +243,6 @@ export default function PartyPage() {
               <p className="text-xs text-gray-400">{party.branding?.organizationName}</p>
             </div>
           </div>
-          <a
-            href={`/kiosk/${party.venue?.code}`}
-            className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
-            title="Kiosk Mode"
-          >
-            <Tv className="w-5 h-5 text-gray-300" />
-          </a>
         </div>
       </header>
 
