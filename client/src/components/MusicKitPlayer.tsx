@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Play, Pause, SkipForward, Volume2, AlertCircle, Music } from "lucide-react";
+import { Play, Pause, SkipForward, Volume2, AlertCircle, Music, Speaker } from "lucide-react";
 import { useMusicKit } from "../hooks/useMusicKit";
+import { sonosPlayTrack, sonosControl } from "../lib/api";
 
 interface MusicKitPlayerProps {
   trackId: string | null;
@@ -10,9 +11,12 @@ interface MusicKitPlayerProps {
   hideControls?: boolean;
   onTogglePlay?: (handler: () => void) => void;
   onSkipHandler?: (handler: () => void) => void;
+  trackName?: string;
+  venueCode?: string;
+  sonosEnabled?: boolean;
 }
 
-export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideControls, onTogglePlay, onSkipHandler }: MusicKitPlayerProps) {
+export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideControls, onTogglePlay, onSkipHandler, trackName, venueCode, sonosEnabled }: MusicKitPlayerProps) {
   const {
     isConfigured,
     isAuthorized,
@@ -28,7 +32,9 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
   const [usePreview, setUsePreview] = useState(false);
   const [previewAudio, setPreviewAudio] = useState<HTMLAudioElement | null>(null);
   const [previewPlaying, setPreviewPlaying] = useState(false);
+  const [sonosPlaying, setSonosPlaying] = useState(false);
   const currentlyPlayingTrackRef = useRef<string | null>(null);
+  const sonosTrackRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (previewUrl && usePreview) {
@@ -65,17 +71,29 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
   }, [musicKit, trackId, onEnded, usePreview]);
 
   useEffect(() => {
-    if (isConfigured && isAuthorized && trackId && !usePreview) {
+    if (sonosEnabled && venueCode && trackId && !usePreview) {
+      if (sonosTrackRef.current !== trackId) {
+        sonosTrackRef.current = trackId;
+        const trackUri = previewUrl || `https://music.apple.com/song/${trackId}`;
+        sonosPlayTrack(venueCode, trackUri, trackName || "Unknown Track")
+          .then(() => setSonosPlaying(true))
+          .catch(console.error);
+      }
+      return;
+    }
+    
+    if (isConfigured && isAuthorized && trackId && !usePreview && !sonosEnabled) {
       if (currentlyPlayingTrackRef.current !== trackId) {
         currentlyPlayingTrackRef.current = trackId;
         playSong(trackId);
       }
     }
-  }, [isConfigured, isAuthorized, trackId, playSong, usePreview]);
+  }, [isConfigured, isAuthorized, trackId, playSong, usePreview, sonosEnabled, venueCode, previewUrl, trackName]);
 
   useEffect(() => {
     if (!trackId) {
       currentlyPlayingTrackRef.current = null;
+      sonosTrackRef.current = null;
     }
   }, [trackId]);
 
@@ -87,6 +105,15 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
   };
 
   const handleTogglePlay = useCallback(() => {
+    if (sonosEnabled && venueCode) {
+      if (sonosPlaying) {
+        sonosControl(venueCode, 'pause').then(() => setSonosPlaying(false)).catch(console.error);
+      } else {
+        sonosControl(venueCode, 'play').then(() => setSonosPlaying(true)).catch(console.error);
+      }
+      return;
+    }
+    
     if (usePreview && previewAudio) {
       if (previewPlaying) {
         previewAudio.pause();
@@ -102,9 +129,15 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
         playSong(trackId);
       }
     }
-  }, [usePreview, previewAudio, previewPlaying, musicKit, isPlaying, pause, playSong, trackId]);
+  }, [usePreview, previewAudio, previewPlaying, musicKit, isPlaying, pause, playSong, trackId, sonosEnabled, venueCode, sonosPlaying]);
 
   const handleSkip = useCallback(() => {
+    if (sonosEnabled && venueCode) {
+      sonosControl(venueCode, 'skipToNextTrack').then(() => setSonosPlaying(false)).catch(console.error);
+      onSkip?.();
+      return;
+    }
+    
     if (usePreview && previewAudio) {
       previewAudio.pause();
       setPreviewPlaying(false);
@@ -112,7 +145,7 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
       stop();
     }
     onSkip?.();
-  }, [usePreview, previewAudio, stop, onSkip]);
+  }, [usePreview, previewAudio, stop, onSkip, sonosEnabled, venueCode]);
 
   useEffect(() => {
     onTogglePlay?.(handleTogglePlay);
@@ -156,7 +189,7 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
     );
   }
 
-  if (!isAuthorized && !usePreview) {
+  if (!isAuthorized && !usePreview && !sonosEnabled) {
     return (
       <div className="flex flex-col items-center gap-3">
         <button
@@ -176,7 +209,7 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
     );
   }
 
-  const currentlyPlaying = usePreview ? previewPlaying : isPlaying;
+  const currentlyPlaying = sonosEnabled ? sonosPlaying : (usePreview ? previewPlaying : isPlaying);
 
   if (hideControls) {
     return null;
@@ -201,9 +234,9 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
         <SkipForward className="w-5 h-5 text-white" />
       </button>
       <div className="flex items-center gap-2 text-white/60">
-        <Volume2 className="w-4 h-4" />
+        {sonosEnabled ? <Speaker className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
         <span className="text-xs">
-          {usePreview ? "Preview Mode" : "Apple Music"}
+          {sonosEnabled ? "Sonos" : (usePreview ? "Preview Mode" : "Apple Music")}
         </span>
       </div>
       {error && (

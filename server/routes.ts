@@ -1760,6 +1760,46 @@ const SONOS_AUTH_URL = "https://api.sonos.com/login/v3/oauth";
 const SONOS_TOKEN_URL = "https://api.sonos.com/login/v3/oauth/access";
 const SONOS_API_URL = "https://api.ws.sonos.com/control/api/v1";
 
+import crypto from "crypto";
+
+function getOAuthStateSecret(): string {
+  const secret = process.env.SESSION_SECRET || process.env.SONOS_CLIENT_SECRET;
+  if (!secret) {
+    throw new Error("OAuth state secret not configured: set SESSION_SECRET or SONOS_CLIENT_SECRET");
+  }
+  return secret;
+}
+
+function signOAuthState(data: { venueCode: string; userId: string; timestamp: number }): string {
+  const payload = JSON.stringify(data);
+  const hmac = crypto.createHmac("sha256", getOAuthStateSecret());
+  hmac.update(payload);
+  const signature = hmac.digest("hex");
+  return Buffer.from(JSON.stringify({ payload, signature })).toString("base64url");
+}
+
+function verifyOAuthState(state: string): { venueCode: string; userId: string; timestamp: number } | null {
+  try {
+    const { payload, signature } = JSON.parse(Buffer.from(state, "base64url").toString());
+    const hmac = crypto.createHmac("sha256", getOAuthStateSecret());
+    hmac.update(payload);
+    const expectedSignature = hmac.digest("hex");
+    
+    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
+      return null;
+    }
+    
+    const data = JSON.parse(payload);
+    if (Date.now() - data.timestamp > 10 * 60 * 1000) {
+      return null;
+    }
+    
+    return data;
+  } catch {
+    return null;
+  }
+}
+
 // Start Sonos OAuth flow for a venue
 router.get("/api/sonos/connect/:venueCode", isAuthenticated, async (req: any, res) => {
   try {
@@ -1791,7 +1831,7 @@ router.get("/api/sonos/connect/:venueCode", isAuthenticated, async (req: any, re
     }
 
     const redirectUri = `${req.protocol}://${req.get('host')}/api/sonos/callback`;
-    const state = Buffer.from(JSON.stringify({ venueCode, userId })).toString('base64');
+    const state = signOAuthState({ venueCode, userId, timestamp: Date.now() });
 
     const authUrl = `${SONOS_AUTH_URL}?` + new URLSearchParams({
       client_id: clientId,
@@ -1822,18 +1862,27 @@ router.get("/api/sonos/callback", async (req, res) => {
       return res.redirect("/admin?sonos_error=missing_params");
     }
 
-    // Decode state to get venue code
-    let stateData: { venueCode: string; userId: string };
-    try {
-      stateData = JSON.parse(Buffer.from(state as string, 'base64').toString());
-    } catch {
+    const stateData = verifyOAuthState(state as string);
+    if (!stateData) {
       return res.redirect("/admin?sonos_error=invalid_state");
     }
 
-    const { venueCode } = stateData;
+    const { venueCode, userId } = stateData;
     const venue = await storage.getVenueByCode(venueCode);
     if (!venue) {
       return res.redirect("/admin?sonos_error=venue_not_found");
+    }
+
+    const org = await storage.getOrganization(venue.organizationId);
+    if (!org) {
+      return res.redirect("/admin?sonos_error=org_not_found");
+    }
+    
+    const isOwner = org.ownerId === userId;
+    const memberOrgs = await storage.getOrganizationsByMemberAuthId(userId);
+    const isMember = memberOrgs.some(o => o.id === org.id);
+    if (!isOwner && !isMember) {
+      return res.redirect("/admin?sonos_error=forbidden");
     }
 
     // Exchange code for tokens

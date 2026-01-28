@@ -1,7 +1,7 @@
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, ThumbsUp, Play, User, Radio, Volume2, Maximize, Minimize } from "lucide-react";
-import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnouncement, markAnnouncementPlayed, markSongFinished } from "../lib/api";
+import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnouncement, markAnnouncementPlayed, markSongFinished, fetchSonosStatus } from "../lib/api";
 import { MusicKitPlayer } from "../components/MusicKitPlayer";
 import { useState, useEffect, useCallback } from "react";
 
@@ -76,6 +76,13 @@ export default function KioskPage() {
     queryFn: () => fetchQRCode(code!),
     enabled: !!code,
     staleTime: 1000 * 60 * 60,
+  });
+
+  const { data: sonosStatus } = useQuery({
+    queryKey: ["sonos-kiosk", code],
+    queryFn: () => fetchSonosStatus(code!),
+    enabled: !!code,
+    retry: false,
   });
 
   const playNextMutation = useMutation({
@@ -344,6 +351,9 @@ export default function KioskPage() {
                 hideControls
                 onTogglePlay={(handler) => setTogglePlayHandler(() => handler)}
                 onSkipHandler={(handler) => setSkipHandler(() => handler)}
+                trackName={currentSong?.title}
+                venueCode={code}
+                sonosEnabled={sonosStatus?.enabled && sonosStatus?.connected}
               />
             </>
           )}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X, Copy, Check, Radio, Volume2, Upload, SkipForward, History, Ban, Palette } from "lucide-react";
-import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, deleteVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchListeners, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, skipSong, fetchPlayHistory, fetchBannedSongs, banSong, unbanSong, fetchMyOrganization, updateOrganization, type Announcement } from "../lib/api";
+import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X, Copy, Check, Radio, Volume2, Upload, SkipForward, History, Ban, Palette, Speaker, Link2, Unlink } from "lucide-react";
+import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, deleteVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchListeners, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, skipSong, fetchPlayHistory, fetchBannedSongs, banSong, unbanSong, fetchMyOrganization, updateOrganization, fetchSonosStatus, updateSonosSettings, disconnectSonos, getSonosConnectUrl, type Announcement, type SonosStatus } from "../lib/api";
 import { useUpload } from "../hooks/use-upload";
 import { QueueList } from "../components/QueueList";
 import { useAuth } from "../hooks/use-auth";
@@ -181,6 +181,27 @@ export default function AdminPage() {
     queryKey: ["bannedSongs", selectedVenue?.id],
     queryFn: () => fetchBannedSongs(selectedVenue?.id!),
     enabled: !!selectedVenue?.id,
+  });
+
+  const { data: sonosStatus } = useQuery({
+    queryKey: ["sonos", selectedVenue?.code],
+    queryFn: () => fetchSonosStatus(selectedVenue?.code!),
+    enabled: !!selectedVenue?.code,
+    retry: false,
+  });
+
+  const updateSonosMutation = useMutation({
+    mutationFn: (data: { groupId?: string; enabled?: boolean }) => updateSonosSettings(selectedVenue?.code!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sonos", selectedVenue?.code] });
+    },
+  });
+
+  const disconnectSonosMutation = useMutation({
+    mutationFn: () => disconnectSonos(selectedVenue?.code!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sonos", selectedVenue?.code] });
+    },
   });
 
   const banSongMutation = useMutation({
@@ -778,6 +799,78 @@ export default function AdminPage() {
                               </div>
                             ))}
                           </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sonos Integration */}
+                    <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
+                      <h3 className="text-md font-bold text-white flex items-center gap-2 mb-3">
+                        <Speaker className="w-4 h-4" />
+                        Sonos
+                      </h3>
+                      
+                      {sonosStatus?.connected ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 text-green-400 text-sm">
+                            <Check className="w-4 h-4" />
+                            <span>Connected</span>
+                          </div>
+                          
+                          {sonosStatus.groups && sonosStatus.groups.length > 0 && (
+                            <div className="space-y-2">
+                              <label className="text-gray-400 text-xs">Speaker Group:</label>
+                              <select
+                                value={sonosStatus.groupId || ""}
+                                onChange={(e) => updateSonosMutation.mutate({ groupId: e.target.value })}
+                                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded text-white text-sm focus:outline-none focus:border-indigo-500"
+                              >
+                                <option value="" className="bg-gray-900">Select a group</option>
+                                {sonosStatus.groups.map((group) => (
+                                  <option key={group.id} value={group.id} className="bg-gray-900">
+                                    {group.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-400 text-sm">Enable Sonos playback</span>
+                            <button
+                              onClick={() => updateSonosMutation.mutate({ enabled: !sonosStatus.enabled })}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                sonosStatus.enabled ? 'bg-indigo-600' : 'bg-gray-600'
+                              }`}
+                            >
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                  sonosStatus.enabled ? 'translate-x-6' : 'translate-x-1'
+                                }`}
+                              />
+                            </button>
+                          </div>
+                          
+                          <button
+                            onClick={() => disconnectSonosMutation.mutate()}
+                            className="flex items-center gap-2 text-red-400 hover:text-red-300 text-sm transition-colors"
+                          >
+                            <Unlink className="w-3 h-3" />
+                            Disconnect
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <p className="text-gray-400 text-sm">
+                            Connect Sonos to play music on your speakers.
+                          </p>
+                          <a
+                            href={getSonosConnectUrl(selectedVenue?.code || "")}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded transition-colors"
+                          >
+                            <Link2 className="w-4 h-4" />
+                            Connect Sonos
+                          </a>
                         </div>
                       )}
                     </div>

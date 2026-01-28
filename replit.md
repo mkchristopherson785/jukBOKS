@@ -5,6 +5,7 @@ Jukboks is a standalone SaaS platform that enables businesses (bars, restaurants
 
 ## Key Features
 - **Apple Music Integration**: Full MusicKit JS integration for song search and playback
+- **Sonos Integration**: Control Sonos speakers for venue playback via OAuth 2.0
 - **Unified Queue**: Mix of user requests and auto-play songs from backup playlists
 - **QR Code Party Access**: Guests scan a QR code to join and request songs without accounts
 - **Kiosk Display Mode**: TV/display-friendly "Now Playing" screen
@@ -141,3 +142,26 @@ Key components:
 - `MusicKitPlayer` component - Unified player with Apple Music streaming and preview fallback
 
 If a user doesn't have Apple Music, the player falls back to 30-second iTunes previews.
+
+## Sonos Integration
+Venues can connect Sonos speakers for playback instead of using the browser's audio. Uses OAuth 2.0 flow.
+
+**Environment Variables:**
+- `SONOS_CLIENT_ID` - Sonos Developer client ID
+- `SONOS_CLIENT_SECRET` - Sonos Developer client secret
+
+**Database Fields (venues table):**
+- `sonosEnabled` - Whether Sonos playback is enabled for this venue
+- `sonosAccessToken` / `sonosRefreshToken` - OAuth tokens
+- `sonosTokenExpiresAt` - Token expiration timestamp
+- `sonosHouseholdId` - Connected Sonos household
+- `sonosGroupId` / `sonosGroupName` - Selected speaker group
+
+**API Endpoints:**
+- `GET /api/sonos/connect/:venueCode` - Start OAuth flow
+- `GET /api/sonos/callback` - Handle OAuth callback
+- `GET /api/venues/:code/sonos` - Get Sonos status and available groups
+- `PATCH /api/venues/:code/sonos` - Update Sonos settings (groupId, enabled)
+- `DELETE /api/venues/:code/sonos` - Disconnect Sonos
+- `POST /api/venues/:code/sonos/play` - Play a track on Sonos
+- `POST /api/venues/:code/sonos/control` - Control playback (play/pause/skip)

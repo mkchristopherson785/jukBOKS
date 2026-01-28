@@ -409,3 +409,25 @@ export async function disconnectSonos(venueCode: string) {
 export function getSonosConnectUrl(venueCode: string): string {
   return `${API_BASE}/api/sonos/connect/${venueCode}`;
 }
+
+export async function sonosPlayTrack(venueCode: string, trackUri: string, trackName: string) {
+  const res = await fetch(`${API_BASE}/api/venues/${venueCode}/sonos/play`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ trackUri, trackName }),
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function sonosControl(venueCode: string, action: 'play' | 'pause' | 'skipToNextTrack') {
+  const res = await fetch(`${API_BASE}/api/venues/${venueCode}/sonos/control`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ action }),
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
