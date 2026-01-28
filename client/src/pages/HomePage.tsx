@@ -28,7 +28,7 @@ export default function HomePage() {
       <header className="border-b border-white/10 backdrop-blur-lg bg-black/20">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center">
-            <img src="/assets/logo-full.png" alt="Jukboks" className="h-10" />
+            <img src="/assets/logo-full.png" alt="Jukboks" className="h-12" />
           </div>
           <div className="flex items-center gap-4">
             {authLoading ? (

@@ -170,7 +170,7 @@ export default function PartyPage() {
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-white/10 backdrop-blur-lg rounded-3xl border border-white/20 p-8">
           <div className="flex items-center mb-6">
-            <img src="/assets/logo-full.png" alt="Jukboks" className="h-12" />
+            <img src="/assets/logo-full.png" alt="Jukboks" className="h-14" />
           </div>
 
           <h2 className="text-2xl font-bold text-white mb-2">Join the Party</h2>
