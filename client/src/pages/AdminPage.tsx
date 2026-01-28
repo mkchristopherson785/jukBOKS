@@ -625,9 +625,9 @@ export default function AdminPage() {
             {selectedVenue && (
               <div className="lg:col-span-3 space-y-4">
                 {/* Main Content: Queue + Sidebar (Playlists + Announcements) */}
-                <div className="grid lg:grid-cols-3 gap-4" style={{ height: 'calc(100vh - 200px)' }}>
+                <div className="grid lg:grid-cols-3 gap-4" style={{ maxHeight: 'calc(100vh - 280px)', minHeight: '400px' }}>
                   {/* Queue - Takes 2 columns */}
-                  <div className="lg:col-span-2 bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 flex flex-col">
+                  <div className="lg:col-span-2 bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 flex flex-col overflow-hidden">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-lg font-bold text-white">Queue ({queue?.items?.length || 0})</h3>
                       {queue?.items?.[0] && (
@@ -648,9 +648,9 @@ export default function AdminPage() {
                   </div>
 
                   {/* Right Sidebar - Play History */}
-                  <div className="flex flex-col">
+                  <div className="flex flex-col overflow-hidden">
                     {/* Play History & Banned Songs */}
-                    <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 flex flex-col flex-1">
+                    <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 flex flex-col flex-1 overflow-hidden">
                       <h3 className="text-md font-bold text-white flex items-center gap-2 mb-3">
                         <History className="w-4 h-4" />
                         Recent Plays
