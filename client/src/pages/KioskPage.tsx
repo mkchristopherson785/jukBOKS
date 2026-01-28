@@ -13,6 +13,7 @@ export default function KioskPage() {
   const [currentSong, setCurrentSong] = useState<any>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
 
   const { data: venue } = useQuery({
     queryKey: ["venue", code],
@@ -69,6 +70,24 @@ export default function KioskPage() {
     },
   });
 
+  const triggerAutoPlay = useCallback(async () => {
+    if (isAutoPlaying) return;
+    setIsAutoPlaying(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/venues/${code}/auto-play`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        await refetchQueue();
+      }
+    } catch (error) {
+      console.error("Auto-play error:", error);
+    } finally {
+      // Add a small delay before allowing next auto-play attempt
+      setTimeout(() => setIsAutoPlaying(false), 3000);
+    }
+  }, [code, refetchQueue, isAutoPlaying]);
+
   const playNextSong = useCallback(() => {
     if (isTransitioning || !queue?.items) return;
     
@@ -83,18 +102,31 @@ export default function KioskPage() {
       const nextSong = playableItems[0];
       setCurrentSong(nextSong);
       playNextMutation.mutate(nextSong.id);
+    } else {
+      // Queue is empty, try to get a song from backup playlists
+      triggerAutoPlay();
     }
-  }, [queue?.items, isTransitioning, playNextMutation]);
+  }, [queue?.items, isTransitioning, playNextMutation, triggerAutoPlay]);
 
   useEffect(() => {
     if (!isStarted) return;
-    if (!currentSong && !isTransitioning && queue?.items?.length > 0) {
-      const hasPlayingSong = queue.items.some((item: any) => item.status === "playing");
+    if (!currentSong && !isTransitioning) {
+      const playableItems = queue?.items?.filter((item: any) => 
+        (item.status === "approved" || item.status === "pending") && 
+        (item.previewUrl || item.trackId)
+      ) || [];
+      const hasPlayingSong = queue?.items?.some((item: any) => item.status === "playing");
+      
       if (!hasPlayingSong) {
-        playNextSong();
+        if (playableItems.length > 0) {
+          playNextSong();
+        } else {
+          // Queue is empty, trigger auto-play
+          triggerAutoPlay();
+        }
       }
     }
-  }, [queue?.items, currentSong, isTransitioning, playNextSong, isStarted]);
+  }, [queue?.items, currentSong, isTransitioning, playNextSong, isStarted, triggerAutoPlay]);
 
   const handleSongEnded = useCallback(() => {
     if (currentSong) {

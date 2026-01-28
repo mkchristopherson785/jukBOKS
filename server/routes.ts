@@ -689,6 +689,74 @@ router.get("/api/v1/venues/:code/backup-playlists", async (req: Request, res: Re
   }
 });
 
+// Get a random song from a random backup playlist for auto-play
+router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const playlists = await storage.getBackupPlaylistsByVenue(venue.id);
+    if (playlists.length === 0) {
+      return res.status(404).json({ error: "NO_PLAYLISTS", message: "No backup playlists configured" });
+    }
+
+    // Pick a random playlist
+    const randomPlaylist = playlists[Math.floor(Math.random() * playlists.length)];
+    
+    const token = await getAppleMusicToken();
+    if (!token) {
+      return res.status(500).json({ error: "TOKEN_ERROR", message: "Could not get Apple Music token" });
+    }
+
+    // Fetch tracks from the playlist
+    const response = await fetch(
+      `https://api.music.apple.com/v1/catalog/us/playlists/${randomPlaylist.applePlaylistId}?include=tracks`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      return res.status(500).json({ error: "APPLE_ERROR", message: "Could not fetch playlist tracks" });
+    }
+
+    const data = await response.json();
+    const tracks = data.data?.[0]?.relationships?.tracks?.data || [];
+    
+    if (tracks.length === 0) {
+      return res.status(404).json({ error: "NO_TRACKS", message: "Playlist has no tracks" });
+    }
+
+    // Pick a random track
+    const randomTrack = tracks[Math.floor(Math.random() * tracks.length)];
+    const attrs = randomTrack.attributes;
+
+    // Create a request for the random song
+    const request = await storage.createRequest({
+      venueId: venue.id,
+      trackId: randomTrack.id,
+      title: attrs.name,
+      artist: attrs.artistName,
+      album: attrs.albumName || "",
+      albumCover: attrs.artwork?.url?.replace("{w}x{h}", "300x300") || "",
+      previewUrl: attrs.previews?.[0]?.url || "",
+      duration: attrs.durationInMillis || 0,
+      isExplicit: attrs.contentRating === "explicit",
+      isAutoPlay: true,
+      status: "approved",
+    });
+
+    res.json({ success: true, request, source: "backup_playlist", playlistName: randomPlaylist.name });
+  } catch (error) {
+    console.error("Auto-play error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
 router.post("/api/v1/venues/:code/backup-playlists", async (req: Request, res: Response) => {
   try {
     const apiKey = req.headers["x-jukboks-api-key"] as string;
