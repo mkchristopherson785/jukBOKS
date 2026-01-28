@@ -414,9 +414,8 @@ export function getSonosConnectUrl(venueCode: string): string {
 
 export async function sonosPlayTrack(
   venueCode: string, 
-  trackUri: string | undefined, 
-  trackName: string,
-  trackId?: string,
+  trackId: string,
+  trackName?: string,
   artist?: string,
   album?: string
 ) {
@@ -424,7 +423,7 @@ export async function sonosPlayTrack(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ trackUri, trackName, trackId, artist, album }),
+    body: JSON.stringify({ trackId, trackName, artist, album }),
   });
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
   return res.json();

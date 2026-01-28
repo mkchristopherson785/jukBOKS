@@ -74,8 +74,8 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
     if (sonosEnabled && venueCode && trackId && !usePreview) {
       if (sonosTrackRef.current !== trackId) {
         sonosTrackRef.current = trackId;
-        // Pass both the preview URL and trackId - server will try Apple Music first, fallback to preview
-        sonosPlayTrack(venueCode, previewUrl, trackName || "Unknown Track", trackId)
+        // Play full Apple Music track on Sonos (requires Apple Music linked to Sonos)
+        sonosPlayTrack(venueCode, trackId, trackName || "Unknown Track")
           .then(() => setSonosPlaying(true))
           .catch((err) => {
             console.error("Sonos playback failed:", err);
