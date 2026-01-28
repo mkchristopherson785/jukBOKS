@@ -726,15 +726,38 @@ router.get("/api/me/organization", isAuthenticated, async (req: any, res) => {
   }
 });
 
+// Helper to get user's organization (as owner or member)
+async function getUserOrganization(userId: string, userEmail: string) {
+  let org = await storage.getOrganizationByOwnerId(userId);
+  if (org) return { org, isOwner: true };
+  
+  const memberOrgs = await storage.getOrganizationsByMemberAuthId(userId);
+  if (memberOrgs.length > 0) {
+    return { org: memberOrgs[0], isOwner: false };
+  }
+  
+  const emailOrgs = await storage.getOrganizationsByMemberEmail(userEmail);
+  if (emailOrgs.length > 0) {
+    const member = await storage.getOrganizationMemberByEmail(emailOrgs[0].id, userEmail);
+    if (member && !member.authUserId) {
+      await storage.updateOrganizationMember(member.id, { authUserId: userId, joinedAt: new Date() });
+    }
+    return { org: emailOrgs[0], isOwner: false };
+  }
+  
+  return { org: null, isOwner: false };
+}
+
 // Get user's venues
 router.get("/api/me/venues", isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const org = await storage.getOrganizationByOwnerId(userId);
+    const { org } = await getUserOrganization(userId, userEmail);
     if (!org) {
       return res.json([]);
     }
@@ -751,14 +774,15 @@ router.get("/api/me/venues", isAuthenticated, async (req: any, res) => {
 router.post("/api/me/venues", isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    // Get or create organization
-    let org = await storage.getOrganizationByOwnerId(userId);
+    // Get user's organization (as owner or member)
+    let { org } = await getUserOrganization(userId, userEmail);
     if (!org) {
-      const userEmail = req.user?.claims?.email || "";
+      // Create a new organization for this user
       const userName = req.user?.claims?.first_name || userEmail.split("@")[0] || "My";
       const slug = `${userName.toLowerCase().replace(/[^a-z0-9]/g, "-")}-${nanoid(6)}`;
       
@@ -811,11 +835,12 @@ router.post("/api/me/venues", isAuthenticated, async (req: any, res) => {
 router.patch("/api/me/venues/:venueId", isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const org = await storage.getOrganizationByOwnerId(userId);
+    const { org } = await getUserOrganization(userId, userEmail);
     if (!org) {
       return res.status(404).json({ error: "NOT_FOUND", message: "Organization not found" });
     }
@@ -843,32 +868,6 @@ router.patch("/api/me/venues/:venueId", isAuthenticated, async (req: any, res) =
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }
 });
-
-// Helper to get user's organization (as owner or member)
-async function getUserOrganization(userId: string, userEmail: string) {
-  // First check if user owns an organization
-  let org = await storage.getOrganizationByOwnerId(userId);
-  if (org) return { org, isOwner: true };
-  
-  // Check if user is a member of any organization
-  const memberOrgs = await storage.getOrganizationsByMemberAuthId(userId);
-  if (memberOrgs.length > 0) {
-    return { org: memberOrgs[0], isOwner: false };
-  }
-  
-  // Check by email for pending invitations
-  const emailOrgs = await storage.getOrganizationsByMemberEmail(userEmail);
-  if (emailOrgs.length > 0) {
-    // Update the member record with the auth user ID
-    const member = await storage.getOrganizationMemberByEmail(emailOrgs[0].id, userEmail);
-    if (member && !member.authUserId) {
-      await storage.updateOrganizationMember(member.id, { authUserId: userId, joinedAt: new Date() });
-    }
-    return { org: emailOrgs[0], isOwner: false };
-  }
-  
-  return { org: null, isOwner: false };
-}
 
 // Get team members
 router.get("/api/me/team", isAuthenticated, async (req: any, res) => {
