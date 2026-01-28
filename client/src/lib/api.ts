@@ -164,7 +164,8 @@ export async function fetchBackupPlaylists(venueCode: string) {
     credentials: "include",
   });
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
-  return res.json();
+  const data = await res.json();
+  return data.playlists || [];
 }
 
 export async function addBackupPlaylist(venueCode: string, playlistUrl: string) {
