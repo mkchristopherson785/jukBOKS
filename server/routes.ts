@@ -150,7 +150,9 @@ router.get("/api/v1/venues/:code/queue", async (req: Request, res: Response) => 
         previewUrl: item.previewUrl,
         requesterName: item.requesterName,
         isAutoPlay: item.isAutoPlay,
-        voteCount: item.voteCount,
+        upvotes: item.upvotes,
+        downvotes: item.downvotes,
+        netVotes: item.netVotes,
         status: item.status,
       })),
     });
@@ -272,6 +274,14 @@ router.post("/api/v1/venues/:code/request", async (req: Request, res: Response) 
       return res.status(400).json({ error: "EXPLICIT_NOT_ALLOWED", message: "This venue does not allow explicit content" });
     }
 
+    const wasPlayedRecently = await storage.wasTrackPlayedRecently(venue.id, trackId, 2);
+    if (wasPlayedRecently) {
+      return res.status(400).json({ 
+        error: "SONG_PLAYED_RECENTLY", 
+        message: "This song was played in the last 2 hours. Please choose a different song." 
+      });
+    }
+
     const requestData: InsertRequest = {
       venueId: venue.id,
       trackId,
@@ -318,10 +328,14 @@ router.post("/api/v1/venues/:code/vote", async (req: Request, res: Response) => 
   try {
     const apiKey = req.headers["x-jukboks-api-key"] as string;
     const guestToken = req.headers["x-guest-token"] as string;
-    const { requestId } = req.body;
+    const { requestId, voteType = "up" } = req.body;
 
     if (!requestId || typeof requestId !== "number") {
       return res.status(400).json({ error: "INVALID_REQUEST", message: "requestId is required" });
+    }
+
+    if (voteType !== "up" && voteType !== "down") {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "voteType must be 'up' or 'down'" });
     }
 
     const songRequest = await storage.getRequest(requestId);
@@ -345,23 +359,41 @@ router.post("/api/v1/venues/:code/vote", async (req: Request, res: Response) => 
       return res.status(403).json({ error: "FORBIDDEN", message: "API key not authorized for this venue" });
     }
 
-    let voteData: InsertVote = { requestId };
-
     if (guest) {
-      const hasVoted = await storage.hasVoted(requestId, undefined, guest.id);
-      if (hasVoted) {
-        return res.status(400).json({ error: "ALREADY_VOTED", message: "You have already voted for this song" });
+      const existingVoteType = await storage.getVoteType(requestId, undefined, guest.id);
+      
+      if (existingVoteType) {
+        if (existingVoteType === voteType) {
+          await storage.removeVote(requestId, undefined, guest.id);
+          const votes = await storage.getVotesByRequest(requestId);
+          const upvotes = votes.filter(v => v.voteType === "up").length;
+          const downvotes = votes.filter(v => v.voteType === "down").length;
+          return res.json({ success: true, upvotes, downvotes, netVotes: upvotes - downvotes, action: "removed" });
+        } else {
+          await storage.updateVoteType(requestId, voteType, undefined, guest.id);
+          const votes = await storage.getVotesByRequest(requestId);
+          const upvotes = votes.filter(v => v.voteType === "up").length;
+          const downvotes = votes.filter(v => v.voteType === "down").length;
+          return res.json({ success: true, upvotes, downvotes, netVotes: upvotes - downvotes, action: "changed" });
+        }
       }
-      voteData.guestId = guest.id;
+      
+      await storage.createVote({ requestId, guestId: guest.id, voteType });
       await storage.updateGuest(guest.id, { lastActiveAt: new Date() });
+    } else {
+      await storage.createVote({ requestId, voteType });
     }
 
-    await storage.createVote(voteData);
     const votes = await storage.getVotesByRequest(requestId);
+    const upvotes = votes.filter(v => v.voteType === "up").length;
+    const downvotes = votes.filter(v => v.voteType === "down").length;
 
     res.json({
       success: true,
-      voteCount: votes.length,
+      upvotes,
+      downvotes,
+      netVotes: upvotes - downvotes,
+      action: "added",
     });
   } catch (error) {
     console.error("Vote error:", error);
@@ -408,7 +440,9 @@ router.get("/api/v1/party/:partyCode", async (req: Request, res: Response) => {
         title: item.title,
         artist: item.artist,
         albumCover: item.albumCover,
-        voteCount: item.voteCount,
+        upvotes: item.upvotes,
+        downvotes: item.downvotes,
+        netVotes: item.netVotes,
       })),
     });
   } catch (error) {
@@ -540,6 +574,115 @@ router.post("/api/setup/demo", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Setup error:", error);
     res.status(500).json({ error: "SERVER_ERROR", message: "Failed to setup demo" });
+  }
+});
+
+router.patch("/api/v1/venues/:code/settings", async (req: Request, res: Response) => {
+  try {
+    const apiKey = req.headers["x-jukboks-api-key"] as string;
+    
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const org = apiKey ? await validateApiKey(apiKey) : null;
+    if (!org || org.id !== venue.organizationId) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "API key not authorized for this venue" });
+    }
+
+    const { allowExplicit, dailyRequestLimit, autoApprove, autoPlayEnabled } = req.body;
+    
+    const updates: Partial<typeof venue> = {};
+    if (typeof allowExplicit === "boolean") updates.allowExplicit = allowExplicit;
+    if (typeof autoApprove === "boolean") updates.autoApprove = autoApprove;
+    if (typeof autoPlayEnabled === "boolean") updates.autoPlayEnabled = autoPlayEnabled;
+    if (typeof dailyRequestLimit === "number" && dailyRequestLimit >= 0 && dailyRequestLimit <= 100) {
+      updates.dailyRequestLimit = dailyRequestLimit;
+    }
+
+    const updated = await storage.updateVenue(venue.id, updates);
+    res.json({ success: true, venue: updated });
+  } catch (error) {
+    console.error("Settings update error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+router.get("/api/v1/venues/:code/backup-playlists", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const playlists = await storage.getBackupPlaylistsByVenue(venue.id);
+    res.json({ playlists });
+  } catch (error) {
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+router.post("/api/v1/venues/:code/backup-playlists", async (req: Request, res: Response) => {
+  try {
+    const apiKey = req.headers["x-jukboks-api-key"] as string;
+    
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const org = apiKey ? await validateApiKey(apiKey) : null;
+    if (!org || org.id !== venue.organizationId) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "API key not authorized for this venue" });
+    }
+
+    const count = await storage.getBackupPlaylistCount(venue.id);
+    if (count >= 10) {
+      return res.status(400).json({ error: "MAX_PLAYLISTS_REACHED", message: "Maximum of 10 backup playlists allowed" });
+    }
+
+    const { name, applePlaylistId, trackCount, artworkUrl } = req.body;
+    if (!name || !applePlaylistId) {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "name and applePlaylistId are required" });
+    }
+
+    const playlist = await storage.createBackupPlaylist({
+      venueId: venue.id,
+      name,
+      applePlaylistId,
+      trackCount: trackCount || 0,
+      artworkUrl,
+      position: count,
+    });
+
+    res.json({ success: true, playlist });
+  } catch (error) {
+    console.error("Add playlist error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+router.delete("/api/v1/venues/:code/backup-playlists/:playlistId", async (req: Request, res: Response) => {
+  try {
+    const apiKey = req.headers["x-jukboks-api-key"] as string;
+    
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const org = apiKey ? await validateApiKey(apiKey) : null;
+    if (!org || org.id !== venue.organizationId) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "API key not authorized for this venue" });
+    }
+
+    const playlistId = parseInt(req.params.playlistId);
+    await storage.deleteBackupPlaylist(playlistId);
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }
 });
 

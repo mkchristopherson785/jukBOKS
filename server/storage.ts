@@ -1,7 +1,7 @@
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, gte, asc } from "drizzle-orm";
 import { db } from "./db";
 import {
-  organizations, users, venues, requests, votes, partySessions, guests,
+  organizations, users, venues, requests, votes, partySessions, guests, backupPlaylists,
   type Organization, type InsertOrganization,
   type User, type InsertUser,
   type Venue, type InsertVenue,
@@ -9,7 +9,14 @@ import {
   type Vote, type InsertVote,
   type PartySession, type InsertPartySession,
   type Guest, type InsertGuest,
+  type BackupPlaylist, type InsertBackupPlaylist,
 } from "../shared/schema";
+
+export interface QueueItemWithVotes extends Request {
+  upvotes: number;
+  downvotes: number;
+  netVotes: number;
+}
 
 export interface IStorage {
   createOrganization(data: InsertOrganization): Promise<Organization>;
@@ -30,12 +37,15 @@ export interface IStorage {
   createRequest(data: InsertRequest): Promise<Request>;
   getRequest(id: number): Promise<Request | undefined>;
   getRequestsByVenue(venueId: number, status?: string): Promise<Request[]>;
-  getQueueWithVotes(venueId: number): Promise<(Request & { voteCount: number })[]>;
+  getQueueWithVotes(venueId: number): Promise<QueueItemWithVotes[]>;
   updateRequest(id: number, data: Partial<Request>): Promise<Request | undefined>;
+  wasTrackPlayedRecently(venueId: number, trackId: string, hoursAgo: number): Promise<boolean>;
   
   createVote(data: InsertVote): Promise<Vote>;
   getVotesByRequest(requestId: number): Promise<Vote[]>;
   hasVoted(requestId: number, userId?: number, guestId?: number): Promise<boolean>;
+  getVoteType(requestId: number, userId?: number, guestId?: number): Promise<string | null>;
+  updateVoteType(requestId: number, voteType: string, userId?: number, guestId?: number): Promise<boolean>;
   removeVote(requestId: number, userId?: number, guestId?: number): Promise<boolean>;
   
   createPartySession(data: InsertPartySession): Promise<PartySession>;
@@ -46,6 +56,11 @@ export interface IStorage {
   createGuest(data: InsertGuest): Promise<Guest>;
   getGuestByToken(token: string): Promise<Guest | undefined>;
   updateGuest(id: number, data: Partial<Guest>): Promise<Guest | undefined>;
+  
+  createBackupPlaylist(data: InsertBackupPlaylist): Promise<BackupPlaylist>;
+  getBackupPlaylistsByVenue(venueId: number): Promise<BackupPlaylist[]>;
+  deleteBackupPlaylist(id: number): Promise<boolean>;
+  getBackupPlaylistCount(venueId: number): Promise<number>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -125,11 +140,12 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(requests).where(eq(requests.venueId, venueId));
   }
 
-  async getQueueWithVotes(venueId: number): Promise<(Request & { voteCount: number })[]> {
+  async getQueueWithVotes(venueId: number): Promise<QueueItemWithVotes[]> {
     const result = await db
       .select({
         request: requests,
-        voteCount: sql<number>`COALESCE(COUNT(${votes.id}), 0)::int`,
+        upvotes: sql<number>`COALESCE(SUM(CASE WHEN ${votes.voteType} = 'up' THEN 1 ELSE 0 END), 0)::int`,
+        downvotes: sql<number>`COALESCE(SUM(CASE WHEN ${votes.voteType} = 'down' THEN 1 ELSE 0 END), 0)::int`,
       })
       .from(requests)
       .leftJoin(votes, eq(requests.id, votes.requestId))
@@ -138,9 +154,32 @@ export class DatabaseStorage implements IStorage {
         sql`${requests.status} IN ('pending', 'approved')`
       ))
       .groupBy(requests.id)
-      .orderBy(desc(sql`COALESCE(COUNT(${votes.id}), 0)`), requests.requestedAt);
+      .orderBy(
+        desc(sql`COALESCE(SUM(CASE WHEN ${votes.voteType} = 'up' THEN 1 ELSE 0 END), 0) - COALESCE(SUM(CASE WHEN ${votes.voteType} = 'down' THEN 1 ELSE 0 END), 0)`),
+        requests.requestedAt
+      );
 
-    return result.map(r => ({ ...r.request, voteCount: r.voteCount }));
+    return result.map(r => ({ 
+      ...r.request, 
+      upvotes: r.upvotes,
+      downvotes: r.downvotes,
+      netVotes: r.upvotes - r.downvotes,
+    }));
+  }
+
+  async wasTrackPlayedRecently(venueId: number, trackId: string, hoursAgo: number): Promise<boolean> {
+    const cutoffTime = new Date(Date.now() - hoursAgo * 60 * 60 * 1000);
+    const [result] = await db
+      .select()
+      .from(requests)
+      .where(and(
+        eq(requests.venueId, venueId),
+        eq(requests.trackId, trackId),
+        eq(requests.status, 'played'),
+        gte(requests.playedAt, cutoffTime)
+      ))
+      .limit(1);
+    return !!result;
   }
 
   async updateRequest(id: number, data: Partial<Request>): Promise<Request | undefined> {
@@ -169,13 +208,37 @@ export class DatabaseStorage implements IStorage {
     return false;
   }
 
-  async removeVote(requestId: number, userId?: number, guestId?: number): Promise<boolean> {
+  async getVoteType(requestId: number, userId?: number, guestId?: number): Promise<string | null> {
     if (userId) {
-      const result = await db.delete(votes).where(and(eq(votes.requestId, requestId), eq(votes.userId, userId)));
+      const [vote] = await db.select().from(votes).where(and(eq(votes.requestId, requestId), eq(votes.userId, userId)));
+      return vote?.voteType || null;
+    }
+    if (guestId) {
+      const [vote] = await db.select().from(votes).where(and(eq(votes.requestId, requestId), eq(votes.guestId, guestId)));
+      return vote?.voteType || null;
+    }
+    return null;
+  }
+
+  async updateVoteType(requestId: number, voteType: string, userId?: number, guestId?: number): Promise<boolean> {
+    if (userId) {
+      await db.update(votes).set({ voteType }).where(and(eq(votes.requestId, requestId), eq(votes.userId, userId)));
       return true;
     }
     if (guestId) {
-      const result = await db.delete(votes).where(and(eq(votes.requestId, requestId), eq(votes.guestId, guestId)));
+      await db.update(votes).set({ voteType }).where(and(eq(votes.requestId, requestId), eq(votes.guestId, guestId)));
+      return true;
+    }
+    return false;
+  }
+
+  async removeVote(requestId: number, userId?: number, guestId?: number): Promise<boolean> {
+    if (userId) {
+      await db.delete(votes).where(and(eq(votes.requestId, requestId), eq(votes.userId, userId)));
+      return true;
+    }
+    if (guestId) {
+      await db.delete(votes).where(and(eq(votes.requestId, requestId), eq(votes.guestId, guestId)));
       return true;
     }
     return false;
@@ -216,6 +279,25 @@ export class DatabaseStorage implements IStorage {
   async updateGuest(id: number, data: Partial<Guest>): Promise<Guest | undefined> {
     const [guest] = await db.update(guests).set(data).where(eq(guests.id, id)).returning();
     return guest;
+  }
+
+  async createBackupPlaylist(data: InsertBackupPlaylist): Promise<BackupPlaylist> {
+    const [playlist] = await db.insert(backupPlaylists).values(data).returning();
+    return playlist;
+  }
+
+  async getBackupPlaylistsByVenue(venueId: number): Promise<BackupPlaylist[]> {
+    return db.select().from(backupPlaylists).where(eq(backupPlaylists.venueId, venueId)).orderBy(asc(backupPlaylists.position));
+  }
+
+  async deleteBackupPlaylist(id: number): Promise<boolean> {
+    await db.delete(backupPlaylists).where(eq(backupPlaylists.id, id));
+    return true;
+  }
+
+  async getBackupPlaylistCount(venueId: number): Promise<number> {
+    const result = await db.select({ count: sql<number>`count(*)::int` }).from(backupPlaylists).where(eq(backupPlaylists.venueId, venueId));
+    return result[0]?.count || 0;
   }
 }
 

@@ -58,14 +58,14 @@ export async function submitRequest(
   return res.json();
 }
 
-export async function submitVote(venueCode: string, requestId: number, guestToken?: string) {
+export async function submitVote(venueCode: string, requestId: number, voteType: "up" | "down" = "up", guestToken?: string) {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (guestToken) headers["X-Guest-Token"] = guestToken;
 
   const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/vote`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ requestId }),
+    body: JSON.stringify({ requestId, voteType }),
   });
   return res.json();
 }

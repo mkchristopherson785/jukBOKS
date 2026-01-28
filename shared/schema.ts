@@ -126,6 +126,7 @@ export const votes = pgTable("votes", {
   requestId: integer("request_id").notNull().references(() => requests.id),
   userId: integer("user_id").references(() => users.id),
   guestId: integer("guest_id").references(() => guests.id),
+  voteType: text("vote_type").notNull().default("up"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   requestIdx: index("votes_request_idx").on(table.requestId),
@@ -188,6 +189,26 @@ export const guestsRelations = relations(guests, ({ one, many }) => ({
   votes: many(votes),
 }));
 
+export const backupPlaylists = pgTable("backup_playlists", {
+  id: serial("id").primaryKey(),
+  venueId: integer("venue_id").notNull().references(() => venues.id),
+  name: text("name").notNull(),
+  applePlaylistId: text("apple_playlist_id").notNull(),
+  trackCount: integer("track_count").default(0),
+  artworkUrl: text("artwork_url"),
+  position: integer("position").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  venueIdx: index("backup_playlists_venue_idx").on(table.venueId),
+}));
+
+export const backupPlaylistsRelations = relations(backupPlaylists, ({ one }) => ({
+  venue: one(venues, {
+    fields: [backupPlaylists.venueId],
+    references: [venues.id],
+  }),
+}));
+
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertVenueSchema = createInsertSchema(venues).omit({ id: true, createdAt: true, updatedAt: true });
@@ -195,6 +216,7 @@ export const insertRequestSchema = createInsertSchema(requests).omit({ id: true,
 export const insertVoteSchema = createInsertSchema(votes).omit({ id: true, createdAt: true });
 export const insertPartySessionSchema = createInsertSchema(partySessions).omit({ id: true, createdAt: true });
 export const insertGuestSchema = createInsertSchema(guests).omit({ id: true, createdAt: true });
+export const insertBackupPlaylistSchema = createInsertSchema(backupPlaylists).omit({ id: true, createdAt: true });
 
 export type Organization = typeof organizations.$inferSelect;
 export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
@@ -210,6 +232,8 @@ export type PartySession = typeof partySessions.$inferSelect;
 export type InsertPartySession = z.infer<typeof insertPartySessionSchema>;
 export type Guest = typeof guests.$inferSelect;
 export type InsertGuest = z.infer<typeof insertGuestSchema>;
+export type BackupPlaylist = typeof backupPlaylists.$inferSelect;
+export type InsertBackupPlaylist = z.infer<typeof insertBackupPlaylistSchema>;
 
 export const venuePublicSchema = z.object({
   code: z.string(),
@@ -239,7 +263,9 @@ export const queueItemSchema = z.object({
   albumCover: z.string().optional(),
   requesterName: z.string().optional(),
   isAutoPlay: z.boolean(),
-  voteCount: z.number(),
+  upvotes: z.number(),
+  downvotes: z.number(),
+  netVotes: z.number(),
   status: z.string(),
 });
 

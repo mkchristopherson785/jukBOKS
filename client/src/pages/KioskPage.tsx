@@ -1,6 +1,6 @@
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Users, SkipForward } from "lucide-react";
+import { Music2, ThumbsUp, SkipForward } from "lucide-react";
 import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode } from "../lib/api";
 import { MusicKitPlayer } from "../components/MusicKitPlayer";
 import { useState, useEffect, useCallback } from "react";
@@ -76,7 +76,7 @@ export default function KioskPage() {
       (item.previewUrl || item.trackId)
     );
     
-    playableItems.sort((a: any, b: any) => b.voteCount - a.voteCount);
+    playableItems.sort((a: any, b: any) => (b.netVotes || 0) - (a.netVotes || 0));
     
     if (playableItems.length > 0) {
       const nextSong = playableItems[0];
@@ -129,7 +129,7 @@ export default function KioskPage() {
     item.id !== currentSong?.id && 
     item.status !== "played" && 
     item.status !== "playing"
-  ).sort((a: any, b: any) => b.voteCount - a.voteCount).slice(0, 8) || [];
+  ).sort((a: any, b: any) => (b.netVotes || 0) - (a.netVotes || 0)).slice(0, 8) || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex">
@@ -215,8 +215,8 @@ export default function KioskPage() {
                 )}
               </div>
               <div className="flex items-center gap-1 text-indigo-400 text-sm">
-                <Users className="w-4 h-4" />
-                {item.voteCount}
+                <ThumbsUp className="w-4 h-4" />
+                {item.netVotes || 0}
               </div>
             </div>
           ))}

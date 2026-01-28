@@ -14,7 +14,7 @@ export default function PartyPage() {
   const [guestToken, setGuestToken] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
   const [showJoinForm, setShowJoinForm] = useState(true);
-  const [votedIds, setVotedIds] = useState<Set<number>>(new Set());
+  const [userVotes, setUserVotes] = useState<Map<number, "up" | "down">>(new Map());
 
   useEffect(() => {
     const savedToken = localStorage.getItem(`jukboks_guest_${code}`);
@@ -61,10 +61,18 @@ export default function PartyPage() {
   });
 
   const voteMutation = useMutation({
-    mutationFn: (requestId: number) =>
-      submitVote(party?.venue?.code || code!, requestId, guestToken || undefined),
-    onSuccess: (_, requestId) => {
-      setVotedIds((prev) => new Set([...prev, requestId]));
+    mutationFn: ({ requestId, voteType }: { requestId: number; voteType: "up" | "down" }) =>
+      submitVote(party?.venue?.code || code!, requestId, voteType, guestToken || undefined),
+    onSuccess: (data, { requestId, voteType }) => {
+      if (data.action === "removed") {
+        setUserVotes((prev) => {
+          const newMap = new Map(prev);
+          newMap.delete(requestId);
+          return newMap;
+        });
+      } else {
+        setUserVotes((prev) => new Map(prev).set(requestId, voteType));
+      }
       queryClient.invalidateQueries({ queryKey: ["party", code] });
     },
   });
@@ -182,8 +190,8 @@ export default function PartyPage() {
           <h2 className="text-lg font-semibold text-white mb-4">Up Next</h2>
           <QueueList
             items={party.queue || []}
-            onVote={(requestId) => voteMutation.mutate(requestId)}
-            votedIds={votedIds}
+            onVote={(requestId, voteType) => voteMutation.mutate({ requestId, voteType })}
+            userVotes={userVotes}
           />
         </div>
       </main>

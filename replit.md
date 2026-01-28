@@ -9,7 +9,10 @@ Jukboks is a standalone SaaS platform that enables businesses (bars, restaurants
 - **QR Code Party Access**: Guests scan a QR code to join and request songs without accounts
 - **Kiosk Display Mode**: TV/display-friendly "Now Playing" screen
 - **Listen Along**: Remote users with Apple Music can sync playback in real-time
-- **Per-Venue Settings**: Explicit content filtering, daily request limits, auto-approve
+- **Per-Venue Settings**: Explicit content filtering, daily request limits (1-10 or unlimited), auto-approve
+- **Upvote/Downvote System**: Guests can thumbs up or thumbs down songs in the queue
+- **Duplicate Song Prevention**: Songs can't be requested again within 2 hours of playing
+- **Backup Playlists**: Up to 10 playlists per venue for auto-play when queue is empty
 - **Multi-Organization Support**: Each business manages their own venues
 - **Integration API**: External apps can embed Jukboks functionality
 
@@ -58,10 +61,11 @@ jukboks/
 - **organizations**: Businesses using Jukboks (branding, API keys, subscription)
 - **users**: Organization staff/managers
 - **venues**: Individual locations/rooms with their own queues and settings
-- **requests**: Song queue items with status tracking
-- **votes**: Upvotes on song requests
+- **requests**: Song queue items with status tracking and playedAt timestamp
+- **votes**: Upvotes and downvotes on song requests (voteType: 'up' or 'down')
 - **party_sessions**: Daily QR codes for guest access
 - **guests**: Anonymous party attendees with request limits
+- **backup_playlists**: Apple Music playlists for auto-play when queue is empty (max 10 per venue)
 
 ## API Endpoints
 
