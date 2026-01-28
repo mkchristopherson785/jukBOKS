@@ -65,15 +65,10 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl }: MusicKi
     if (isConfigured && isAuthorized && trackId && !usePreview) {
       if (currentlyPlayingTrackRef.current !== trackId) {
         currentlyPlayingTrackRef.current = trackId;
-        playSong(trackId).then(success => {
-          if (!success && previewUrl) {
-            console.log("Apple Music playback failed, falling back to preview");
-            setUsePreview(true);
-          }
-        });
+        playSong(trackId);
       }
     }
-  }, [isConfigured, isAuthorized, trackId, playSong, usePreview, previewUrl]);
+  }, [isConfigured, isAuthorized, trackId, playSong, usePreview]);
 
   useEffect(() => {
     if (!trackId) {
@@ -129,14 +124,6 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl }: MusicKi
           <Music className="w-5 h-5 animate-pulse" />
           <span className="text-sm">Connecting to Apple Music...</span>
         </div>
-        {previewUrl && (
-          <button
-            onClick={() => setUsePreview(true)}
-            className="text-white/60 text-sm hover:text-white/80"
-          >
-            Skip - use 30-second previews instead
-          </button>
-        )}
       </div>
     );
   }
@@ -148,22 +135,12 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl }: MusicKi
           <AlertCircle className="w-4 h-4" />
           {error}
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleAuthorize}
-            className="px-4 py-2 bg-pink-500/80 hover:bg-pink-500 rounded-lg text-white text-sm"
-          >
-            Reauthorize Apple Music
-          </button>
-          {previewUrl && (
-            <button
-              onClick={() => setUsePreview(true)}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm"
-            >
-              Use 30-second preview
-            </button>
-          )}
-        </div>
+        <button
+          onClick={handleAuthorize}
+          className="px-4 py-2 bg-pink-500/80 hover:bg-pink-500 rounded-lg text-white text-sm"
+        >
+          Reauthorize Apple Music
+        </button>
       </div>
     );
   }
@@ -178,14 +155,6 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl }: MusicKi
           <Music className="w-5 h-5" />
           Connect Apple Music
         </button>
-        {previewUrl && (
-          <button
-            onClick={handleFallbackToPreview}
-            className="text-white/60 text-sm hover:text-white/80"
-          >
-            Or play 30-second previews
-          </button>
-        )}
         {error && (
           <div className="flex items-center gap-2 text-red-400 text-sm">
             <AlertCircle className="w-4 h-4" />
