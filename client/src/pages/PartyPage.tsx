@@ -300,7 +300,7 @@ export default function PartyPage() {
           </div>
         </div>
 
-        <div className="mb-8">
+        <div className="mb-8 relative z-30">
           <h2 className="text-lg font-semibold text-white mb-4">Request a Song</h2>
           <SongSearch
             onSelect={(track) => requestMutation.mutate(track)}

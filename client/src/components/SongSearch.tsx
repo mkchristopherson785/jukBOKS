@@ -51,7 +51,7 @@ export function SongSearch({ onSelect, allowExplicit = false }: SongSearchProps)
       </div>
 
       {(results.length > 0 || isSearching) && (
-        <div className="absolute z-50 w-full mt-2 bg-gray-900/95 backdrop-blur-lg border border-white/20 rounded-2xl shadow-2xl flex flex-col max-h-96">
+        <div className="absolute z-50 w-full mt-2 bg-gray-900/95 backdrop-blur-lg border border-white/20 rounded-2xl shadow-2xl flex flex-col max-h-[60vh] sm:max-h-96">
           {isSearching ? (
             <div className="p-8 text-center text-gray-400">
               <div className="animate-spin w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full mx-auto mb-2" />
