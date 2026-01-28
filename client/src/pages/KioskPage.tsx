@@ -11,6 +11,7 @@ export default function KioskPage() {
   const { code } = useParams<{ code: string }>();
   const queryClient = useQueryClient();
   const [currentSong, setCurrentSong] = useState<any>(null);
+  const [lastPlayedSong, setLastPlayedSong] = useState<{ title: string; artist: string; albumCover?: string } | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
@@ -230,6 +231,7 @@ export default function KioskPage() {
   const handleSongEnded = useCallback(async () => {
     if (currentSong) {
       setIsTransitioning(true);
+      setLastPlayedSong({ title: currentSong.title, artist: currentSong.artist, albumCover: currentSong.albumCover });
       
       markPlayedMutation.mutate(currentSong.id, {
         onSettled: async () => {
@@ -252,6 +254,7 @@ export default function KioskPage() {
   const handleSkip = useCallback(() => {
     if (currentSong) {
       setIsTransitioning(true);
+      setLastPlayedSong({ title: currentSong.title, artist: currentSong.artist, albumCover: currentSong.albumCover });
       markPlayedMutation.mutate(currentSong.id, {
         onSettled: () => {
           setCurrentSong(null);
@@ -262,9 +265,9 @@ export default function KioskPage() {
     }
   }, [currentSong, markPlayedMutation, refetchQueue]);
 
-  const displayTitle = currentSong?.title || nowPlaying?.title;
-  const displayArtist = currentSong?.artist || nowPlaying?.artist;
-  const displayCover = currentSong?.albumCover || nowPlaying?.albumCover;
+  const displayTitle = currentSong?.title || nowPlaying?.title || lastPlayedSong?.title;
+  const displayArtist = currentSong?.artist || nowPlaying?.artist || lastPlayedSong?.artist;
+  const displayCover = currentSong?.albumCover || nowPlaying?.albumCover || lastPlayedSong?.albumCover;
   const displayPreview = currentSong?.previewUrl;
 
   const upNextItems = queue?.items?.filter((item: any) => 
