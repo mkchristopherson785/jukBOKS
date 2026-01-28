@@ -1,7 +1,7 @@
 import { eq, and, desc, sql, gte, asc, or } from "drizzle-orm";
 import { db } from "./db";
 import {
-  organizations, users, venues, requests, votes, partySessions, guests, backupPlaylists, organizationMembers, announcements,
+  organizations, users, venues, requests, votes, partySessions, guests, backupPlaylists, organizationMembers, announcements, bannedSongs,
   type Organization, type InsertOrganization,
   type User, type InsertUser,
   type Venue, type InsertVenue,
@@ -12,6 +12,7 @@ import {
   type BackupPlaylist, type InsertBackupPlaylist,
   type OrganizationMember, type InsertOrganizationMember,
   type Announcement, type InsertAnnouncement,
+  type BannedSong,
 } from "../shared/schema";
 
 export interface QueueItemWithVotes extends Request {
@@ -80,6 +81,12 @@ export interface IStorage {
   updateAnnouncement(id: number, data: Partial<Announcement>): Promise<Announcement | undefined>;
   deleteAnnouncement(id: number): Promise<boolean>;
   getAnnouncementCount(venueId: number): Promise<number>;
+  
+  banSong(venueId: number, trackId: string, title: string, artist: string, albumCover?: string): Promise<any>;
+  unbanSong(venueId: number, trackId: string): Promise<boolean>;
+  getBannedSongs(venueId: number): Promise<any[]>;
+  isSongBanned(venueId: number, trackId: string): Promise<boolean>;
+  getPlayHistory(venueId: number, limit?: number): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -410,6 +417,35 @@ export class DatabaseStorage implements IStorage {
   async getAnnouncementCount(venueId: number): Promise<number> {
     const result = await db.select({ count: sql<number>`count(*)::int` }).from(announcements).where(eq(announcements.venueId, venueId));
     return result[0]?.count || 0;
+  }
+
+  async banSong(venueId: number, trackId: string, title: string, artist: string, albumCover?: string): Promise<BannedSong> {
+    const [banned] = await db.insert(bannedSongs).values({
+      venueId,
+      trackId,
+      title,
+      artist,
+      albumCover,
+    }).returning();
+    return banned;
+  }
+
+  async unbanSong(venueId: number, trackId: string): Promise<boolean> {
+    await db.delete(bannedSongs).where(and(eq(bannedSongs.venueId, venueId), eq(bannedSongs.trackId, trackId)));
+    return true;
+  }
+
+  async getBannedSongs(venueId: number): Promise<BannedSong[]> {
+    return db.select().from(bannedSongs).where(eq(bannedSongs.venueId, venueId)).orderBy(desc(bannedSongs.bannedAt));
+  }
+
+  async isSongBanned(venueId: number, trackId: string): Promise<boolean> {
+    const [result] = await db.select().from(bannedSongs).where(and(eq(bannedSongs.venueId, venueId), eq(bannedSongs.trackId, trackId))).limit(1);
+    return !!result;
+  }
+
+  async getPlayHistory(venueId: number, limit: number = 50): Promise<Request[]> {
+    return db.select().from(requests).where(and(eq(requests.venueId, venueId), eq(requests.status, "played"))).orderBy(desc(requests.playedAt)).limit(limit);
   }
 }
 

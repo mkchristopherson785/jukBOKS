@@ -235,6 +235,27 @@ export const announcementsRelations = relations(announcements, ({ one }) => ({
   }),
 }));
 
+// Banned songs per venue
+export const bannedSongs = pgTable("banned_songs", {
+  id: serial("id").primaryKey(),
+  venueId: integer("venue_id").notNull().references(() => venues.id),
+  trackId: text("track_id").notNull(),
+  title: text("title").notNull(),
+  artist: text("artist").notNull(),
+  albumCover: text("album_cover"),
+  bannedAt: timestamp("banned_at").defaultNow().notNull(),
+}, (table) => ({
+  venueIdx: index("banned_songs_venue_idx").on(table.venueId),
+  trackIdx: index("banned_songs_track_idx").on(table.trackId),
+}));
+
+export const bannedSongsRelations = relations(bannedSongs, ({ one }) => ({
+  venue: one(venues, {
+    fields: [bannedSongs.venueId],
+    references: [venues.id],
+  }),
+}));
+
 // Organization members for shared admin access
 export const organizationMembers = pgTable("organization_members", {
   id: serial("id").primaryKey(),
@@ -289,6 +310,7 @@ export type BackupPlaylist = typeof backupPlaylists.$inferSelect;
 export type InsertBackupPlaylist = z.infer<typeof insertBackupPlaylistSchema>;
 export type Announcement = typeof announcements.$inferSelect;
 export type InsertAnnouncement = z.infer<typeof insertAnnouncementSchema>;
+export type BannedSong = typeof bannedSongs.$inferSelect;
 
 export const venuePublicSchema = z.object({
   code: z.string(),
