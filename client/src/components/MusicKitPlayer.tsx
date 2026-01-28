@@ -74,10 +74,17 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
     if (sonosEnabled && venueCode && trackId && !usePreview) {
       if (sonosTrackRef.current !== trackId) {
         sonosTrackRef.current = trackId;
-        const trackUri = previewUrl || `https://music.apple.com/song/${trackId}`;
-        sonosPlayTrack(venueCode, trackUri, trackName || "Unknown Track")
-          .then(() => setSonosPlaying(true))
-          .catch(console.error);
+        if (previewUrl) {
+          sonosPlayTrack(venueCode, previewUrl, trackName || "Unknown Track")
+            .then(() => setSonosPlaying(true))
+            .catch((err) => {
+              console.error("Sonos playback failed:", err);
+              setSonosPlaying(false);
+            });
+        } else {
+          console.warn("No preview URL available for Sonos playback");
+          setSonosPlaying(false);
+        }
       }
       return;
     }
