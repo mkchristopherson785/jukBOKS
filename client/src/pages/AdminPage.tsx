@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin } from "lucide-react";
-import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue } from "../lib/api";
+import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail } from "lucide-react";
+import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember } from "../lib/api";
 import { QueueList } from "../components/QueueList";
 import { useAuth } from "../hooks/use-auth";
 
@@ -11,6 +11,10 @@ export default function AdminPage() {
   const [selectedVenueCode, setSelectedVenueCode] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newVenueName, setNewVenueName] = useState("");
+  const [activeTab, setActiveTab] = useState<"venues" | "team">("venues");
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteError, setInviteError] = useState("");
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -65,6 +69,39 @@ export default function AdminPage() {
     }
   };
 
+  const { data: teamData } = useQuery({
+    queryKey: ["team"],
+    queryFn: fetchTeam,
+    enabled: isAuthenticated,
+  });
+
+  const inviteMutation = useMutation({
+    mutationFn: (email: string) => inviteTeamMember(email),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team"] });
+      setShowInviteModal(false);
+      setInviteEmail("");
+      setInviteError("");
+    },
+    onError: (error: any) => {
+      setInviteError(error.message);
+    },
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: removeTeamMember,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team"] });
+    },
+  });
+
+  const handleInvite = () => {
+    if (inviteEmail.trim()) {
+      setInviteError("");
+      inviteMutation.mutate(inviteEmail.trim());
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -109,16 +146,39 @@ export default function AdminPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-white">My Venues</h1>
+        <div className="flex items-center gap-4 mb-8 border-b border-white/10 pb-4">
           <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+            onClick={() => setActiveTab("venues")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              activeTab === "venues" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"
+            }`}
           >
-            <Plus className="w-5 h-5" />
-            New Venue
+            <MapPin className="w-5 h-5" />
+            Venues
+          </button>
+          <button
+            onClick={() => setActiveTab("team")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              activeTab === "team" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"
+            }`}
+          >
+            <Users className="w-5 h-5" />
+            Team
           </button>
         </div>
+
+        {activeTab === "venues" && (
+          <>
+            <div className="flex items-center justify-between mb-8">
+              <h1 className="text-3xl font-bold text-white">My Venues</h1>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                New Venue
+              </button>
+            </div>
 
         {venuesLoading ? (
           <div className="flex justify-center py-20">
@@ -234,6 +294,70 @@ export default function AdminPage() {
             )}
           </div>
         )}
+          </>
+        )}
+
+        {activeTab === "team" && (
+          <div className="max-w-2xl">
+            <div className="flex items-center justify-between mb-8">
+              <h1 className="text-3xl font-bold text-white">Team Members</h1>
+              {teamData?.isOwner && (
+                <button
+                  onClick={() => setShowInviteModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                  Invite Member
+                </button>
+              )}
+            </div>
+
+            <p className="text-gray-400 mb-6">
+              Team members can view and manage all venues in your organization.
+            </p>
+
+            <div className="space-y-4">
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center">
+                  <User className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-white font-medium">{user?.email}</p>
+                  <p className="text-gray-400 text-sm">Owner</p>
+                </div>
+              </div>
+
+              {teamData?.members?.map((member: any) => (
+                <div key={member.id} className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-gray-600 flex items-center justify-center">
+                    <Mail className="w-5 h-5 text-gray-300" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white font-medium">{member.email}</p>
+                    <p className="text-gray-400 text-sm">
+                      {member.joinedAt ? "Admin" : "Invited (pending)"}
+                    </p>
+                  </div>
+                  {teamData?.isOwner && (
+                    <button
+                      onClick={() => removeMemberMutation.mutate(member.id)}
+                      className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                      title="Remove member"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {(!teamData?.members || teamData.members.length === 0) && (
+                <p className="text-gray-500 text-center py-8">
+                  No team members yet. Invite people to help manage your venues.
+                </p>
+              )}
+            </div>
+          </div>
+        )}
       </main>
 
       {showCreateModal && (
@@ -264,6 +388,47 @@ export default function AdminPage() {
                 className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
               >
                 {createVenueMutation.isPending ? "Creating..." : "Create"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showInviteModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-900 rounded-2xl border border-white/10 p-6 w-full max-w-md mx-4">
+            <h2 className="text-xl font-bold text-white mb-4">Invite Team Member</h2>
+            <p className="text-gray-400 mb-4">
+              Enter their email address. They'll be able to manage all your venues once they sign in.
+            </p>
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="Email address"
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 mb-2"
+              autoFocus
+            />
+            {inviteError && (
+              <p className="text-red-400 text-sm mb-4">{inviteError}</p>
+            )}
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => {
+                  setShowInviteModal(false);
+                  setInviteEmail("");
+                  setInviteError("");
+                }}
+                className="flex-1 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleInvite}
+                disabled={!inviteEmail.trim() || inviteMutation.isPending}
+                className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {inviteMutation.isPending ? "Inviting..." : "Invite"}
               </button>
             </div>
           </div>

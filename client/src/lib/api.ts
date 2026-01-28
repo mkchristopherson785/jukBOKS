@@ -127,3 +127,33 @@ export async function updateVenue(venueId: number, data: {
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
   return res.json();
 }
+
+// Team management
+export async function fetchTeam() {
+  const res = await fetch(`${API_BASE}/api/me/team`, { credentials: "include" });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function inviteTeamMember(email: string, role: string = "admin") {
+  const res = await fetch(`${API_BASE}/api/me/team`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ email, role }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.message || `${res.status}: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function removeTeamMember(memberId: number) {
+  const res = await fetch(`${API_BASE}/api/me/team/${memberId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}

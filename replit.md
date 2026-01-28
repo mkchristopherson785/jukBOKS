@@ -14,6 +14,7 @@ Jukboks is a standalone SaaS platform that enables businesses (bars, restaurants
 - **Duplicate Song Prevention**: Songs can't be requested again within 2 hours of playing
 - **Backup Playlists**: Up to 10 playlists per venue for auto-play when queue is empty
 - **Multi-Organization Support**: Each business manages their own venues
+- **Team Management**: Invite team members by email to share admin access to venues
 - **Integration API**: External apps can embed Jukboks functionality
 
 ## Architecture
@@ -58,7 +59,8 @@ jukboks/
 ```
 
 ## Database Schema
-- **organizations**: Businesses using Jukboks (branding, API keys, subscription)
+- **organizations**: Businesses using Jukboks (branding, API keys, subscription, ownerId)
+- **organization_members**: Team members invited to manage an organization (email, authUserId, role)
 - **users**: Organization staff/managers
 - **venues**: Individual locations/rooms with their own queues and settings
 - **requests**: Song queue items with status tracking and playedAt timestamp
@@ -66,6 +68,7 @@ jukboks/
 - **party_sessions**: Daily QR codes for guest access
 - **guests**: Anonymous party attendees with request limits
 - **backup_playlists**: Apple Music playlists for auto-play when queue is empty (max 10 per venue)
+- **auth_users**: Authentication users from Replit Auth (linked via ownerId)
 
 ## API Endpoints
 

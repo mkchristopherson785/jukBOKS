@@ -942,6 +942,14 @@ router.delete("/api/me/team/:memberId", isAuthenticated, async (req: any, res) =
     }
 
     const memberId = parseInt(req.params.memberId);
+    
+    // Verify member belongs to this organization
+    const members = await storage.getOrganizationMembers(org.id);
+    const memberToDelete = members.find(m => m.id === memberId);
+    if (!memberToDelete) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Member not found" });
+    }
+
     await storage.deleteOrganizationMember(memberId);
 
     res.json({ success: true });
