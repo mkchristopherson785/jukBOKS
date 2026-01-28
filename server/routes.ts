@@ -538,9 +538,15 @@ router.get("/api/v1/venues/:code/qrcode", async (req: Request, res: Response) =>
       });
     }
 
-    const baseUrl = process.env.REPLIT_DEV_DOMAIN 
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-      : "http://localhost:5000";
+    // Use deployment domain in production, dev domain in development
+    let baseUrl: string;
+    if (process.env.NODE_ENV === "production" && process.env.REPLIT_DEPLOYMENT_URL) {
+      baseUrl = process.env.REPLIT_DEPLOYMENT_URL;
+    } else if (process.env.REPLIT_DEV_DOMAIN) {
+      baseUrl = `https://${process.env.REPLIT_DEV_DOMAIN}`;
+    } else {
+      baseUrl = "http://localhost:5000";
+    }
     const partyUrl = `${baseUrl}/party/${session.code}`;
     
     const qrCodeDataUrl = await QRCode.toDataURL(partyUrl, {

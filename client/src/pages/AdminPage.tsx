@@ -417,12 +417,12 @@ export default function AdminPage() {
                           <input
                             type="text"
                             readOnly
-                            value={qrData.partyUrl || `${window.location.origin}/party/${selectedVenueCode}`}
+                            value={`${window.location.origin}/party/${qrData.partyCode || selectedVenueCode}`}
                             className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm"
                           />
                           <button
                             onClick={() => {
-                              navigator.clipboard.writeText(qrData.partyUrl || `${window.location.origin}/party/${selectedVenueCode}`);
+                              navigator.clipboard.writeText(`${window.location.origin}/party/${qrData.partyCode || selectedVenueCode}`);
                               setCopied(true);
                               setTimeout(() => setCopied(false), 2000);
                             }}
