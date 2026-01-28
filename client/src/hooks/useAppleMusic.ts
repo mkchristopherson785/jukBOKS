@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 
 declare global {
   interface Window {
@@ -17,20 +17,30 @@ export interface Track {
   previewUrl?: string;
 }
 
+const RESULTS_PER_PAGE = 20;
+
 export function useAppleMusic() {
   const [isSearching, setIsSearching] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [results, setResults] = useState<Track[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const currentQueryRef = useRef("");
+  const offsetRef = useRef(0);
 
   const searchTracks = useCallback(async (query: string) => {
     if (!query.trim()) {
       setResults([]);
+      setHasMore(false);
       return;
     }
 
+    currentQueryRef.current = query;
+    offsetRef.current = 0;
     setIsSearching(true);
+    
     try {
       const response = await fetch(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=100`
+        `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=${RESULTS_PER_PAGE}&offset=0`
       );
       const data = await response.json();
 
@@ -46,17 +56,54 @@ export function useAppleMusic() {
       }));
 
       setResults(tracks);
+      setHasMore(data.results.length === RESULTS_PER_PAGE);
+      offsetRef.current = RESULTS_PER_PAGE;
     } catch (error) {
       console.error("Search failed:", error);
       setResults([]);
+      setHasMore(false);
     } finally {
       setIsSearching(false);
     }
   }, []);
 
+  const loadMore = useCallback(async () => {
+    if (!currentQueryRef.current || isLoadingMore) return;
+
+    setIsLoadingMore(true);
+    try {
+      const response = await fetch(
+        `https://itunes.apple.com/search?term=${encodeURIComponent(currentQueryRef.current)}&media=music&limit=${RESULTS_PER_PAGE}&offset=${offsetRef.current}`
+      );
+      const data = await response.json();
+
+      const tracks: Track[] = data.results.map((item: any) => ({
+        id: item.trackId?.toString() || "",
+        title: item.trackName || "",
+        artist: item.artistName || "",
+        album: item.collectionName || "",
+        albumCover: item.artworkUrl100?.replace("100x100", "300x300") || "",
+        duration: item.trackTimeMillis || 0,
+        isExplicit: item.trackExplicitness === "explicit",
+        previewUrl: item.previewUrl,
+      }));
+
+      setResults(prev => [...prev, ...tracks]);
+      setHasMore(data.results.length === RESULTS_PER_PAGE);
+      offsetRef.current += RESULTS_PER_PAGE;
+    } catch (error) {
+      console.error("Load more failed:", error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [isLoadingMore]);
+
   const clearResults = useCallback(() => {
     setResults([]);
+    setHasMore(false);
+    currentQueryRef.current = "";
+    offsetRef.current = 0;
   }, []);
 
-  return { searchTracks, results, isSearching, clearResults };
+  return { searchTracks, results, isSearching, clearResults, loadMore, hasMore, isLoadingMore };
 }
