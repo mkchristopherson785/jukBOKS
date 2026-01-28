@@ -210,6 +210,32 @@ export const backupPlaylistsRelations = relations(backupPlaylists, ({ one }) => 
   }),
 }));
 
+// Organization members for shared admin access
+export const organizationMembers = pgTable("organization_members", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id),
+  email: text("email").notNull(),
+  authUserId: text("auth_user_id"),
+  role: text("role").notNull().default("admin"),
+  invitedAt: timestamp("invited_at").defaultNow().notNull(),
+  joinedAt: timestamp("joined_at"),
+}, (table) => ({
+  orgIdx: index("org_members_org_idx").on(table.organizationId),
+  emailIdx: index("org_members_email_idx").on(table.email),
+  authUserIdx: index("org_members_auth_user_idx").on(table.authUserId),
+}));
+
+export const organizationMembersRelations = relations(organizationMembers, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [organizationMembers.organizationId],
+    references: [organizations.id],
+  }),
+}));
+
+export const insertOrganizationMemberSchema = createInsertSchema(organizationMembers).omit({ id: true, invitedAt: true });
+export type OrganizationMember = typeof organizationMembers.$inferSelect;
+export type InsertOrganizationMember = z.infer<typeof insertOrganizationMemberSchema>;
+
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertVenueSchema = createInsertSchema(venues).omit({ id: true, createdAt: true, updatedAt: true });

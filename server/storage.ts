@@ -1,7 +1,7 @@
-import { eq, and, desc, sql, gte, asc } from "drizzle-orm";
+import { eq, and, desc, sql, gte, asc, or } from "drizzle-orm";
 import { db } from "./db";
 import {
-  organizations, users, venues, requests, votes, partySessions, guests, backupPlaylists,
+  organizations, users, venues, requests, votes, partySessions, guests, backupPlaylists, organizationMembers,
   type Organization, type InsertOrganization,
   type User, type InsertUser,
   type Venue, type InsertVenue,
@@ -10,6 +10,7 @@ import {
   type PartySession, type InsertPartySession,
   type Guest, type InsertGuest,
   type BackupPlaylist, type InsertBackupPlaylist,
+  type OrganizationMember, type InsertOrganizationMember,
 } from "../shared/schema";
 
 export interface QueueItemWithVotes extends Request {
@@ -62,6 +63,14 @@ export interface IStorage {
   getBackupPlaylistsByVenue(venueId: number): Promise<BackupPlaylist[]>;
   deleteBackupPlaylist(id: number): Promise<boolean>;
   getBackupPlaylistCount(venueId: number): Promise<number>;
+  
+  createOrganizationMember(data: InsertOrganizationMember): Promise<OrganizationMember>;
+  getOrganizationMembers(organizationId: number): Promise<OrganizationMember[]>;
+  getOrganizationMemberByEmail(organizationId: number, email: string): Promise<OrganizationMember | undefined>;
+  getOrganizationsByMemberEmail(email: string): Promise<Organization[]>;
+  getOrganizationsByMemberAuthId(authUserId: string): Promise<Organization[]>;
+  updateOrganizationMember(id: number, data: Partial<OrganizationMember>): Promise<OrganizationMember | undefined>;
+  deleteOrganizationMember(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -304,6 +313,46 @@ export class DatabaseStorage implements IStorage {
   async getBackupPlaylistCount(venueId: number): Promise<number> {
     const result = await db.select({ count: sql<number>`count(*)::int` }).from(backupPlaylists).where(eq(backupPlaylists.venueId, venueId));
     return result[0]?.count || 0;
+  }
+
+  async createOrganizationMember(data: InsertOrganizationMember): Promise<OrganizationMember> {
+    const [member] = await db.insert(organizationMembers).values(data).returning();
+    return member;
+  }
+
+  async getOrganizationMembers(organizationId: number): Promise<OrganizationMember[]> {
+    return db.select().from(organizationMembers).where(eq(organizationMembers.organizationId, organizationId));
+  }
+
+  async getOrganizationMemberByEmail(organizationId: number, email: string): Promise<OrganizationMember | undefined> {
+    const [member] = await db.select().from(organizationMembers).where(
+      and(eq(organizationMembers.organizationId, organizationId), eq(organizationMembers.email, email.toLowerCase()))
+    );
+    return member;
+  }
+
+  async getOrganizationsByMemberEmail(email: string): Promise<Organization[]> {
+    const members = await db.select().from(organizationMembers).where(eq(organizationMembers.email, email.toLowerCase()));
+    if (members.length === 0) return [];
+    const orgIds = members.map(m => m.organizationId);
+    return db.select().from(organizations).where(sql`${organizations.id} = ANY(${orgIds})`);
+  }
+
+  async getOrganizationsByMemberAuthId(authUserId: string): Promise<Organization[]> {
+    const members = await db.select().from(organizationMembers).where(eq(organizationMembers.authUserId, authUserId));
+    if (members.length === 0) return [];
+    const orgIds = members.map(m => m.organizationId);
+    return db.select().from(organizations).where(sql`${organizations.id} = ANY(${orgIds})`);
+  }
+
+  async updateOrganizationMember(id: number, data: Partial<OrganizationMember>): Promise<OrganizationMember | undefined> {
+    const [member] = await db.update(organizationMembers).set(data).where(eq(organizationMembers.id, id)).returning();
+    return member;
+  }
+
+  async deleteOrganizationMember(id: number): Promise<boolean> {
+    await db.delete(organizationMembers).where(eq(organizationMembers.id, id));
+    return true;
   }
 }
 
