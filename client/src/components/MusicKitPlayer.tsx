@@ -65,10 +65,15 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl }: MusicKi
     if (isConfigured && isAuthorized && trackId && !usePreview) {
       if (currentlyPlayingTrackRef.current !== trackId) {
         currentlyPlayingTrackRef.current = trackId;
-        playSong(trackId);
+        playSong(trackId).then(success => {
+          if (!success && previewUrl) {
+            console.log("Apple Music playback failed, falling back to preview");
+            setUsePreview(true);
+          }
+        });
       }
     }
-  }, [isConfigured, isAuthorized, trackId, playSong, usePreview]);
+  }, [isConfigured, isAuthorized, trackId, playSong, usePreview, previewUrl]);
 
   useEffect(() => {
     if (!trackId) {
@@ -143,14 +148,22 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl }: MusicKi
           <AlertCircle className="w-4 h-4" />
           {error}
         </div>
-        {previewUrl && (
+        <div className="flex gap-2">
           <button
-            onClick={() => setUsePreview(true)}
-            className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm"
+            onClick={handleAuthorize}
+            className="px-4 py-2 bg-pink-500/80 hover:bg-pink-500 rounded-lg text-white text-sm"
           >
-            Use 30-second previews instead
+            Reauthorize Apple Music
           </button>
-        )}
+          {previewUrl && (
+            <button
+              onClick={() => setUsePreview(true)}
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm"
+            >
+              Use 30-second preview
+            </button>
+          )}
+        </div>
       </div>
     );
   }
