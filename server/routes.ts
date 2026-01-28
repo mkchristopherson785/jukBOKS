@@ -594,6 +594,8 @@ router.get("/api/v1/party/:partyCode", async (req: Request, res: Response) => {
         artist: item.artist,
         albumCover: item.albumCover,
         isExplicit: item.isExplicit,
+        requesterName: item.requesterName,
+        isAutoPlay: item.isAutoPlay || false,
         upvotes: item.upvotes,
         downvotes: item.downvotes,
         netVotes: item.netVotes,
