@@ -936,18 +936,6 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              {/* Sonos Integration - Coming Soon */}
-              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6 opacity-60">
-                <h3 className="text-xl font-bold text-white flex items-center gap-2 mb-4">
-                  <Speaker className="w-5 h-5" />
-                  Sonos Speakers
-                  <span className="text-xs bg-indigo-600/50 text-indigo-200 px-2 py-0.5 rounded-full ml-2">Coming Soon</span>
-                </h3>
-                <p className="text-gray-400 text-sm">
-                  Connect Sonos speakers to play music throughout your venue. This feature is currently in development.
-                </p>
-              </div>
-
               {/* Announcements */}
               <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6 md:col-span-3">
                 <div className="flex items-center justify-between mb-4">
@@ -1046,6 +1034,18 @@ export default function AdminPage() {
                     ))
                   )}
                 </div>
+              </div>
+
+              {/* Sonos Integration - Coming Soon */}
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6 opacity-60">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2 mb-4">
+                  <Speaker className="w-5 h-5" />
+                  Sonos Speakers
+                  <span className="text-xs bg-indigo-600/50 text-indigo-200 px-2 py-0.5 rounded-full ml-2">Coming Soon</span>
+                </h3>
+                <p className="text-gray-400 text-sm">
+                  Connect Sonos speakers to play music throughout your venue. This feature is currently in development.
+                </p>
               </div>
             </div>
           </div>
