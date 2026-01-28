@@ -110,11 +110,15 @@ async function validateApiKey(apiKey: string | undefined) {
 
 async function fetchApplePlaylistDetails(playlistId: string) {
   const token = await getAppleMusicToken();
-  if (!token) return null;
+  if (!token) {
+    console.log("No Apple Music token available");
+    return null;
+  }
 
   try {
+    // Include tracks relationship to get accurate track count
     const response = await fetch(
-      `https://api.music.apple.com/v1/catalog/us/playlists/${playlistId}`,
+      `https://api.music.apple.com/v1/catalog/us/playlists/${playlistId}?include=tracks`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -122,15 +126,32 @@ async function fetchApplePlaylistDetails(playlistId: string) {
       }
     );
 
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.log("Apple playlist fetch failed:", response.status, response.statusText);
+      return null;
+    }
 
     const data = await response.json();
     const playlist = data.data?.[0];
-    if (!playlist) return null;
+    if (!playlist) {
+      console.log("No playlist data returned");
+      return null;
+    }
+
+    // Try to get track count from tracks relationship or attributes
+    const tracksData = playlist.relationships?.tracks?.data;
+    const trackCount = tracksData?.length || playlist.attributes?.trackCount || 0;
+
+    console.log("Playlist details:", {
+      name: playlist.attributes?.name,
+      trackCount,
+      hasTracksRelation: !!tracksData,
+      attrTrackCount: playlist.attributes?.trackCount
+    });
 
     return {
       name: playlist.attributes?.name || "Unknown Playlist",
-      trackCount: playlist.attributes?.trackCount || 0,
+      trackCount,
       artworkUrl: playlist.attributes?.artwork?.url?.replace("{w}x{h}", "300x300") || null,
     };
   } catch (error) {

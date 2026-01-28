@@ -461,15 +461,15 @@ export default function AdminPage() {
                     <div className="space-y-2">
                       {backupPlaylists.map((playlist: any) => (
                         <div key={playlist.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
-                          {playlist.artwork && (
-                            <img src={playlist.artwork} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                          {playlist.artworkUrl && (
+                            <img src={playlist.artworkUrl} alt="" className="w-12 h-12 rounded-lg object-cover" />
                           )}
                           <div className="flex-1 min-w-0">
                             <p className="text-white font-medium truncate">{playlist.name || "Apple Music Playlist"}</p>
                             <p className="text-gray-400 text-sm truncate">{playlist.trackCount || 0} tracks</p>
                           </div>
                           <button
-                            onClick={() => removePlaylistMutation.mutate(playlist.playlistId)}
+                            onClick={() => removePlaylistMutation.mutate(playlist.id.toString())}
                             className="p-2 text-gray-400 hover:text-red-400 transition-colors"
                             title="Remove playlist"
                           >
