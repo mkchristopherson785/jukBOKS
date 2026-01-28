@@ -170,10 +170,8 @@ export default function PartyPage() {
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-white/10 backdrop-blur-lg rounded-3xl border border-white/20 p-8">
           <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-              <Music2 className="w-7 h-7 text-white" />
-            </div>
-            <span className="text-2xl font-bold text-white">Jukboks</span>
+            <img src="/assets/logo-app.png" alt="Jukboks" className="w-12 h-12 rounded-xl" />
+            <img src="/assets/logo-text.png" alt="Jukboks" className="h-8 invert" />
           </div>
 
           <h2 className="text-2xl font-bold text-white mb-2">Join the Party</h2>

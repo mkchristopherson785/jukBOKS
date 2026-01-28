@@ -368,9 +368,7 @@ export default function KioskPage() {
         {venue?.logoUrl ? (
           <img src={venue.logoUrl} alt="" className="h-12 w-auto opacity-70" />
         ) : (
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center opacity-70">
-            <Music2 className="w-7 h-7 text-white" />
-          </div>
+          <img src="/assets/logo-app.png" alt="Jukboks" className="h-12 w-12 rounded-xl opacity-70" />
         )}
       </div>
 
