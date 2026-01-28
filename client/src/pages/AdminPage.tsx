@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X } from "lucide-react";
+import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X, Copy, Check } from "lucide-react";
 import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist } from "../lib/api";
 import { QueueList } from "../components/QueueList";
 import { useAuth } from "../hooks/use-auth";
@@ -18,6 +18,7 @@ export default function AdminPage() {
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [playlistUrl, setPlaylistUrl] = useState("");
   const [playlistError, setPlaylistError] = useState("");
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -379,6 +380,28 @@ export default function AdminPage() {
                       <div className="bg-white rounded-2xl p-4 flex flex-col items-center">
                         <img src={qrData.qrCode} alt="Party QR Code" className="w-40 h-40" />
                         <p className="text-gray-600 text-sm mt-2 text-center">Scan to join</p>
+                      </div>
+                      <div className="mt-4">
+                        <p className="text-gray-400 text-sm mb-2">Or share this link:</p>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={qrData.partyUrl || `${window.location.origin}/party/${selectedVenueCode}`}
+                            className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm"
+                          />
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(qrData.partyUrl || `${window.location.origin}/party/${selectedVenueCode}`);
+                              setCopied(true);
+                              setTimeout(() => setCopied(false), 2000);
+                            }}
+                            className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors flex items-center gap-1"
+                          >
+                            {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                            {copied ? "Copied!" : "Copy"}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}
