@@ -960,4 +960,93 @@ router.delete("/api/me/team/:memberId", isAuthenticated, async (req: any, res) =
   }
 });
 
+// Backup playlists for authenticated users
+router.post("/api/me/venues/:venueId/backup-playlists", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "No organization found" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const count = await storage.getBackupPlaylistCount(venue.id);
+    if (count >= 10) {
+      return res.status(400).json({ error: "MAX_PLAYLISTS_REACHED", message: "Maximum of 10 backup playlists allowed" });
+    }
+
+    const { playlistUrl } = req.body;
+    if (!playlistUrl) {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "playlistUrl is required" });
+    }
+
+    // Extract playlist ID from Apple Music URL
+    const urlMatch = playlistUrl.match(/playlist\/[^\/]+\/pl\.([a-zA-Z0-9-]+)/);
+    if (!urlMatch) {
+      return res.status(400).json({ error: "INVALID_URL", message: "Invalid Apple Music playlist URL" });
+    }
+    const applePlaylistId = `pl.${urlMatch[1]}`;
+
+    const playlist = await storage.createBackupPlaylist({
+      venueId: venue.id,
+      name: "Apple Music Playlist",
+      applePlaylistId,
+      trackCount: 0,
+      artworkUrl: null,
+      position: count,
+    });
+
+    res.json({ success: true, playlist });
+  } catch (error) {
+    console.error("Add playlist error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+router.delete("/api/me/venues/:venueId/backup-playlists/:playlistId", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "No organization found" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const playlistIdParam = req.params.playlistId;
+    const playlists = await storage.getBackupPlaylistsByVenue(venue.id);
+    const playlist = playlists.find(p => p.applePlaylistId === playlistIdParam || p.id === parseInt(playlistIdParam));
+    
+    if (!playlist) {
+      return res.status(404).json({ error: "PLAYLIST_NOT_FOUND", message: "Playlist not found" });
+    }
+
+    await storage.deleteBackupPlaylist(playlist.id);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Remove playlist error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
 export default router;

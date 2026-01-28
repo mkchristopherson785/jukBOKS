@@ -168,8 +168,8 @@ export async function fetchBackupPlaylists(venueCode: string) {
   return data.playlists || [];
 }
 
-export async function addBackupPlaylist(venueCode: string, playlistUrl: string) {
-  const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/backup-playlists`, {
+export async function addBackupPlaylist(venueId: number, playlistUrl: string) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/backup-playlists`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -182,8 +182,8 @@ export async function addBackupPlaylist(venueCode: string, playlistUrl: string) 
   return res.json();
 }
 
-export async function removeBackupPlaylist(venueCode: string, playlistId: string) {
-  const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/backup-playlists/${playlistId}`, {
+export async function removeBackupPlaylist(venueId: number, playlistId: string) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/backup-playlists/${playlistId}`, {
     method: "DELETE",
     credentials: "include",
   });

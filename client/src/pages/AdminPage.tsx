@@ -113,7 +113,7 @@ export default function AdminPage() {
   });
 
   const addPlaylistMutation = useMutation({
-    mutationFn: (url: string) => addBackupPlaylist(selectedVenueCode!, url),
+    mutationFn: (url: string) => addBackupPlaylist(selectedVenue?.id!, url),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["backupPlaylists", selectedVenueCode] });
       setShowPlaylistModal(false);
@@ -126,7 +126,7 @@ export default function AdminPage() {
   });
 
   const removePlaylistMutation = useMutation({
-    mutationFn: (playlistId: string) => removeBackupPlaylist(selectedVenueCode!, playlistId),
+    mutationFn: (playlistId: string) => removeBackupPlaylist(selectedVenue?.id!, playlistId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["backupPlaylists", selectedVenueCode] });
     },
