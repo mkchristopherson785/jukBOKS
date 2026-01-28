@@ -7,9 +7,12 @@ interface MusicKitPlayerProps {
   onEnded?: () => void;
   onSkip?: () => void;
   previewUrl?: string;
+  hideControls?: boolean;
+  onTogglePlay?: (handler: () => void) => void;
+  onSkipHandler?: (handler: () => void) => void;
 }
 
-export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl }: MusicKitPlayerProps) {
+export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideControls, onTogglePlay, onSkipHandler }: MusicKitPlayerProps) {
   const {
     isConfigured,
     isAuthorized,
@@ -111,6 +114,14 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl }: MusicKi
     onSkip?.();
   }, [usePreview, previewAudio, stop, onSkip]);
 
+  useEffect(() => {
+    onTogglePlay?.(handleTogglePlay);
+  }, [onTogglePlay, handleTogglePlay]);
+
+  useEffect(() => {
+    onSkipHandler?.(handleSkip);
+  }, [onSkipHandler, handleSkip]);
+
   const handleFallbackToPreview = () => {
     if (previewUrl) {
       setUsePreview(true);
@@ -166,6 +177,10 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl }: MusicKi
   }
 
   const currentlyPlaying = usePreview ? previewPlaying : isPlaying;
+
+  if (hideControls) {
+    return null;
+  }
 
   return (
     <div className="flex items-center gap-4">

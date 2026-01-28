@@ -1,6 +1,6 @@
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, ThumbsUp, SkipForward, Play, User, Radio, Volume2, Maximize, Minimize } from "lucide-react";
+import { Music2, ThumbsUp, Play, User, Radio, Volume2, Maximize, Minimize } from "lucide-react";
 import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnouncement, markAnnouncementPlayed, markSongFinished } from "../lib/api";
 import { MusicKitPlayer } from "../components/MusicKitPlayer";
 import { useState, useEffect, useCallback } from "react";
@@ -18,6 +18,22 @@ export default function KioskPage() {
   const [currentAnnouncement, setCurrentAnnouncement] = useState<{ id: number; name: string; audioUrl: string } | null>(null);
   const [announcementAudio, setAnnouncementAudio] = useState<HTMLAudioElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [togglePlayHandler, setTogglePlayHandler] = useState<(() => void) | null>(null);
+  const [skipHandler, setSkipHandler] = useState<(() => void) | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        togglePlayHandler?.();
+      } else if (e.code === "ArrowRight") {
+        e.preventDefault();
+        handleSkip();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [togglePlayHandler]);
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -288,48 +304,34 @@ export default function KioskPage() {
         {isFullscreen ? <Minimize className="w-6 h-6 text-white" /> : <Maximize className="w-6 h-6 text-white" />}
       </button>
       <div className="flex-1 flex flex-col items-center justify-center p-8">
-        <div className="mb-8 flex items-center gap-4">
-          {venue?.logoUrl ? (
-            <img src={venue.logoUrl} alt="" className="h-16 w-auto" />
-          ) : (
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-              <Music2 className="w-10 h-10 text-white" />
-            </div>
-          )}
-          <div>
-            <h1 className="text-3xl font-bold text-white">{venue?.name || "Jukboks"}</h1>
-            <p className="text-gray-400">{venue?.organizationName}</p>
-          </div>
-        </div>
-
-        <div className="w-full max-w-2xl">
+        <div className="w-full max-w-3xl">
           {isPlayingAnnouncement && currentAnnouncement ? (
             <>
-              <div className="mb-8 flex justify-center">
-                <div className="w-64 h-64 rounded-2xl shadow-2xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
-                  <Volume2 className="w-32 h-32 text-white/80 animate-pulse" />
+              <div className="mb-12 flex justify-center">
+                <div className="w-96 h-96 rounded-3xl shadow-2xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
+                  <Volume2 className="w-48 h-48 text-white/80 animate-pulse" />
                 </div>
               </div>
-              <div className="text-center mb-8">
-                <h2 className="text-4xl font-bold text-white mb-2">{currentAnnouncement.name}</h2>
-                <p className="text-xl text-gray-300">Announcement</p>
+              <div className="text-center">
+                <h2 className="text-6xl font-bold text-white mb-4">{currentAnnouncement.name}</h2>
+                <p className="text-2xl text-gray-300">Announcement</p>
               </div>
             </>
           ) : (
             <>
               {displayCover && (
-                <div className="mb-8 flex justify-center">
+                <div className="mb-12 flex justify-center">
                   <img 
                     src={displayCover} 
                     alt={displayTitle || "Album"} 
-                    className="w-64 h-64 rounded-2xl shadow-2xl object-cover"
+                    className="w-96 h-96 rounded-3xl shadow-2xl object-cover"
                   />
                 </div>
               )}
               
-              <div className="text-center mb-8">
-                <h2 className="text-4xl font-bold text-white mb-2">{displayTitle || "No song playing"}</h2>
-                <p className="text-xl text-gray-300">{displayArtist || "Request a song to get started"}</p>
+              <div className="text-center">
+                <h2 className="text-6xl font-bold text-white mb-4">{displayTitle || "No song playing"}</h2>
+                <p className="text-3xl text-gray-300">{displayArtist || "Request a song to get started"}</p>
               </div>
 
               <MusicKitPlayer
@@ -337,23 +339,24 @@ export default function KioskPage() {
                 previewUrl={displayPreview}
                 onEnded={handleSongEnded}
                 onSkip={handleSkip}
+                hideControls
+                onTogglePlay={(handler) => setTogglePlayHandler(() => handler)}
+                onSkipHandler={(handler) => setSkipHandler(() => handler)}
               />
-
-              {currentSong && (
-                <div className="mt-4 flex justify-center">
-                  <button
-                    onClick={handleSkip}
-                    disabled={isTransitioning}
-                    className="flex items-center gap-2 px-6 py-3 bg-gray-700/50 hover:bg-gray-600/50 rounded-xl transition-colors text-gray-300 disabled:opacity-50"
-                  >
-                    <SkipForward className="w-5 h-5" />
-                    {isTransitioning ? "Skipping..." : "Skip Song"}
-                  </button>
-                </div>
-              )}
             </>
           )}
         </div>
+      </div>
+
+      {/* Logo in bottom left */}
+      <div className="absolute bottom-4 left-4">
+        {venue?.logoUrl ? (
+          <img src={venue.logoUrl} alt="" className="h-12 w-auto opacity-70" />
+        ) : (
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center opacity-70">
+            <Music2 className="w-7 h-7 text-white" />
+          </div>
+        )}
       </div>
 
       <div className="w-96 bg-black/30 backdrop-blur-lg border-l border-white/10 p-6 flex flex-col">
