@@ -1,6 +1,6 @@
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, ThumbsUp, SkipForward, Play } from "lucide-react";
+import { Music2, ThumbsUp, SkipForward, Play, User, Radio } from "lucide-react";
 import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode } from "../lib/api";
 import { MusicKitPlayer } from "../components/MusicKitPlayer";
 import { useState, useEffect, useCallback } from "react";
@@ -279,9 +279,17 @@ export default function KioskPage() {
                   )}
                 </p>
                 <p className="text-gray-400 text-xs truncate">{item.artist}</p>
-                {!item.previewUrl && (
-                  <p className="text-yellow-500 text-xs">No preview available</p>
-                )}
+                {item.isAutoPlay ? (
+                  <p className="text-purple-400 text-xs flex items-center gap-1">
+                    <Radio className="w-3 h-3" />
+                    Auto-play
+                  </p>
+                ) : item.requesterName ? (
+                  <p className="text-gray-500 text-xs flex items-center gap-1">
+                    <User className="w-3 h-3" />
+                    {item.requesterName}
+                  </p>
+                ) : null}
               </div>
               <div className="flex items-center gap-1 text-indigo-400 text-sm">
                 <ThumbsUp className="w-4 h-4" />

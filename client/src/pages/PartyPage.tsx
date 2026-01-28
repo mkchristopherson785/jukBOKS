@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, Tv, Radio, Pause, AlertCircle } from "lucide-react";
-import { fetchParty, joinParty, submitRequest, submitVote } from "../lib/api";
+import { fetchParty, joinParty, submitRequest, submitVote, registerListener, unregisterListener } from "../lib/api";
 import { SongSearch } from "../components/SongSearch";
 import { QueueList } from "../components/QueueList";
 import { NowPlaying } from "../components/NowPlaying";
@@ -45,6 +45,36 @@ export default function PartyPage() {
     refetchInterval: 5000,
   });
 
+  // Generate/retrieve a persistent listener ID
+  const [listenerId] = useState(() => {
+    const stored = localStorage.getItem(`jukboks_listener_id`);
+    if (stored) return stored;
+    const newId = `listener_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    localStorage.setItem(`jukboks_listener_id`, newId);
+    return newId;
+  });
+  
+  // Register as listener when listening starts, unregister when it stops
+  useEffect(() => {
+    if (!code || !isListening) return;
+    
+    const savedName = localStorage.getItem(`jukboks_guest_name_${code}`) || guestName || "Anonymous";
+    
+    // Register immediately
+    registerListener(code, listenerId, savedName).catch(console.error);
+    
+    // Send heartbeat every 30 seconds
+    const heartbeatInterval = setInterval(() => {
+      registerListener(code, listenerId, savedName).catch(console.error);
+    }, 30000);
+    
+    // Cleanup on unmount or when listening stops
+    return () => {
+      clearInterval(heartbeatInterval);
+      unregisterListener(code, listenerId).catch(console.error);
+    };
+  }, [code, isListening, listenerId, guestName]);
+  
   // Sync playback when listening and the now playing changes
   useEffect(() => {
     if (isListening && isAuthorized && party?.nowPlaying?.trackId) {
@@ -89,6 +119,7 @@ export default function PartyPage() {
     onSuccess: (data) => {
       setGuestToken(data.sessionToken);
       localStorage.setItem(`jukboks_guest_${code}`, data.sessionToken);
+      localStorage.setItem(`jukboks_guest_name_${code}`, guestName);
       setShowJoinForm(false);
     },
   });

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X, Copy, Check } from "lucide-react";
-import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, deleteVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist } from "../lib/api";
+import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X, Copy, Check, Radio } from "lucide-react";
+import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, deleteVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchListeners } from "../lib/api";
 import { QueueList } from "../components/QueueList";
 import { useAuth } from "../hooks/use-auth";
 
@@ -55,6 +55,13 @@ export default function AdminPage() {
     queryKey: ["qrcode", selectedVenueCode],
     queryFn: () => fetchQRCode(selectedVenueCode!),
     enabled: !!selectedVenueCode,
+  });
+
+  const { data: listenersData } = useQuery({
+    queryKey: ["listeners", selectedVenueCode],
+    queryFn: () => fetchListeners(selectedVenueCode!),
+    enabled: !!selectedVenueCode,
+    refetchInterval: 10000,
   });
 
   const createVenueMutation = useMutation({
@@ -435,6 +442,36 @@ export default function AdminPage() {
                       </div>
                     </div>
                   )}
+
+                  <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-6">
+                    <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                      <Radio className="w-5 h-5 text-purple-400" />
+                      Live Listeners
+                    </h3>
+                    {listenersData?.count > 0 ? (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                          <span className="text-green-400 font-semibold">{listenersData.count}</span>
+                          <span className="text-gray-400">
+                            {listenersData.count === 1 ? "person" : "people"} listening live
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {listenersData.listeners.map((listener: { id: string; name: string }) => (
+                            <div key={listener.id} className="flex items-center gap-2 text-sm text-gray-400">
+                              <User className="w-4 h-4" />
+                              {listener.name}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-sm">
+                        No one is listening live right now. Guests can tap "Listen Live" on the party page to sync their playback.
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-6">

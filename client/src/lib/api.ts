@@ -204,3 +204,28 @@ export async function removeBackupPlaylist(venueId: number, playlistId: string) 
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
   return res.json();
 }
+
+// Live Listeners
+export async function registerListener(venueCode: string, listenerId: string, name?: string) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/listeners`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ listenerId, name }),
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function unregisterListener(venueCode: string, listenerId: string) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/listeners/${listenerId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function fetchListeners(venueCode: string) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/listeners`);
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}

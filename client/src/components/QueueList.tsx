@@ -1,4 +1,4 @@
-import { ThumbsUp, ThumbsDown, Music, User } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Music, User, Radio } from "lucide-react";
 import { cn } from "../lib/utils";
 
 interface QueueItem {
@@ -72,12 +72,17 @@ export function QueueList({ items, onVote, userVotes = new Map() }: QueueListPro
                 )}
               </p>
               <p className="text-gray-400 text-sm truncate">{item.artist}</p>
-              {item.requesterName && (
+              {item.isAutoPlay ? (
+                <div className="flex items-center gap-1 mt-1 text-xs text-purple-400">
+                  <Radio className="w-3 h-3" />
+                  Auto-play
+                </div>
+              ) : item.requesterName ? (
                 <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
                   <User className="w-3 h-3" />
                   {item.requesterName}
                 </div>
-              )}
+              ) : null}
             </div>
 
             {onVote && (

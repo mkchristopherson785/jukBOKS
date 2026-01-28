@@ -11,6 +11,25 @@ const router = Router();
 // Cache the token to avoid regenerating on every request
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
+// In-memory store for tracking live listeners per venue
+// Key: venueCode, Value: Map of listenerId -> { name, lastHeartbeat }
+const liveListeners: Map<string, Map<string, { name: string; lastHeartbeat: number }>> = new Map();
+
+// Clean up stale listeners every 30 seconds (listeners who haven't sent heartbeat in 60 seconds)
+setInterval(() => {
+  const now = Date.now();
+  for (const [venueCode, listeners] of liveListeners.entries()) {
+    for (const [listenerId, data] of listeners.entries()) {
+      if (now - data.lastHeartbeat > 60000) {
+        listeners.delete(listenerId);
+      }
+    }
+    if (listeners.size === 0) {
+      liveListeners.delete(venueCode);
+    }
+  }
+}, 30000);
+
 // Apple Music developer token generation using jose library
 async function generateAppleMusicToken(): Promise<string | null> {
   const teamId = process.env.APPLE_TEAM_ID;
@@ -233,6 +252,81 @@ router.get("/api/v1/venues/:code/now-playing", async (req: Request, res: Respons
       startedAt: venue.currentlyPlayingStartedAt?.toISOString() || null,
       duration: venue.currentlyPlayingDuration,
     });
+  } catch (error) {
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Live Listeners Endpoints
+// Register/heartbeat as a listener
+router.post("/api/v1/venues/:code/listeners", async (req: Request, res: Response) => {
+  try {
+    const { code } = req.params;
+    const { listenerId, name } = req.body;
+    
+    if (!listenerId) {
+      return res.status(400).json({ error: "MISSING_LISTENER_ID", message: "Listener ID is required" });
+    }
+    
+    const venue = await storage.getVenueByCode(code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+    
+    if (!liveListeners.has(code)) {
+      liveListeners.set(code, new Map());
+    }
+    
+    liveListeners.get(code)!.set(listenerId, { 
+      name: name || "Anonymous", 
+      lastHeartbeat: Date.now() 
+    });
+    
+    res.json({ success: true, count: liveListeners.get(code)!.size });
+  } catch (error) {
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Unregister as a listener
+router.delete("/api/v1/venues/:code/listeners/:listenerId", async (req: Request, res: Response) => {
+  try {
+    const { code, listenerId } = req.params;
+    
+    if (liveListeners.has(code)) {
+      liveListeners.get(code)!.delete(listenerId);
+      if (liveListeners.get(code)!.size === 0) {
+        liveListeners.delete(code);
+      }
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Get live listener count and list
+router.get("/api/v1/venues/:code/listeners", async (req: Request, res: Response) => {
+  try {
+    const { code } = req.params;
+    
+    const venue = await storage.getVenueByCode(code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+    
+    const listeners = liveListeners.get(code);
+    if (!listeners || listeners.size === 0) {
+      return res.json({ count: 0, listeners: [] });
+    }
+    
+    const listenerList = Array.from(listeners.entries()).map(([id, data]) => ({
+      id,
+      name: data.name
+    }));
+    
+    res.json({ count: listeners.size, listeners: listenerList });
   } catch (error) {
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }
