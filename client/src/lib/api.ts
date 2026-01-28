@@ -103,6 +103,17 @@ export async function fetchMyOrganization() {
   return res.json();
 }
 
+export async function updateOrganization(data: { name?: string; logoUrl?: string; logoDarkUrl?: string; primaryColor?: string; accentColor?: string }) {
+  const res = await fetch(`${API_BASE}/api/me/organization`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
 export async function fetchMyVenues() {
   const res = await fetch(`${API_BASE}/api/me/venues`, { credentials: "include" });
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);

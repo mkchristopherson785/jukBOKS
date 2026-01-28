@@ -977,6 +977,36 @@ router.get("/api/me/organization", isAuthenticated, async (req: any, res) => {
   }
 });
 
+// Update organization branding (owner only)
+router.patch("/api/me/organization", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const org = await storage.getOrganizationByOwnerId(userId);
+    if (!org) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "Only organization owners can update branding" });
+    }
+
+    const { name, logoUrl, logoDarkUrl, primaryColor, accentColor } = req.body;
+    
+    const updates: any = {};
+    if (name !== undefined) updates.name = name;
+    if (logoUrl !== undefined) updates.logoUrl = logoUrl;
+    if (logoDarkUrl !== undefined) updates.logoDarkUrl = logoDarkUrl;
+    if (primaryColor !== undefined) updates.primaryColor = primaryColor;
+    if (accentColor !== undefined) updates.accentColor = accentColor;
+
+    const updated = await storage.updateOrganization(org.id, updates);
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating organization:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
 // Helper to get user's organization (as owner or member)
 async function getUserOrganization(userId: string, userEmail: string) {
   let org = await storage.getOrganizationByOwnerId(userId);

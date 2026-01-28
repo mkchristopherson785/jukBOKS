@@ -27,6 +27,7 @@ export interface IStorage {
   getOrganizationBySlug(slug: string): Promise<Organization | undefined>;
   getOrganizationByApiKey(apiKey: string): Promise<Organization | undefined>;
   getOrganizationByOwnerId(ownerId: string): Promise<Organization | undefined>;
+  updateOrganization(id: number, data: Partial<Organization>): Promise<Organization | undefined>;
   
   createUser(data: InsertUser): Promise<User>;
   getUser(id: number): Promise<User | undefined>;
@@ -107,6 +108,11 @@ export class DatabaseStorage implements IStorage {
 
   async getOrganizationByOwnerId(ownerId: string): Promise<Organization | undefined> {
     const [org] = await db.select().from(organizations).where(eq(organizations.ownerId, ownerId));
+    return org;
+  }
+
+  async updateOrganization(id: number, data: Partial<Organization>): Promise<Organization | undefined> {
+    const [org] = await db.update(organizations).set({ ...data, updatedAt: new Date() }).where(eq(organizations.id, id)).returning();
     return org;
   }
 

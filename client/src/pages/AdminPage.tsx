@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X, Copy, Check, Radio, Volume2, Upload, SkipForward, History, Ban } from "lucide-react";
-import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, deleteVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchListeners, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, skipSong, fetchPlayHistory, fetchBannedSongs, banSong, unbanSong, type Announcement } from "../lib/api";
+import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X, Copy, Check, Radio, Volume2, Upload, SkipForward, History, Ban, Palette } from "lucide-react";
+import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, deleteVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchListeners, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, skipSong, fetchPlayHistory, fetchBannedSongs, banSong, unbanSong, fetchMyOrganization, updateOrganization, type Announcement } from "../lib/api";
 import { useUpload } from "../hooks/use-upload";
 import { QueueList } from "../components/QueueList";
 import { useAuth } from "../hooks/use-auth";
@@ -12,7 +12,7 @@ export default function AdminPage() {
   const [selectedVenueCode, setSelectedVenueCode] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newVenueName, setNewVenueName] = useState("");
-  const [activeTab, setActiveTab] = useState<"venues" | "team">("venues");
+  const [activeTab, setActiveTab] = useState<"venues" | "team" | "branding">("venues");
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteError, setInviteError] = useState("");
@@ -89,6 +89,20 @@ export default function AdminPage() {
     queryKey: ["team"],
     queryFn: fetchTeam,
     enabled: isAuthenticated,
+  });
+
+  const { data: organization } = useQuery({
+    queryKey: ["organization"],
+    queryFn: fetchMyOrganization,
+    enabled: isAuthenticated,
+  });
+
+  const updateOrgMutation = useMutation({
+    mutationFn: updateOrganization,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["organization"] });
+      queryClient.invalidateQueries({ queryKey: ["myVenues"] });
+    },
   });
 
   const inviteMutation = useMutation({
@@ -334,6 +348,17 @@ export default function AdminPage() {
             <Users className="w-5 h-5" />
             Team
           </button>
+          {teamData?.isOwner && (
+            <button
+              onClick={() => setActiveTab("branding")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                activeTab === "branding" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <Palette className="w-5 h-5" />
+              Branding
+            </button>
+          )}
         </div>
 
         {activeTab === "venues" && (
@@ -786,6 +811,119 @@ export default function AdminPage() {
                   No team members yet. Invite people to help manage your venues.
                 </p>
               )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "branding" && teamData?.isOwner && (
+          <div className="max-w-2xl">
+            <h1 className="text-3xl font-bold text-white mb-8">Branding Settings</h1>
+            <p className="text-gray-400 mb-6">
+              Customize how your organization appears on the front website and kiosk displays.
+            </p>
+
+            <div className="space-y-6">
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Organization Name</h3>
+                <input
+                  type="text"
+                  defaultValue={organization?.name || ""}
+                  onBlur={(e) => {
+                    if (e.target.value !== organization?.name) {
+                      updateOrgMutation.mutate({ name: e.target.value });
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500"
+                  placeholder="Your Organization Name"
+                />
+              </div>
+
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Logo</h3>
+                <p className="text-gray-400 text-sm mb-4">Upload your organization logo (shown on kiosk and party pages)</p>
+                
+                <div className="flex items-center gap-4">
+                  {organization?.logoUrl ? (
+                    <img src={organization.logoUrl} alt="Logo" className="h-16 w-auto rounded-lg bg-white/10 p-2" />
+                  ) : (
+                    <div className="h-16 w-16 rounded-lg bg-white/10 flex items-center justify-center">
+                      <Music2 className="w-8 h-8 text-gray-500" />
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      defaultValue={organization?.logoUrl || ""}
+                      onBlur={(e) => {
+                        if (e.target.value !== organization?.logoUrl) {
+                          updateOrgMutation.mutate({ logoUrl: e.target.value || undefined });
+                        }
+                      }}
+                      className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 text-sm"
+                      placeholder="Logo URL (or upload below)"
+                    />
+                    <label className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg cursor-pointer transition-colors text-sm">
+                      <Upload className="w-4 h-4" />
+                      {isUploading ? "Uploading..." : "Upload Logo"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={isUploading}
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const result = await uploadFile(file);
+                            if (result?.objectPath) {
+                              updateOrgMutation.mutate({ logoUrl: result.objectPath });
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6">
+                <h3 className="text-lg font-semibold text-white mb-4">Colors</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-2">Primary Color</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={organization?.primaryColor || "#2563eb"}
+                        onChange={(e) => updateOrgMutation.mutate({ primaryColor: e.target.value })}
+                        className="w-12 h-10 rounded cursor-pointer border-0"
+                      />
+                      <input
+                        type="text"
+                        value={organization?.primaryColor || "#2563eb"}
+                        onChange={(e) => updateOrgMutation.mutate({ primaryColor: e.target.value })}
+                        className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-gray-400 text-sm mb-2">Accent Color</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={organization?.accentColor || "#f59e0b"}
+                        onChange={(e) => updateOrgMutation.mutate({ accentColor: e.target.value })}
+                        className="w-12 h-10 rounded cursor-pointer border-0"
+                      />
+                      <input
+                        type="text"
+                        value={organization?.accentColor || "#f59e0b"}
+                        onChange={(e) => updateOrgMutation.mutate({ accentColor: e.target.value })}
+                        className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}
