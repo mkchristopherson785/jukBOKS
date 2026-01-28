@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail } from "lucide-react";
-import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember } from "../lib/api";
+import { Music2, Settings, QrCode, Tv, ExternalLink, LogOut, User, Plus, MapPin, Users, Trash2, Mail, ListMusic, X } from "lucide-react";
+import { fetchVenue, fetchQueue, fetchQRCode, fetchMyVenues, createVenue, fetchTeam, inviteTeamMember, removeTeamMember, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist } from "../lib/api";
 import { QueueList } from "../components/QueueList";
 import { useAuth } from "../hooks/use-auth";
 
@@ -15,6 +15,9 @@ export default function AdminPage() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteError, setInviteError] = useState("");
+  const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+  const [playlistUrl, setPlaylistUrl] = useState("");
+  const [playlistError, setPlaylistError] = useState("");
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -94,6 +97,53 @@ export default function AdminPage() {
       queryClient.invalidateQueries({ queryKey: ["team"] });
     },
   });
+
+  const updateVenueMutation = useMutation({
+    mutationFn: ({ venueId, data }: { venueId: number; data: any }) => updateVenue(venueId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["venue", selectedVenueCode] });
+      queryClient.invalidateQueries({ queryKey: ["myVenues"] });
+    },
+  });
+
+  const { data: backupPlaylists = [] } = useQuery({
+    queryKey: ["backupPlaylists", selectedVenueCode],
+    queryFn: () => fetchBackupPlaylists(selectedVenueCode!),
+    enabled: !!selectedVenueCode,
+  });
+
+  const addPlaylistMutation = useMutation({
+    mutationFn: (url: string) => addBackupPlaylist(selectedVenueCode!, url),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["backupPlaylists", selectedVenueCode] });
+      setShowPlaylistModal(false);
+      setPlaylistUrl("");
+      setPlaylistError("");
+    },
+    onError: (error: any) => {
+      setPlaylistError(error.message);
+    },
+  });
+
+  const removePlaylistMutation = useMutation({
+    mutationFn: (playlistId: string) => removeBackupPlaylist(selectedVenueCode!, playlistId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["backupPlaylists", selectedVenueCode] });
+    },
+  });
+
+  const handleSettingChange = (field: string, value: any) => {
+    if (selectedVenue) {
+      updateVenueMutation.mutate({ venueId: selectedVenue.id, data: { [field]: value } });
+    }
+  };
+
+  const handleAddPlaylist = () => {
+    if (playlistUrl.trim()) {
+      setPlaylistError("");
+      addPlaylistMutation.mutate(playlistUrl.trim());
+    }
+  };
 
   const handleInvite = () => {
     if (inviteEmail.trim()) {
@@ -219,25 +269,62 @@ export default function AdminPage() {
             {selectedVenue && (
               <div className="lg:col-span-3 space-y-6">
                 <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-6">
-                  <h2 className="text-xl font-bold text-white mb-4">{selectedVenue.name}</h2>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <Settings className="w-5 h-5" />
+                    {selectedVenue.name} Settings
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="p-4 bg-white/5 rounded-xl">
-                      <p className="text-gray-400 text-sm">Daily Limit</p>
-                      <p className="text-white font-medium">{selectedVenue.dailyRequestLimit} requests</p>
+                      <label className="text-gray-400 text-sm block mb-2">Limit in Queue</label>
+                      <select
+                        value={selectedVenue.dailyRequestLimit === 0 ? "unlimited" : selectedVenue.dailyRequestLimit}
+                        onChange={(e) => handleSettingChange("dailyRequestLimit", e.target.value === "unlimited" ? 0 : parseInt(e.target.value))}
+                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
+                          <option key={n} value={n} className="bg-gray-900">{n} {n === 1 ? "request" : "requests"}</option>
+                        ))}
+                        <option value="unlimited" className="bg-gray-900">Unlimited</option>
+                      </select>
                     </div>
                     <div className="p-4 bg-white/5 rounded-xl">
-                      <p className="text-gray-400 text-sm">Explicit Content</p>
-                      <p className="text-white font-medium">{selectedVenue.allowExplicit ? "Allowed" : "Blocked"}</p>
+                      <label className="text-gray-400 text-sm block mb-2">Explicit Content</label>
+                      <button
+                        onClick={() => handleSettingChange("allowExplicit", !selectedVenue.allowExplicit)}
+                        className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${
+                          selectedVenue.allowExplicit
+                            ? "bg-green-600 hover:bg-green-700 text-white"
+                            : "bg-red-600/30 hover:bg-red-600/50 text-red-300"
+                        }`}
+                      >
+                        {selectedVenue.allowExplicit ? "Allowed" : "Blocked"}
+                      </button>
                     </div>
                     <div className="p-4 bg-white/5 rounded-xl">
-                      <p className="text-gray-400 text-sm">Auto-Approve</p>
-                      <p className="text-white font-medium">{selectedVenue.autoApprove ? "Yes" : "No"}</p>
+                      <label className="text-gray-400 text-sm block mb-2">Auto-Approve</label>
+                      <button
+                        onClick={() => handleSettingChange("autoApprove", !selectedVenue.autoApprove)}
+                        className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${
+                          selectedVenue.autoApprove
+                            ? "bg-green-600 hover:bg-green-700 text-white"
+                            : "bg-gray-600/30 hover:bg-gray-600/50 text-gray-300"
+                        }`}
+                      >
+                        {selectedVenue.autoApprove ? "On" : "Off"}
+                      </button>
                     </div>
                     <div className="p-4 bg-white/5 rounded-xl">
-                      <p className="text-gray-400 text-sm">Status</p>
-                      <p className={`font-medium ${selectedVenue.isActive ? "text-green-400" : "text-gray-400"}`}>
+                      <label className="text-gray-400 text-sm block mb-2">Status</label>
+                      <button
+                        onClick={() => handleSettingChange("isActive", !selectedVenue.isActive)}
+                        className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${
+                          selectedVenue.isActive
+                            ? "bg-green-600 hover:bg-green-700 text-white"
+                            : "bg-gray-600/30 hover:bg-gray-600/50 text-gray-300"
+                        }`}
+                      >
                         {selectedVenue.isActive ? "Active" : "Inactive"}
-                      </p>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -282,6 +369,50 @@ export default function AdminPage() {
                         <img src={qrData.qrCode} alt="Party QR Code" className="w-40 h-40" />
                         <p className="text-gray-600 text-sm mt-2 text-center">Scan to join</p>
                       </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white/5 backdrop-blur-lg rounded-2xl border border-white/10 p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                      <ListMusic className="w-5 h-5" />
+                      Backup Playlists
+                    </h3>
+                    <button
+                      onClick={() => setShowPlaylistModal(true)}
+                      disabled={backupPlaylists.length >= 10}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Playlist
+                    </button>
+                  </div>
+                  <p className="text-gray-400 text-sm mb-4">
+                    When the queue is empty, songs will auto-play from these playlists. ({backupPlaylists.length}/10)
+                  </p>
+                  {backupPlaylists.length === 0 ? (
+                    <p className="text-gray-500 text-center py-4">No backup playlists added yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {backupPlaylists.map((playlist: any) => (
+                        <div key={playlist.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
+                          {playlist.artwork && (
+                            <img src={playlist.artwork} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white font-medium truncate">{playlist.name || "Apple Music Playlist"}</p>
+                            <p className="text-gray-400 text-sm truncate">{playlist.trackCount || 0} tracks</p>
+                          </div>
+                          <button
+                            onClick={() => removePlaylistMutation.mutate(playlist.playlistId)}
+                            className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                            title="Remove playlist"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -429,6 +560,47 @@ export default function AdminPage() {
                 className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
               >
                 {inviteMutation.isPending ? "Inviting..." : "Invite"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPlaylistModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-900 rounded-2xl border border-white/10 p-6 w-full max-w-md mx-4">
+            <h2 className="text-xl font-bold text-white mb-4">Add Backup Playlist</h2>
+            <p className="text-gray-400 mb-4">
+              Paste an Apple Music playlist URL. Songs from this playlist will auto-play when the queue is empty.
+            </p>
+            <input
+              type="text"
+              value={playlistUrl}
+              onChange={(e) => setPlaylistUrl(e.target.value)}
+              placeholder="https://music.apple.com/us/playlist/..."
+              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 mb-2"
+              autoFocus
+            />
+            {playlistError && (
+              <p className="text-red-400 text-sm mb-4">{playlistError}</p>
+            )}
+            <div className="flex gap-3 mt-4">
+              <button
+                onClick={() => {
+                  setShowPlaylistModal(false);
+                  setPlaylistUrl("");
+                  setPlaylistError("");
+                }}
+                className="flex-1 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddPlaylist}
+                disabled={!playlistUrl.trim() || addPlaylistMutation.isPending}
+                className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {addPlaylistMutation.isPending ? "Adding..." : "Add Playlist"}
               </button>
             </div>
           </div>

@@ -301,12 +301,13 @@ router.post("/api/v1/venues/:code/request", async (req: Request, res: Response) 
 
     if (guest) {
       const currentCount = guest.requestCount || 0;
-      const limit = venue.dailyRequestLimit || 5;
+      const limit = venue.dailyRequestLimit;
       
-      if (currentCount >= limit) {
+      // 0 or null means unlimited, otherwise enforce the limit
+      if (limit !== null && limit !== 0 && currentCount >= limit) {
         return res.status(400).json({ 
-          error: "DAILY_LIMIT_REACHED", 
-          message: `You have reached your daily request limit of ${limit} songs` 
+          error: "LIMIT_REACHED", 
+          message: `You have reached your request limit of ${limit} songs in queue` 
         });
       }
       
@@ -479,7 +480,7 @@ router.post("/api/v1/party/:partyCode/join", async (req: Request, res: Response)
       success: true,
       sessionToken,
       guestId: guest.id,
-      requestsRemaining: venue?.dailyRequestLimit || 5,
+      requestsRemaining: (venue?.dailyRequestLimit === 0 || venue?.dailyRequestLimit === null) ? null : venue?.dailyRequestLimit,
     });
   } catch (error) {
     console.error("Join error:", error);
