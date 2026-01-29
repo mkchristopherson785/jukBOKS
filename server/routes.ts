@@ -629,12 +629,36 @@ router.post("/api/v1/venues/:code/vote", async (req: Request, res: Response) => 
 
 router.get("/api/v1/party/:partyCode", async (req: Request, res: Response) => {
   try {
-    const session = await storage.getPartySessionByCode(req.params.partyCode);
+    // First try to find by party session code
+    let session = await storage.getPartySessionByCode(req.params.partyCode);
+    let venue;
+    
+    if (!session || !session.isActive) {
+      // Try to find by venue code instead
+      venue = await storage.getVenueByCode(req.params.partyCode);
+      if (venue) {
+        const today = new Date().toISOString().split("T")[0];
+        session = await storage.getActivePartySession(venue.id, today);
+        
+        // Create a new session if none exists for today
+        if (!session) {
+          const { nanoid } = await import("nanoid");
+          session = await storage.createPartySession({
+            venueId: venue.id,
+            code: nanoid(8),
+            date: today,
+          });
+        }
+      }
+    }
+    
     if (!session || !session.isActive) {
       return res.status(404).json({ error: "PARTY_NOT_ACTIVE", message: "Party session not active" });
     }
 
-    const venue = await storage.getVenue(session.venueId);
+    if (!venue) {
+      venue = await storage.getVenue(session.venueId);
+    }
     if (!venue) {
       return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
     }
@@ -682,12 +706,35 @@ router.get("/api/v1/party/:partyCode", async (req: Request, res: Response) => {
 
 router.post("/api/v1/party/:partyCode/join", async (req: Request, res: Response) => {
   try {
-    const session = await storage.getPartySessionByCode(req.params.partyCode);
+    // First try to find by party session code
+    let session = await storage.getPartySessionByCode(req.params.partyCode);
+    let venue;
+    
+    if (!session || !session.isActive) {
+      // Try to find by venue code instead
+      venue = await storage.getVenueByCode(req.params.partyCode);
+      if (venue) {
+        const today = new Date().toISOString().split("T")[0];
+        session = await storage.getActivePartySession(venue.id, today);
+        
+        // Create a new session if none exists for today
+        if (!session) {
+          session = await storage.createPartySession({
+            venueId: venue.id,
+            code: nanoid(8),
+            date: today,
+          });
+        }
+      }
+    }
+    
     if (!session || !session.isActive) {
       return res.status(404).json({ error: "PARTY_NOT_ACTIVE", message: "Party session not active" });
     }
 
-    const venue = await storage.getVenue(session.venueId);
+    if (!venue) {
+      venue = await storage.getVenue(session.venueId);
+    }
     const { name } = req.body;
 
     if (!name || typeof name !== "string" || name.trim().length < 1) {
