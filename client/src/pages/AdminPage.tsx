@@ -430,7 +430,7 @@ export default function AdminPage() {
             </button>
           </div>
 
-          {activeTab === "venues" && selectedVenue && (
+          {selectedVenue && (
             <>
               <div className="h-6 w-px bg-white/20 hidden sm:block" />
               <div className="flex flex-wrap items-center gap-2">
