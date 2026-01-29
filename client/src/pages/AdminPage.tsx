@@ -886,49 +886,49 @@ export default function AdminPage() {
         )}
 
         {activeTab === "settings" && selectedVenue && (
-          <div className="max-w-4xl">
-            <h1 className="text-3xl font-bold text-white mb-8">Venue Settings</h1>
-            <p className="text-gray-400 mb-6">
-              Configure backup playlists, announcements, and speaker connections for <span className="text-white font-medium">{selectedVenue.name}</span>.
+          <div className="max-w-6xl">
+            <h1 className="text-2xl font-bold text-white mb-4">Venue Settings</h1>
+            <p className="text-gray-400 mb-4 text-sm">
+              Configure settings for <span className="text-white font-medium">{selectedVenue.name}</span>.
             </p>
 
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-3 gap-4">
               {/* Backup Playlists */}
-              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                    <ListMusic className="w-5 h-5" />
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <ListMusic className="w-4 h-4" />
                     Backup Playlists ({backupPlaylists.length}/10)
                   </h3>
                   <button
                     onClick={() => setShowPlaylistModal(true)}
                     disabled={backupPlaylists.length >= 10}
-                    className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors disabled:opacity-50"
+                    className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors disabled:opacity-50"
                   >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="w-4 h-4" />
                   </button>
                 </div>
-                <p className="text-gray-400 text-sm mb-4">
-                  Songs from these Apple Music playlists will play automatically when the queue is empty.
+                <p className="text-gray-400 text-xs mb-3">
+                  Auto-play when queue is empty.
                 </p>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
                   {backupPlaylists.length === 0 ? (
-                    <p className="text-gray-500 text-sm text-center py-4">No playlists added yet</p>
+                    <p className="text-gray-500 text-xs text-center py-3">No playlists added</p>
                   ) : (
                     backupPlaylists.map((playlist: any) => (
-                      <div key={playlist.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
+                      <div key={playlist.id} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
                         {playlist.artworkUrl && (
-                          <img src={playlist.artworkUrl} alt="" className="w-12 h-12 rounded object-cover" />
+                          <img src={playlist.artworkUrl} alt="" className="w-8 h-8 rounded object-cover" />
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-white font-medium truncate">{playlist.name || "Playlist"}</p>
-                          <p className="text-gray-400 text-sm">{playlist.trackCount || 0} tracks</p>
+                          <p className="text-white text-sm font-medium truncate">{playlist.name || "Playlist"}</p>
+                          <p className="text-gray-400 text-xs">{playlist.trackCount || 0} tracks</p>
                         </div>
                         <button
                           onClick={() => removePlaylistMutation.mutate(playlist.id.toString())}
-                          className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                          className="p-1 text-gray-400 hover:text-red-400 transition-colors"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3 h-3" />
                         </button>
                       </div>
                     ))
@@ -937,69 +937,60 @@ export default function AdminPage() {
               </div>
 
               {/* Announcements */}
-              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6 md:col-span-3">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                    <Volume2 className="w-5 h-5" />
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 md:col-span-2">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Volume2 className="w-4 h-4" />
                     Announcements ({announcements.length})
                   </h3>
                   <button
                     onClick={() => setShowAnnouncementModal(true)}
-                    className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors"
+                    className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors"
                   >
-                    <Plus className="w-5 h-5" />
+                    <Plus className="w-4 h-4" />
                   </button>
                 </div>
-                <p className="text-gray-400 text-sm mb-4">
-                  Pre-recorded audio messages that play between songs.
-                </p>
                 
                 {/* Announcement Settings */}
-                <div className="mb-4 p-4 bg-white/5 rounded-lg">
-                  <h4 className="text-white font-medium mb-3">Frequency Settings</h4>
-                  <div className="flex flex-wrap items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <label className="text-gray-400 text-sm">Play every:</label>
+                <div className="mb-3 p-3 bg-white/5 rounded-lg">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-gray-400 text-xs">Play:</label>
                       <select
                         value={selectedVenue.announcementFrequencyType || "disabled"}
                         onChange={(e) => updateAnnouncementSettingsMutation.mutate({ 
                           frequencyType: e.target.value === "disabled" ? null : e.target.value 
                         })}
-                        className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                        className="px-2 py-1 text-sm bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:border-indigo-500"
                       >
                         <option value="disabled" className="bg-gray-900">Disabled</option>
-                        <option value="songs" className="bg-gray-900">X songs</option>
-                        <option value="minutes" className="bg-gray-900">X minutes</option>
-                        <option value="hourly" className="bg-gray-900">Top of each hour</option>
+                        <option value="songs" className="bg-gray-900">Every X songs</option>
+                        <option value="minutes" className="bg-gray-900">Every X min</option>
+                        <option value="hourly" className="bg-gray-900">Hourly</option>
                       </select>
                     </div>
                     {selectedVenue.announcementFrequencyType && selectedVenue.announcementFrequencyType !== 'hourly' && (
-                      <div className="flex items-center gap-2">
-                        <label className="text-gray-400 text-sm">
-                          {selectedVenue.announcementFrequencyType === 'songs' ? 'Songs:' : 'Minutes:'}
-                        </label>
-                        <select
-                          value={selectedVenue.announcementFrequency || 5}
-                          onChange={(e) => updateAnnouncementSettingsMutation.mutate({ frequency: parseInt(e.target.value) })}
-                          className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
-                        >
-                          {selectedVenue.announcementFrequencyType === 'songs' 
-                            ? [1, 2, 3, 4, 5, 10, 15, 20].map(n => (
-                                <option key={n} value={n} className="bg-gray-900">{n}</option>
-                              ))
-                            : [5, 10, 15, 30, 45, 60, 90, 120].map(n => (
-                                <option key={n} value={n} className="bg-gray-900">{n}</option>
-                              ))
-                          }
-                        </select>
-                      </div>
+                      <select
+                        value={selectedVenue.announcementFrequency || 5}
+                        onChange={(e) => updateAnnouncementSettingsMutation.mutate({ frequency: parseInt(e.target.value) })}
+                        className="px-2 py-1 text-sm bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:border-indigo-500"
+                      >
+                        {selectedVenue.announcementFrequencyType === 'songs' 
+                          ? [1, 2, 3, 4, 5, 10, 15, 20].map(n => (
+                              <option key={n} value={n} className="bg-gray-900">{n}</option>
+                            ))
+                          : [5, 10, 15, 30, 45, 60, 90, 120].map(n => (
+                              <option key={n} value={n} className="bg-gray-900">{n}</option>
+                            ))
+                        }
+                      </select>
                     )}
-                    <div className="flex items-center gap-2">
-                      <label className="text-gray-400 text-sm">Order:</label>
+                    <div className="flex items-center gap-1.5">
+                      <label className="text-gray-400 text-xs">Order:</label>
                       <select
                         value={selectedVenue.announcementPlayMode || "sequential"}
                         onChange={(e) => updateAnnouncementSettingsMutation.mutate({ playMode: e.target.value })}
-                        className="px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                        className="px-2 py-1 text-sm bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:border-indigo-500"
                       >
                         <option value="sequential" className="bg-gray-900">Sequential</option>
                         <option value="random" className="bg-gray-900">Random</option>
@@ -1008,27 +999,27 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
                   {announcements.length === 0 ? (
-                    <p className="text-gray-500 text-sm text-center py-4 col-span-full">No announcements yet</p>
+                    <p className="text-gray-500 text-xs text-center py-3 col-span-full">No announcements yet</p>
                   ) : (
                     announcements.map((announcement: Announcement) => (
-                      <div key={announcement.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
-                        <Volume2 className={`w-5 h-5 ${announcement.isActive ? 'text-green-400' : 'text-gray-500'}`} />
+                      <div key={announcement.id} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
+                        <Volume2 className={`w-3 h-3 ${announcement.isActive ? 'text-green-400' : 'text-gray-500'}`} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-white font-medium truncate">{announcement.name}</p>
+                          <p className="text-white text-sm truncate">{announcement.name}</p>
                         </div>
                         <button
                           onClick={() => toggleAnnouncementMutation.mutate({ id: announcement.id, isActive: !announcement.isActive })}
-                          className={`px-2 py-1 text-xs rounded ${announcement.isActive ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}
+                          className={`px-1.5 py-0.5 text-xs rounded ${announcement.isActive ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}
                         >
                           {announcement.isActive ? "On" : "Off"}
                         </button>
                         <button
                           onClick={() => deleteAnnouncementMutation.mutate(announcement.id)}
-                          className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                          className="p-0.5 text-gray-400 hover:text-red-400 transition-colors"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3 h-3" />
                         </button>
                       </div>
                     ))
@@ -1037,14 +1028,14 @@ export default function AdminPage() {
               </div>
 
               {/* Sonos Integration - Coming Soon */}
-              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6 opacity-60">
-                <h3 className="text-xl font-bold text-white flex items-center gap-2 mb-4">
-                  <Speaker className="w-5 h-5" />
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 opacity-60 md:col-span-3">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Speaker className="w-4 h-4" />
                   Sonos Speakers
                   <span className="text-xs bg-indigo-600/50 text-indigo-200 px-2 py-0.5 rounded-full ml-2">Coming Soon</span>
                 </h3>
-                <p className="text-gray-400 text-sm">
-                  Connect Sonos speakers to play music throughout your venue. This feature is currently in development.
+                <p className="text-gray-400 text-xs mt-2">
+                  Connect Sonos speakers to play music throughout your venue.
                 </p>
               </div>
             </div>
