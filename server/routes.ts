@@ -837,22 +837,32 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
       return res.status(500).json({ error: "TOKEN_ERROR", message: "Could not get Apple Music token" });
     }
 
-    // Fetch tracks from the playlist
-    const response = await fetch(
-      `https://api.music.apple.com/v1/catalog/us/playlists/${randomPlaylist.applePlaylistId}?include=tracks`,
-      {
+    // Fetch all tracks from the playlist with pagination
+    let tracks: any[] = [];
+    let nextUrl: string | null = `https://api.music.apple.com/v1/catalog/us/playlists/${randomPlaylist.applePlaylistId}/tracks?limit=100`;
+    
+    while (nextUrl) {
+      const response = await fetch(nextUrl, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+      });
+
+      if (!response.ok) {
+        if (tracks.length === 0) {
+          return res.status(500).json({ error: "APPLE_ERROR", message: "Could not fetch playlist tracks" });
+        }
+        break;
       }
-    );
 
-    if (!response.ok) {
-      return res.status(500).json({ error: "APPLE_ERROR", message: "Could not fetch playlist tracks" });
+      const data = await response.json();
+      const pageTracks = data.data || [];
+      tracks = tracks.concat(pageTracks);
+      
+      nextUrl = data.next ? `https://api.music.apple.com${data.next}` : null;
+      
+      if (tracks.length >= 500) break;
     }
-
-    const data = await response.json();
-    let tracks = data.data?.[0]?.relationships?.tracks?.data || [];
     
     if (tracks.length === 0) {
       return res.status(404).json({ error: "NO_TRACKS", message: "Playlist has no tracks" });
