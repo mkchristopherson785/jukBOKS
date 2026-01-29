@@ -1398,16 +1398,20 @@ router.post("/api/me/venues/:venueId/backup-playlists", isAuthenticated, async (
       if (isLibrary) {
         // Library playlists can't be fetched server-side (need user token)
         // Use client-provided details
+        console.log("Using client-provided details for library playlist");
         playlistName = name || "Apple Music Playlist";
         playlistTrackCount = trackCount || 0;
         playlistArtworkUrl = artworkUrl || null;
       } else {
         // Always fetch from Apple Music API for catalog playlists
         // Search results don't include trackCount, so we need to fetch full details
+        console.log("Fetching catalog playlist details from Apple API:", applePlaylistId);
         const playlistDetails = await fetchApplePlaylistDetails(applePlaylistId);
+        console.log("Fetched playlist details:", playlistDetails);
         playlistName = playlistDetails?.name || name || "Apple Music Playlist";
         playlistTrackCount = playlistDetails?.trackCount || 0;
         playlistArtworkUrl = playlistDetails?.artworkUrl || artworkUrl || null;
+        console.log("Final values - name:", playlistName, "trackCount:", playlistTrackCount);
       }
     } else if (playlistUrl) {
       // Extract playlist ID from Apple Music URL
