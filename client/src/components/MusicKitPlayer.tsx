@@ -44,13 +44,28 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
         onEnded?.();
       });
       setPreviewAudio(audio);
-      audio.play().then(() => setPreviewPlaying(true)).catch(console.error);
+      audio.play()
+        .then(() => setPreviewPlaying(true))
+        .catch((err) => {
+          console.warn("Preview autoplay blocked, will need user interaction:", err.message);
+        });
       return () => {
         audio.pause();
         audio.src = "";
       };
     }
   }, [previewUrl, usePreview, onEnded]);
+  
+  // Auto-fallback to preview mode if MusicKit is configured but not authorized after a delay
+  useEffect(() => {
+    if (isConfigured && !isAuthorized && previewUrl && !usePreview && !sonosEnabled) {
+      const timer = setTimeout(() => {
+        console.log("Auto-falling back to preview mode (not authorized)");
+        setUsePreview(true);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isConfigured, isAuthorized, previewUrl, usePreview, sonosEnabled]);
 
   useEffect(() => {
     if (!musicKit || !trackId || usePreview) return;
