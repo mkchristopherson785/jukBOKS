@@ -108,6 +108,26 @@ router.get("/api/apple-music/token", async (_req: Request, res: Response) => {
   res.json({ token });
 });
 
+// Proxy endpoint for iTunes search (avoids CORS issues on mobile)
+router.get("/api/apple-music/search", async (req: Request, res: Response) => {
+  const { term, limit = "20", offset = "0" } = req.query;
+  
+  if (!term || typeof term !== "string") {
+    return res.status(400).json({ error: "Search term required" });
+  }
+  
+  try {
+    const response = await fetch(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&limit=${limit}&offset=${offset}`
+    );
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error("iTunes search error:", error);
+    res.status(500).json({ error: "Search failed" });
+  }
+});
+
 async function validateGuestToken(guestToken: string | undefined, venueId: number) {
   if (!guestToken) return null;
   

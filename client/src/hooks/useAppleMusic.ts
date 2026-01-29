@@ -40,7 +40,7 @@ export function useAppleMusic() {
     
     try {
       const response = await fetch(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=${RESULTS_PER_PAGE}&offset=0`
+        `/api/apple-music/search?term=${encodeURIComponent(query)}&limit=${RESULTS_PER_PAGE}&offset=0`
       );
       const data = await response.json();
 
@@ -73,7 +73,7 @@ export function useAppleMusic() {
     setIsLoadingMore(true);
     try {
       const response = await fetch(
-        `https://itunes.apple.com/search?term=${encodeURIComponent(currentQueryRef.current)}&media=music&limit=${RESULTS_PER_PAGE}&offset=${offsetRef.current}`
+        `/api/apple-music/search?term=${encodeURIComponent(currentQueryRef.current)}&limit=${RESULTS_PER_PAGE}&offset=${offsetRef.current}`
       );
       const data = await response.json();
 
