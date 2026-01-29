@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, Settings, LogOut, Plus, Trash2, ListMusic, Volume2, Upload, Speaker, Shield, ArrowLeft } from "lucide-react";
-import { fetchVenue, fetchMyVenues, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, checkSuperAdmin, type Announcement } from "../lib/api";
+import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, checkSuperAdmin, type Announcement } from "../lib/api";
 import { useUpload } from "../hooks/use-upload";
 import { useAuth } from "../hooks/use-auth";
 
@@ -120,6 +120,14 @@ export default function SettingsPage() {
     },
   });
 
+  const updateVenueMutation = useMutation({
+    mutationFn: (data: { allowExplicit?: boolean; autoApprove?: boolean; dailyRequestLimit?: number }) => 
+      updateVenue(selectedVenue!.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["venue", selectedVenueCode] });
+    },
+  });
+
   const handleAddPlaylist = () => {
     if (playlistUrl.trim()) {
       setPlaylistError("");
@@ -228,7 +236,56 @@ export default function SettingsPage() {
             </a>
           </div>
         ) : selectedVenue ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0 overflow-hidden">
+          <div className="space-y-4 flex-1 overflow-auto">
+            <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
+              <h3 className="text-lg font-bold text-white mb-4">Venue Options</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                  <div>
+                    <p className="text-white font-medium">Allow Explicit</p>
+                    <p className="text-gray-400 text-xs">Allow explicit content in requests</p>
+                  </div>
+                  <button
+                    onClick={() => updateVenueMutation.mutate({ allowExplicit: !selectedVenue.allowExplicit })}
+                    className={`w-12 h-6 rounded-full transition-colors ${selectedVenue.allowExplicit ? 'bg-indigo-600' : 'bg-gray-600'}`}
+                  >
+                    <div className={`w-5 h-5 bg-white rounded-full transition-transform ${selectedVenue.allowExplicit ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                  <div>
+                    <p className="text-white font-medium">Auto-Approve</p>
+                    <p className="text-gray-400 text-xs">Automatically approve requests</p>
+                  </div>
+                  <button
+                    onClick={() => updateVenueMutation.mutate({ autoApprove: !selectedVenue.autoApprove })}
+                    className={`w-12 h-6 rounded-full transition-colors ${selectedVenue.autoApprove ? 'bg-indigo-600' : 'bg-gray-600'}`}
+                  >
+                    <div className={`w-5 h-5 bg-white rounded-full transition-transform ${selectedVenue.autoApprove ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                  <div>
+                    <p className="text-white font-medium">Request Limit</p>
+                    <p className="text-gray-400 text-xs">Per guest, per day</p>
+                  </div>
+                  <select
+                    value={selectedVenue.dailyRequestLimit ?? 5}
+                    onChange={(e) => updateVenueMutation.mutate({ dailyRequestLimit: parseInt(e.target.value) })}
+                    className="px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="1" className="bg-gray-900">1</option>
+                    <option value="2" className="bg-gray-900">2</option>
+                    <option value="3" className="bg-gray-900">3</option>
+                    <option value="5" className="bg-gray-900">5</option>
+                    <option value="10" className="bg-gray-900">10</option>
+                    <option value="0" className="bg-gray-900">Unlimited</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0">
             <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 lg:row-span-2 flex flex-col min-h-0 overflow-hidden">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -369,6 +426,7 @@ export default function SettingsPage() {
               <p className="text-gray-400 text-xs mt-2">
                 Connect Sonos speakers to play music throughout your venue.
               </p>
+            </div>
             </div>
           </div>
         ) : (
