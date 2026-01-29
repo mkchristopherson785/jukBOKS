@@ -887,7 +887,7 @@ export default function AdminPage() {
 
         {activeTab === "settings" && selectedVenue && (
           <div className="max-w-6xl">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-[calc(100vh-160px)]">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-[calc(100vh-180px)]">
               {/* Backup Playlists */}
               <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 lg:row-span-2 flex flex-col overflow-hidden">
                 <div className="flex items-center justify-between mb-3">
