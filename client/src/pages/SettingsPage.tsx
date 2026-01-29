@@ -1,14 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Settings, LogOut, Plus, Trash2, ListMusic, Volume2, Upload, Speaker, Shield, ArrowLeft, Search } from "lucide-react";
+import { Music2, Settings, LogOut, Plus, Trash2, ListMusic, Volume2, Upload, Speaker, Shield, ArrowLeft, Search, User } from "lucide-react";
 import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, checkSuperAdmin, searchPlaylists, addBackupPlaylistById, type Announcement } from "../lib/api";
 import { useUpload } from "../hooks/use-upload";
 import { useAuth } from "../hooks/use-auth";
+import { useMusicKit } from "../hooks/useMusicKit";
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const { uploadFile, isUploading } = useUpload({});
+  const { isConfigured: musicKitConfigured, isAuthorized: musicKitAuthorized, authorize: authorizeMusicKit, musicKit } = useMusicKit();
   
   const { data: superAdminCheck } = useQuery({
     queryKey: ["super-admin-check"],
@@ -23,9 +25,39 @@ export default function SettingsPage() {
   const [playlistSearchTerm, setPlaylistSearchTerm] = useState("");
   const [playlistSearchResults, setPlaylistSearchResults] = useState<any[]>([]);
   const [isSearchingPlaylists, setIsSearchingPlaylists] = useState(false);
+  const [libraryPlaylists, setLibraryPlaylists] = useState<any[]>([]);
+  const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [announcementName, setAnnouncementName] = useState("");
   const [announcementError, setAnnouncementError] = useState("");
+
+  const fetchLibraryPlaylists = useCallback(async () => {
+    if (!musicKit || !musicKitAuthorized) return;
+    setIsLoadingLibrary(true);
+    try {
+      const response = await musicKit.api.music('/v1/me/library/playlists', { limit: 50 });
+      const playlists = response.data.data || [];
+      const formattedPlaylists = playlists.map((p: any) => ({
+        id: p.id,
+        name: p.attributes?.name || "Unknown Playlist",
+        curatorName: "My Library",
+        trackCount: p.attributes?.trackCount || 0,
+        artworkUrl: p.attributes?.artwork?.url?.replace("{w}x{h}", "100x100") || null,
+        isLibrary: true,
+      }));
+      setLibraryPlaylists(formattedPlaylists);
+    } catch (error) {
+      console.error("Failed to fetch library playlists:", error);
+    } finally {
+      setIsLoadingLibrary(false);
+    }
+  }, [musicKit, musicKitAuthorized]);
+
+  useEffect(() => {
+    if (showPlaylistModal && musicKitAuthorized) {
+      fetchLibraryPlaylists();
+    }
+  }, [showPlaylistModal, musicKitAuthorized, fetchLibraryPlaylists]);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -494,31 +526,86 @@ export default function SettingsPage() {
                 <Search className="w-5 h-5" />
               </button>
             </div>
-            
-            {playlistSearchResults.length > 0 && (
-              <div className="flex-1 overflow-y-auto mb-4 space-y-2">
-                {playlistSearchResults.map((playlist: any) => (
-                  <div 
-                    key={playlist.id} 
-                    className="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 cursor-pointer transition-colors"
-                    onClick={() => addPlaylistByIdMutation.mutate(playlist)}
+
+            <div className="flex-1 overflow-y-auto space-y-4 min-h-0">
+              {!musicKitAuthorized && musicKitConfigured && (
+                <div className="p-4 bg-gradient-to-r from-pink-500/20 to-red-500/20 rounded-lg border border-pink-500/30">
+                  <p className="text-white text-sm mb-3">Sign in to Apple Music to see your personal playlists</p>
+                  <button
+                    onClick={authorizeMusicKit}
+                    className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg transition-colors text-sm"
                   >
-                    {playlist.artworkUrl && (
-                      <img src={playlist.artworkUrl} alt="" className="w-12 h-12 rounded object-cover" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium truncate">{playlist.name}</p>
-                      <p className="text-gray-400 text-xs">{playlist.curatorName} • {playlist.trackCount} tracks</p>
+                    <User className="w-4 h-4" />
+                    Sign in to Apple Music
+                  </button>
+                </div>
+              )}
+
+              {musicKitAuthorized && (
+                <div>
+                  <h3 className="text-white font-medium text-sm mb-2 flex items-center gap-2">
+                    <User className="w-4 h-4 text-pink-400" />
+                    My Library
+                  </h3>
+                  {isLoadingLibrary ? (
+                    <p className="text-gray-400 text-center py-2 text-sm">Loading your playlists...</p>
+                  ) : libraryPlaylists.length > 0 ? (
+                    <div className="space-y-2">
+                      {libraryPlaylists.map((playlist: any) => (
+                        <div 
+                          key={playlist.id} 
+                          className="flex items-center gap-3 p-3 bg-pink-500/10 rounded-lg hover:bg-pink-500/20 cursor-pointer transition-colors border border-pink-500/20"
+                          onClick={() => addPlaylistByIdMutation.mutate(playlist)}
+                        >
+                          {playlist.artworkUrl ? (
+                            <img src={playlist.artworkUrl} alt="" className="w-10 h-10 rounded object-cover" />
+                          ) : (
+                            <div className="w-10 h-10 rounded bg-pink-500/30 flex items-center justify-center">
+                              <ListMusic className="w-5 h-5 text-pink-300" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white font-medium truncate text-sm">{playlist.name}</p>
+                            <p className="text-gray-400 text-xs">{playlist.trackCount || 0} tracks</p>
+                          </div>
+                          <Plus className="w-5 h-5 text-pink-400" />
+                        </div>
+                      ))}
                     </div>
-                    <Plus className="w-5 h-5 text-indigo-400" />
+                  ) : (
+                    <p className="text-gray-500 text-xs text-center py-2">No playlists in your library</p>
+                  )}
+                </div>
+              )}
+
+              {playlistSearchResults.length > 0 && (
+                <div>
+                  <h3 className="text-white font-medium text-sm mb-2">Apple Music Catalog</h3>
+                  <div className="space-y-2">
+                    {playlistSearchResults.map((playlist: any) => (
+                      <div 
+                        key={playlist.id} 
+                        className="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 cursor-pointer transition-colors"
+                        onClick={() => addPlaylistByIdMutation.mutate(playlist)}
+                      >
+                        {playlist.artworkUrl && (
+                          <img src={playlist.artworkUrl} alt="" className="w-10 h-10 rounded object-cover" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-medium truncate text-sm">{playlist.name}</p>
+                          <p className="text-gray-400 text-xs">{playlist.curatorName} • {playlist.trackCount} tracks</p>
+                        </div>
+                        <Plus className="w-5 h-5 text-indigo-400" />
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-            
-            {isSearchingPlaylists && (
-              <p className="text-gray-400 text-center py-4">Searching...</p>
-            )}
+                </div>
+              )}
+              
+              {isSearchingPlaylists && (
+                <p className="text-gray-400 text-center py-4">Searching...</p>
+              )}
+            </div>
             
             <div className="border-t border-white/10 pt-4 mt-auto">
               <p className="text-gray-500 text-xs mb-2">Or paste a playlist URL:</p>
