@@ -1359,6 +1359,8 @@ router.delete("/api/me/team/:memberId", isAuthenticated, async (req: any, res) =
 
 // Backup playlists for authenticated users
 router.post("/api/me/venues/:venueId/backup-playlists", isAuthenticated, async (req: any, res) => {
+  console.log("=== ADD BACKUP PLAYLIST ===");
+  console.log("Request body:", JSON.stringify(req.body));
   try {
     const userId = req.user?.claims?.sub;
     const userEmail = req.user?.claims?.email || "";
