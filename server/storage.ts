@@ -214,6 +214,7 @@ export class DatabaseStorage implements IStorage {
       ))
       .groupBy(requests.id)
       .orderBy(
+        sql`CASE WHEN ${requests.isAutoPlay} = false THEN 0 ELSE 1 END`,
         desc(sql`COALESCE(SUM(CASE WHEN ${votes.voteType} = 'up' THEN 1 ELSE 0 END), 0) - COALESCE(SUM(CASE WHEN ${votes.voteType} = 'down' THEN 1 ELSE 0 END), 0)`),
         requests.requestedAt
       );

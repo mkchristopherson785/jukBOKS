@@ -859,7 +859,20 @@ router.get("/api/v1/venues/:code/backup-playlists", async (req: Request, res: Re
   }
 });
 
-// Get a random song from a random backup playlist for auto-play
+// Helper function to pick a playlist using weighted random selection
+function pickWeightedPlaylist(playlists: any[]) {
+  const totalWeight = playlists.reduce((sum, p) => sum + (p.weight || 3), 0);
+  let random = Math.random() * totalWeight;
+  for (const playlist of playlists) {
+    random -= (playlist.weight || 3);
+    if (random <= 0) {
+      return playlist;
+    }
+  }
+  return playlists[0];
+}
+
+// Fill queue with songs from backup playlists for auto-play
 router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response) => {
   try {
     const venue = await storage.getVenueByCode(req.params.code);
@@ -872,17 +885,17 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
       return res.status(404).json({ error: "NO_PLAYLISTS", message: "No backup playlists configured" });
     }
 
-    // Pick a playlist using weighted random selection
-    // Higher weight = more likely to be selected
-    const totalWeight = playlists.reduce((sum, p) => sum + (p.weight || 3), 0);
-    let random = Math.random() * totalWeight;
-    let randomPlaylist = playlists[0];
-    for (const playlist of playlists) {
-      random -= (playlist.weight || 3);
-      if (random <= 0) {
-        randomPlaylist = playlist;
-        break;
-      }
+    // Check current queue and count auto-play songs
+    const currentQueue = await storage.getQueueWithVotes(venue.id);
+    const autoPlayInQueue = currentQueue.filter(item => item.isAutoPlay);
+    const trackIdsInQueue = new Set(currentQueue.map(item => item.trackId));
+    
+    // Target: keep 5 backup songs in queue
+    const TARGET_BACKUP_SONGS = 5;
+    const songsToAdd = Math.max(0, TARGET_BACKUP_SONGS - autoPlayInQueue.length);
+    
+    if (songsToAdd === 0) {
+      return res.json({ success: true, message: "Queue already has enough backup songs", added: 0 });
     }
     
     const token = await getAppleMusicToken();
@@ -890,85 +903,82 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
       return res.status(500).json({ error: "TOKEN_ERROR", message: "Could not get Apple Music token" });
     }
 
-    // Fetch all tracks from the playlist with pagination
-    let tracks: any[] = [];
-    let nextUrl: string | null = `https://api.music.apple.com/v1/catalog/us/playlists/${randomPlaylist.applePlaylistId}/tracks?limit=100`;
-    
-    while (nextUrl) {
-      const response = await fetch(nextUrl, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        if (tracks.length === 0) {
-          return res.status(500).json({ error: "APPLE_ERROR", message: "Could not fetch playlist tracks" });
-        }
-        break;
-      }
-
-      const data = await response.json();
-      const pageTracks = data.data || [];
-      tracks = tracks.concat(pageTracks);
-      
-      nextUrl = data.next ? `https://api.music.apple.com${data.next}` : null;
-      
-      if (tracks.length >= 500) break;
-    }
-    
-    if (tracks.length === 0) {
-      return res.status(404).json({ error: "NO_TRACKS", message: "Playlist has no tracks" });
-    }
-
-    // Filter out explicit tracks if venue doesn't allow explicit content
-    if (!venue.allowExplicit) {
-      tracks = tracks.filter((track: any) => track.attributes?.contentRating !== "explicit");
-      if (tracks.length === 0) {
-        return res.status(404).json({ error: "NO_CLEAN_TRACKS", message: "No clean tracks available in playlist" });
-      }
-    }
-
-    // Filter out banned songs
+    // Get banned songs once
     const bannedSongs = await storage.getBannedSongs(venue.id);
     const bannedTrackIds = new Set(bannedSongs.map(s => s.trackId));
-    tracks = tracks.filter((track: any) => !bannedTrackIds.has(track.id));
-    if (tracks.length === 0) {
-      return res.status(404).json({ error: "NO_AVAILABLE_TRACKS", message: "All tracks in playlist are banned" });
-    }
-
-    // Filter out songs played in the last 4 hours
-    const availableTracks: any[] = [];
-    for (const track of tracks) {
-      const wasPlayedRecently = await storage.wasTrackPlayedRecently(venue.id, track.id, 4);
-      if (!wasPlayedRecently) {
-        availableTracks.push(track);
-      }
-    }
     
-    // If all songs were played recently, just use the full list
-    const tracksToChooseFrom = availableTracks.length > 0 ? availableTracks : tracks;
+    const addedSongs: any[] = [];
+    const usedTrackIds = new Set(trackIdsInQueue);
+    
+    // Try to add songs from different playlists for variety
+    for (let i = 0; i < songsToAdd; i++) {
+      const randomPlaylist = pickWeightedPlaylist(playlists);
+      
+      // Fetch tracks from the playlist
+      let tracks: any[] = [];
+      let nextUrl: string | null = `https://api.music.apple.com/v1/catalog/us/playlists/${randomPlaylist.applePlaylistId}/tracks?limit=100`;
+      
+      while (nextUrl && tracks.length < 200) {
+        const response = await fetch(nextUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-    // Pick a random track from available ones
-    const randomTrack = tracksToChooseFrom[Math.floor(Math.random() * tracksToChooseFrom.length)];
-    const attrs = randomTrack.attributes;
+        if (!response.ok) break;
 
-    // Create a request for the random song
-    const request = await storage.createRequest({
-      venueId: venue.id,
-      trackId: randomTrack.id,
-      title: attrs.name,
-      artist: attrs.artistName,
-      album: attrs.albumName || "",
-      albumCover: attrs.artwork?.url?.replace("{w}x{h}", "300x300") || "",
-      previewUrl: attrs.previews?.[0]?.url || "",
-      duration: attrs.durationInMillis || 0,
-      isExplicit: attrs.contentRating === "explicit",
-      isAutoPlay: true,
-      status: "approved",
-    });
+        const data = await response.json();
+        tracks = tracks.concat(data.data || []);
+        nextUrl = data.next ? `https://api.music.apple.com${data.next}` : null;
+      }
+      
+      if (tracks.length === 0) continue;
 
-    res.json({ success: true, request, source: "backup_playlist", playlistName: randomPlaylist.name });
+      // Filter tracks
+      let filteredTracks = tracks.filter((track: any) => {
+        // Filter out songs already in queue or already added
+        if (usedTrackIds.has(track.id)) return false;
+        // Filter out banned songs
+        if (bannedTrackIds.has(track.id)) return false;
+        // Filter out explicit if not allowed
+        if (!venue.allowExplicit && track.attributes?.contentRating === "explicit") return false;
+        return true;
+      });
+      
+      // Filter out recently played songs
+      const availableTracks: any[] = [];
+      for (const track of filteredTracks) {
+        const wasPlayedRecently = await storage.wasTrackPlayedRecently(venue.id, track.id, 4);
+        if (!wasPlayedRecently) {
+          availableTracks.push(track);
+        }
+      }
+      
+      const tracksToChooseFrom = availableTracks.length > 0 ? availableTracks : filteredTracks;
+      if (tracksToChooseFrom.length === 0) continue;
+
+      // Pick a random track
+      const randomTrack = tracksToChooseFrom[Math.floor(Math.random() * tracksToChooseFrom.length)];
+      const attrs = randomTrack.attributes;
+      usedTrackIds.add(randomTrack.id);
+
+      // Create a request for the song
+      const request = await storage.createRequest({
+        venueId: venue.id,
+        trackId: randomTrack.id,
+        title: attrs.name,
+        artist: attrs.artistName,
+        album: attrs.albumName || "",
+        albumCover: attrs.artwork?.url?.replace("{w}x{h}", "300x300") || "",
+        previewUrl: attrs.previews?.[0]?.url || "",
+        duration: attrs.durationInMillis || 0,
+        isExplicit: attrs.contentRating === "explicit",
+        isAutoPlay: true,
+        status: "approved",
+      });
+      
+      addedSongs.push({ request, playlistName: randomPlaylist.name });
+    }
+
+    res.json({ success: true, added: addedSongs.length, songs: addedSongs });
   } catch (error) {
     console.error("Auto-play error:", error);
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
