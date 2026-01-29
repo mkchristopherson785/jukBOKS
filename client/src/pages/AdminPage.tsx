@@ -388,7 +388,7 @@ export default function AdminPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-4 flex-1 overflow-hidden flex flex-col">
-        <div className="flex flex-wrap items-center gap-4 mb-8 border-b border-white/10 pb-4">
+        <div className="flex items-center justify-between gap-4 mb-8 border-b border-white/10 pb-4">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setActiveTab("venues")}
@@ -430,48 +430,44 @@ export default function AdminPage() {
             </button>
           </div>
 
-          {selectedVenue && (
-            <>
-              <div className="h-6 w-px bg-white/20 hidden sm:block" />
-              <div className="flex flex-wrap items-center gap-2">
-                <a
-                  href={qrData?.partyUrl || `/party/${selectedVenueCode}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors"
-                >
-                  <QrCode className="w-4 h-4" />
-                  Party
-                </a>
-                <a
-                  href={`/kiosk/${selectedVenueCode}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors"
-                >
-                  <Tv className="w-4 h-4" />
-                  Kiosk
-                </a>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/party/${qrData?.partyCode || selectedVenueCode}`);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
-                >
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  {copied ? "Copied!" : "Copy Link"}
-                </button>
-              </div>
-              <div className="h-6 w-px bg-white/20 hidden sm:block" />
-              <div className="relative">
-                <button
-                  onClick={() => setShowSettingsPopover(!showSettingsPopover)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
-                >
-                  <Settings className="w-4 h-4" />
-                  Settings
+          <div className={`flex items-center gap-2 ${selectedVenue ? '' : 'invisible'}`}>
+            <a
+              href={qrData?.partyUrl || `/party/${selectedVenueCode}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors"
+            >
+              <QrCode className="w-4 h-4" />
+              Party
+            </a>
+            <a
+              href={`/kiosk/${selectedVenueCode}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors"
+            >
+              <Tv className="w-4 h-4" />
+              Kiosk
+            </a>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(`${window.location.origin}/party/${qrData?.partyCode || selectedVenueCode}`);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
+            >
+              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {copied ? "Copied!" : "Copy Link"}
+            </button>
+            <div className="h-6 w-px bg-white/20" />
+            <div className="relative">
+              <button
+                onClick={() => setShowSettingsPopover(!showSettingsPopover)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                Settings
                   {listenersData?.count > 0 && (
                     <span className="flex items-center gap-1 ml-1 text-green-400">
                       <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
@@ -553,8 +549,7 @@ export default function AdminPage() {
                   </>
                 )}
               </div>
-            </>
-          )}
+          </div>
         </div>
 
         {activeTab === "venues" && (
