@@ -230,6 +230,9 @@ export async function addBackupPlaylistById(venueId: number, playlist: { id: str
     credentials: "include",
     body: JSON.stringify({ 
       playlistId: playlist.id,
+      name: playlist.name,
+      trackCount: playlist.trackCount,
+      artworkUrl: playlist.artworkUrl,
       isLibrary: playlist.isLibrary || false
     }),
   });

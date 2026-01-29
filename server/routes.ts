@@ -1382,14 +1382,31 @@ router.post("/api/me/venues/:venueId/backup-playlists", isAuthenticated, async (
       return res.status(400).json({ error: "MAX_PLAYLISTS_REACHED", message: "Maximum of 10 backup playlists allowed" });
     }
 
-    const { playlistUrl, playlistId, isLibrary } = req.body;
+    const { playlistUrl, playlistId, isLibrary, name, trackCount, artworkUrl } = req.body;
     
     let applePlaylistId: string;
+    let playlistName: string;
+    let playlistTrackCount: number;
+    let playlistArtworkUrl: string | null;
     
     if (playlistId) {
       // Direct playlist ID from search results - use as-is since it already has the correct format
       applePlaylistId = playlistId;
-      console.log("Adding playlist by ID:", applePlaylistId);
+      
+      // Use client-provided details for library playlists (can't fetch server-side) 
+      // or as fallback for catalog playlists
+      if (isLibrary || (name && trackCount !== undefined)) {
+        // Use client-provided details
+        playlistName = name || "Apple Music Playlist";
+        playlistTrackCount = trackCount || 0;
+        playlistArtworkUrl = artworkUrl || null;
+      } else {
+        // Fetch from Apple Music API for catalog playlists
+        const playlistDetails = await fetchApplePlaylistDetails(applePlaylistId);
+        playlistName = playlistDetails?.name || "Apple Music Playlist";
+        playlistTrackCount = playlistDetails?.trackCount || 0;
+        playlistArtworkUrl = playlistDetails?.artworkUrl || null;
+      }
     } else if (playlistUrl) {
       // Extract playlist ID from Apple Music URL
       const urlMatch = playlistUrl.match(/playlist\/[^\/]+\/pl\.([a-zA-Z0-9-]+)/);
@@ -1397,21 +1414,22 @@ router.post("/api/me/venues/:venueId/backup-playlists", isAuthenticated, async (
         return res.status(400).json({ error: "INVALID_URL", message: "Invalid Apple Music playlist URL" });
       }
       applePlaylistId = `pl.${urlMatch[1]}`;
+      
+      // Fetch details from Apple Music for URL-based playlists
+      const playlistDetails = await fetchApplePlaylistDetails(applePlaylistId);
+      playlistName = playlistDetails?.name || "Apple Music Playlist";
+      playlistTrackCount = playlistDetails?.trackCount || 0;
+      playlistArtworkUrl = playlistDetails?.artworkUrl || null;
     } else {
       return res.status(400).json({ error: "INVALID_REQUEST", message: "playlistUrl or playlistId is required" });
     }
 
-    // Fetch playlist details from Apple Music
-    console.log("Fetching playlist details for:", applePlaylistId);
-    const playlistDetails = await fetchApplePlaylistDetails(applePlaylistId);
-    console.log("Playlist details result:", playlistDetails);
-
     const playlist = await storage.createBackupPlaylist({
       venueId: venue.id,
-      name: playlistDetails?.name || "Apple Music Playlist",
+      name: playlistName,
       applePlaylistId,
-      trackCount: playlistDetails?.trackCount || 0,
-      artworkUrl: playlistDetails?.artworkUrl || null,
+      trackCount: playlistTrackCount,
+      artworkUrl: playlistArtworkUrl,
       position: count,
     });
 
