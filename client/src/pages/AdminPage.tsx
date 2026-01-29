@@ -577,8 +577,8 @@ export default function AdminPage() {
             </button>
           </div>
         ) : (
-          <div className="grid lg:grid-cols-4 gap-6 flex-1 overflow-hidden">
-            <div className="space-y-2 overflow-y-auto">
+          <div className="grid lg:grid-cols-4 gap-6 flex-1 min-h-0 overflow-hidden">
+            <div className="space-y-2 overflow-y-auto min-h-0">
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">My Venues</h2>
               {venues.map((venue: any) => (
                 <div
@@ -620,11 +620,11 @@ export default function AdminPage() {
             </div>
 
             {selectedVenue && (
-              <div className="lg:col-span-3 flex flex-col overflow-hidden">
+              <div className="lg:col-span-3 flex flex-col min-h-0 overflow-hidden">
                 {/* Main Content: Queue + Sidebar (Playlists + Announcements) */}
-                <div className="grid lg:grid-cols-3 gap-4 flex-1 overflow-hidden">
+                <div className="grid lg:grid-cols-3 gap-4 flex-1 min-h-0 overflow-hidden">
                   {/* Queue - Takes 2 columns */}
-                  <div className="lg:col-span-2 bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 flex flex-col overflow-hidden">
+                  <div className="lg:col-span-2 bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 flex flex-col min-h-0 overflow-hidden">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-lg font-bold text-white">Queue ({queue?.items?.length || 0})</h3>
                       {queue?.items?.[0] && (
@@ -645,9 +645,9 @@ export default function AdminPage() {
                   </div>
 
                   {/* Right Sidebar - Play History */}
-                  <div className="flex flex-col overflow-hidden">
+                  <div className="flex flex-col min-h-0 overflow-hidden">
                     {/* Play History & Banned Songs */}
-                    <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 flex flex-col flex-1 overflow-hidden">
+                    <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 flex flex-col flex-1 min-h-0 overflow-hidden">
                       <h3 className="text-md font-bold text-white flex items-center gap-2 mb-3">
                         <History className="w-4 h-4" />
                         Recent Plays
@@ -886,10 +886,10 @@ export default function AdminPage() {
         )}
 
         {activeTab === "settings" && selectedVenue && (
-          <div className="max-w-6xl flex-1 flex flex-col overflow-hidden">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 overflow-hidden">
+          <div className="max-w-6xl flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0 overflow-hidden">
               {/* Backup Playlists */}
-              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 lg:row-span-2 flex flex-col overflow-hidden">
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 lg:row-span-2 flex flex-col min-h-0 overflow-hidden">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     <ListMusic className="w-4 h-4" />
@@ -932,7 +932,7 @@ export default function AdminPage() {
               </div>
 
               {/* Announcements */}
-              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 lg:col-span-2 flex flex-col overflow-hidden">
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 lg:col-span-2 flex flex-col min-h-0 overflow-hidden">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     <Volume2 className="w-4 h-4" />
