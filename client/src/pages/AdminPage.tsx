@@ -577,8 +577,8 @@ export default function AdminPage() {
             </button>
           </div>
         ) : (
-          <div className="grid lg:grid-cols-4 gap-6">
-            <div className="space-y-2">
+          <div className="grid lg:grid-cols-4 gap-6 flex-1 overflow-hidden">
+            <div className="space-y-2 overflow-y-auto">
               <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">My Venues</h2>
               {venues.map((venue: any) => (
                 <div
@@ -620,9 +620,9 @@ export default function AdminPage() {
             </div>
 
             {selectedVenue && (
-              <div className="lg:col-span-3 space-y-4">
+              <div className="lg:col-span-3 flex flex-col overflow-hidden">
                 {/* Main Content: Queue + Sidebar (Playlists + Announcements) */}
-                <div className="grid lg:grid-cols-3 gap-4" style={{ maxHeight: 'calc(100vh - 280px)', minHeight: '400px' }}>
+                <div className="grid lg:grid-cols-3 gap-4 flex-1 overflow-hidden">
                   {/* Queue - Takes 2 columns */}
                   <div className="lg:col-span-2 bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 flex flex-col overflow-hidden">
                     <div className="flex items-center justify-between mb-3">
