@@ -211,6 +211,7 @@ export const backupPlaylists = pgTable("backup_playlists", {
   trackCount: integer("track_count").default(0),
   artworkUrl: text("artwork_url"),
   position: integer("position").notNull().default(0),
+  weight: integer("weight").notNull().default(3),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   venueIdx: index("backup_playlists_venue_idx").on(table.venueId),
