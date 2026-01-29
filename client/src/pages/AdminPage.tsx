@@ -892,9 +892,9 @@ export default function AdminPage() {
               Configure settings for <span className="text-white font-medium">{selectedVenue.name}</span>.
             </p>
 
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Backup Playlists */}
-              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 lg:row-span-2">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     <ListMusic className="w-4 h-4" />
@@ -937,7 +937,7 @@ export default function AdminPage() {
               </div>
 
               {/* Announcements */}
-              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 md:col-span-2">
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 lg:col-span-2">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     <Volume2 className="w-4 h-4" />
@@ -1028,7 +1028,7 @@ export default function AdminPage() {
               </div>
 
               {/* Sonos Integration - Coming Soon */}
-              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 opacity-60 md:col-span-3">
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 opacity-60 lg:col-span-2">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
                   <Speaker className="w-4 h-4" />
                   Sonos Speakers
