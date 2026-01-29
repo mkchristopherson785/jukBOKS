@@ -128,6 +128,51 @@ router.get("/api/apple-music/search", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/api/apple-music/search-playlists", async (req: Request, res: Response) => {
+  const { term, limit = "10" } = req.query;
+  
+  if (!term || typeof term !== "string") {
+    return res.status(400).json({ error: "Search term required" });
+  }
+  
+  const token = await getAppleMusicToken();
+  if (!token) {
+    return res.status(500).json({ error: "Could not get Apple Music token" });
+  }
+  
+  try {
+    const response = await fetch(
+      `https://api.music.apple.com/v1/catalog/us/search?term=${encodeURIComponent(term)}&types=playlists&limit=${limit}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+    
+    if (!response.ok) {
+      console.error("Apple playlist search failed:", response.status);
+      return res.status(500).json({ error: "Search failed" });
+    }
+    
+    const data = await response.json();
+    const playlists = data.results?.playlists?.data || [];
+    
+    const results = playlists.map((playlist: any) => ({
+      id: playlist.id,
+      name: playlist.attributes?.name || "Unknown Playlist",
+      curatorName: playlist.attributes?.curatorName || "Apple Music",
+      trackCount: playlist.attributes?.trackCount || 0,
+      artworkUrl: playlist.attributes?.artwork?.url?.replace("{w}x{h}", "100x100") || null,
+    }));
+    
+    res.json({ results });
+  } catch (error) {
+    console.error("Apple playlist search error:", error);
+    res.status(500).json({ error: "Search failed" });
+  }
+});
+
 async function validateGuestToken(guestToken: string | undefined, venueId: number) {
   if (!guestToken) return null;
   

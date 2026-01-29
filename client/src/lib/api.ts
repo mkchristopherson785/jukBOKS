@@ -216,6 +216,28 @@ export async function addBackupPlaylist(venueId: number, playlistUrl: string) {
   return res.json();
 }
 
+export async function searchPlaylists(term: string) {
+  const res = await fetch(`${API_BASE}/api/apple-music/search-playlists?term=${encodeURIComponent(term)}`);
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  const data = await res.json();
+  return data.results || [];
+}
+
+export async function addBackupPlaylistById(venueId: number, playlist: { id: string; name: string; trackCount: number; artworkUrl: string | null }) {
+  const playlistUrl = `https://music.apple.com/us/playlist/pl.${playlist.id.replace('pl.', '')}`;
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/backup-playlists`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ playlistUrl }),
+  });
+  if (!res.ok) {
+    const data = await res.json();
+    throw new Error(data.message || `${res.status}: ${res.statusText}`);
+  }
+  return res.json();
+}
+
 export async function removeBackupPlaylist(venueId: number, playlistId: string) {
   const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/backup-playlists/${playlistId}`, {
     method: "DELETE",

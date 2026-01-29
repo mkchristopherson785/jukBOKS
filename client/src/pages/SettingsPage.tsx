@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, Settings, LogOut, Plus, Trash2, ListMusic, Volume2, Upload, Speaker, Shield, ArrowLeft } from "lucide-react";
-import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, checkSuperAdmin, type Announcement } from "../lib/api";
+import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, checkSuperAdmin, searchPlaylists, addBackupPlaylistById, type Announcement } from "../lib/api";
+import { Search } from "lucide-react";
 import { useUpload } from "../hooks/use-upload";
 import { useAuth } from "../hooks/use-auth";
 
@@ -20,6 +21,9 @@ export default function SettingsPage() {
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [playlistUrl, setPlaylistUrl] = useState("");
   const [playlistError, setPlaylistError] = useState("");
+  const [playlistSearchTerm, setPlaylistSearchTerm] = useState("");
+  const [playlistSearchResults, setPlaylistSearchResults] = useState<any[]>([]);
+  const [isSearchingPlaylists, setIsSearchingPlaylists] = useState(false);
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [announcementName, setAnnouncementName] = useState("");
   const [announcementError, setAnnouncementError] = useState("");
@@ -70,11 +74,43 @@ export default function SettingsPage() {
       setShowPlaylistModal(false);
       setPlaylistUrl("");
       setPlaylistError("");
+      setPlaylistSearchTerm("");
+      setPlaylistSearchResults([]);
     },
     onError: (error: any) => {
       setPlaylistError(error.message || "Failed to add playlist");
     },
   });
+
+  const addPlaylistByIdMutation = useMutation({
+    mutationFn: (playlist: { id: string; name: string; trackCount: number; artworkUrl: string | null }) => 
+      addBackupPlaylistById(selectedVenue!.id, playlist),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["backupPlaylists", selectedVenueCode] });
+      setShowPlaylistModal(false);
+      setPlaylistUrl("");
+      setPlaylistError("");
+      setPlaylistSearchTerm("");
+      setPlaylistSearchResults([]);
+    },
+    onError: (error: any) => {
+      setPlaylistError(error.message || "Failed to add playlist");
+    },
+  });
+
+  const handleSearchPlaylists = async () => {
+    if (!playlistSearchTerm.trim()) return;
+    setIsSearchingPlaylists(true);
+    setPlaylistError("");
+    try {
+      const results = await searchPlaylists(playlistSearchTerm);
+      setPlaylistSearchResults(results);
+    } catch (error: any) {
+      setPlaylistError(error.message || "Search failed");
+    } finally {
+      setIsSearchingPlaylists(false);
+    }
+  };
 
   const removePlaylistMutation = useMutation({
     mutationFn: (playlistId: string) => removeBackupPlaylist(selectedVenue!.id, playlistId),
@@ -438,39 +474,89 @@ export default function SettingsPage() {
 
       {showPlaylistModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-gray-900 rounded-2xl border border-white/10 p-6 w-full max-w-md mx-4">
+          <div className="bg-gray-900 rounded-2xl border border-white/10 p-6 w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden flex flex-col">
             <h2 className="text-xl font-bold text-white mb-4">Add Backup Playlist</h2>
-            <p className="text-gray-400 mb-4">
-              Paste an Apple Music playlist URL. Songs from this playlist will auto-play when the queue is empty.
-            </p>
-            <input
-              type="text"
-              value={playlistUrl}
-              onChange={(e) => setPlaylistUrl(e.target.value)}
-              placeholder="https://music.apple.com/us/playlist/..."
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 mb-2"
-              autoFocus
-            />
-            {playlistError && (
-              <p className="text-red-400 text-sm mb-4">{playlistError}</p>
+            
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={playlistSearchTerm}
+                onChange={(e) => setPlaylistSearchTerm(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearchPlaylists()}
+                placeholder="Search Apple Music playlists..."
+                className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500"
+                autoFocus
+              />
+              <button
+                onClick={handleSearchPlaylists}
+                disabled={isSearchingPlaylists || !playlistSearchTerm.trim()}
+                className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                <Search className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {playlistSearchResults.length > 0 && (
+              <div className="flex-1 overflow-y-auto mb-4 space-y-2">
+                {playlistSearchResults.map((playlist: any) => (
+                  <div 
+                    key={playlist.id} 
+                    className="flex items-center gap-3 p-3 bg-white/5 rounded-lg hover:bg-white/10 cursor-pointer transition-colors"
+                    onClick={() => addPlaylistByIdMutation.mutate(playlist)}
+                  >
+                    {playlist.artworkUrl && (
+                      <img src={playlist.artworkUrl} alt="" className="w-12 h-12 rounded object-cover" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium truncate">{playlist.name}</p>
+                      <p className="text-gray-400 text-xs">{playlist.curatorName} • {playlist.trackCount} tracks</p>
+                    </div>
+                    <Plus className="w-5 h-5 text-indigo-400" />
+                  </div>
+                ))}
+              </div>
             )}
+            
+            {isSearchingPlaylists && (
+              <p className="text-gray-400 text-center py-4">Searching...</p>
+            )}
+            
+            <div className="border-t border-white/10 pt-4 mt-auto">
+              <p className="text-gray-500 text-xs mb-2">Or paste a playlist URL:</p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={playlistUrl}
+                  onChange={(e) => setPlaylistUrl(e.target.value)}
+                  placeholder="https://music.apple.com/us/playlist/..."
+                  className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 text-sm"
+                />
+                <button
+                  onClick={handleAddPlaylist}
+                  disabled={!playlistUrl.trim() || addPlaylistMutation.isPending}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50 text-sm"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+            
+            {playlistError && (
+              <p className="text-red-400 text-sm mt-2">{playlistError}</p>
+            )}
+            
             <div className="flex gap-3 mt-4">
               <button
                 onClick={() => {
                   setShowPlaylistModal(false);
                   setPlaylistUrl("");
                   setPlaylistError("");
+                  setPlaylistSearchTerm("");
+                  setPlaylistSearchResults([]);
                 }}
                 className="flex-1 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors"
               >
                 Cancel
-              </button>
-              <button
-                onClick={handleAddPlaylist}
-                disabled={!playlistUrl.trim() || addPlaylistMutation.isPending}
-                className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
-              >
-                {addPlaylistMutation.isPending ? "Adding..." : "Add Playlist"}
               </button>
             </div>
           </div>
