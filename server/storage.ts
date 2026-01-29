@@ -170,6 +170,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteVenue(id: number): Promise<void> {
+    // Delete all related records first to avoid foreign key constraints
+    await db.delete(announcements).where(eq(announcements.venueId, id));
+    await db.delete(bannedSongs).where(eq(bannedSongs.venueId, id));
     await db.delete(backupPlaylists).where(eq(backupPlaylists.venueId, id));
     await db.delete(votes).where(
       sql`request_id IN (SELECT id FROM requests WHERE venue_id = ${id})`
