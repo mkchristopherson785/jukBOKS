@@ -1500,14 +1500,15 @@ router.post("/api/me/venues/:venueId/backup-playlists", isAuthenticated, async (
       // Direct playlist ID from search results - use as-is since it already has the correct format
       applePlaylistId = playlistId;
       
-      if (isLibrary) {
-        // Library playlists can't be fetched server-side (need user token)
-        // Use client-provided details
-        console.log("Using client-provided details for library playlist");
-        playlistName = name || "Apple Music Playlist";
-        playlistTrackCount = trackCount || 0;
-        playlistArtworkUrl = artworkUrl || null;
-      } else {
+      // Reject personal/library playlists - they can't be accessed with a developer token
+      if (isLibrary || applePlaylistId.startsWith('p.') && !applePlaylistId.startsWith('pl.')) {
+        return res.status(400).json({ 
+          error: "PERSONAL_PLAYLIST", 
+          message: "Personal playlists cannot be used for backup. Please use a public Apple Music playlist (from Browse or search results that start with 'pl.')." 
+        });
+      }
+      
+      {
         // Always fetch from Apple Music API for catalog playlists
         // Search results don't include trackCount, so we need to fetch full details
         console.log("Fetching catalog playlist details from Apple API:", applePlaylistId);
