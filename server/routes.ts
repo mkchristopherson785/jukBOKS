@@ -964,14 +964,22 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
         const response = await fetch(nextUrl, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!response.ok) break;
+        if (!response.ok) {
+          console.error(`Failed to fetch playlist ${playlist.applePlaylistId}: ${response.status} ${response.statusText}`);
+          const errorText = await response.text().catch(() => "");
+          console.error("Error response:", errorText.substring(0, 500));
+          break;
+        }
         const data = await response.json();
+        console.log(`Playlist ${playlist.name} (${playlist.applePlaylistId}): fetched ${data.data?.length || 0} tracks`);
         tracks = tracks.concat(data.data || []);
         nextUrl = data.next ? `https://api.music.apple.com${data.next}` : null;
       }
       
       if (tracks.length > 0) {
         playlistTracks.set(playlist.id, { playlist, tracks });
+      } else {
+        console.warn(`Playlist ${playlist.name} has no tracks after fetching`);
       }
     }
     

@@ -114,42 +114,51 @@ export default function KioskPage() {
     },
   });
 
-  const triggerAutoPlay = useCallback(async () => {
-    if (isAutoPlaying) return;
+  const triggerAutoPlay = useCallback(async (): Promise<boolean> => {
+    if (isAutoPlaying) return false;
     setIsAutoPlaying(true);
     try {
+      console.log("Triggering auto-play for venue:", code);
       const res = await fetch(`${API_BASE}/api/v1/venues/${code}/auto-play`, {
         method: "POST",
       });
       if (res.ok) {
+        const data = await res.json();
+        console.log("Auto-play response:", data);
         await refetchQueue();
+        return true;
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        console.warn("Auto-play failed:", res.status, errorData);
+        return false;
       }
     } catch (error) {
       console.error("Auto-play error:", error);
+      return false;
     } finally {
-      // Add a small delay before allowing next auto-play attempt
       setTimeout(() => setIsAutoPlaying(false), 3000);
     }
   }, [code, refetchQueue, isAutoPlaying]);
 
-  // Track if we've already tried to pre-populate the queue
-  const [hasTriedAutoPlay, setHasTriedAutoPlay] = useState(false);
+  // Track auto-play attempts for initial load
+  const [autoPlayAttempts, setAutoPlayAttempts] = useState(0);
+  const MAX_AUTO_PLAY_ATTEMPTS = 3;
   
   // Pre-populate queue with backup songs when kiosk page first loads
   useEffect(() => {
-    if (!code || !queue || hasTriedAutoPlay) return;
+    if (!code || !queue || autoPlayAttempts >= MAX_AUTO_PLAY_ATTEMPTS) return;
     
     const playableItems = queue.items?.filter((item: any) => 
       (item.status === "approved" || item.status === "pending") && 
       (item.previewUrl || item.trackId)
     ) || [];
     
-    // If queue is empty, trigger auto-play to populate it (only once on initial load)
-    if (playableItems.length === 0) {
-      setHasTriedAutoPlay(true);
+    // If queue is empty, trigger auto-play to populate it
+    if (playableItems.length === 0 && !isAutoPlaying) {
+      setAutoPlayAttempts(prev => prev + 1);
       triggerAutoPlay();
     }
-  }, [code, queue, triggerAutoPlay, hasTriedAutoPlay]);
+  }, [code, queue, triggerAutoPlay, autoPlayAttempts, isAutoPlaying]);
 
   const playNextSong = useCallback(() => {
     if (isTransitioning || !queue?.items) return;
