@@ -223,13 +223,16 @@ export async function searchPlaylists(term: string) {
   return data.results || [];
 }
 
-export async function addBackupPlaylistById(venueId: number, playlist: { id: string; name: string; trackCount: number; artworkUrl: string | null }) {
-  const playlistUrl = `https://music.apple.com/us/playlist/pl.${playlist.id.replace('pl.', '')}`;
+export async function addBackupPlaylistById(venueId: number, playlist: { id: string; name: string; trackCount: number; artworkUrl: string | null; isLibrary?: boolean }) {
+  const playlistId = playlist.id.startsWith('pl.') ? playlist.id : `pl.${playlist.id}`;
   const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/backup-playlists`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ playlistUrl }),
+    body: JSON.stringify({ 
+      playlistId,
+      isLibrary: playlist.isLibrary || false
+    }),
   });
   if (!res.ok) {
     const data = await res.json();
