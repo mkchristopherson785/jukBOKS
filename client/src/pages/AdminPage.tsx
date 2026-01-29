@@ -892,9 +892,9 @@ export default function AdminPage() {
               Configure settings for <span className="text-white font-medium">{selectedVenue.name}</span>.
             </p>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-[calc(100vh-220px)]">
               {/* Backup Playlists */}
-              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 lg:row-span-2 lg:min-h-[calc(100vh-200px)] flex flex-col">
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 lg:row-span-2 flex flex-col overflow-hidden">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     <ListMusic className="w-4 h-4" />
@@ -937,7 +937,7 @@ export default function AdminPage() {
               </div>
 
               {/* Announcements */}
-              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 lg:col-span-2">
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 lg:col-span-2 flex flex-col overflow-hidden">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     <Volume2 className="w-4 h-4" />
@@ -999,7 +999,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto">
+                <div className="grid grid-cols-2 gap-2 flex-1 overflow-y-auto">
                   {announcements.length === 0 ? (
                     <p className="text-gray-500 text-xs text-center py-3 col-span-full">No announcements yet</p>
                   ) : (
