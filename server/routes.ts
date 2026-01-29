@@ -907,63 +907,89 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
     const bannedSongs = await storage.getBannedSongs(venue.id);
     const bannedTrackIds = new Set(bannedSongs.map(s => s.trackId));
     
-    const addedSongs: any[] = [];
-    const usedTrackIds = new Set(trackIdsInQueue);
-    
-    // Try to add songs from different playlists for variety
-    for (let i = 0; i < songsToAdd; i++) {
-      const randomPlaylist = pickWeightedPlaylist(playlists);
-      
-      // Fetch tracks from the playlist
+    // Pre-fetch tracks from all playlists once for efficiency
+    const playlistTracks: Map<number, { playlist: any, tracks: any[] }> = new Map();
+    for (const playlist of playlists) {
       let tracks: any[] = [];
-      let nextUrl: string | null = `https://api.music.apple.com/v1/catalog/us/playlists/${randomPlaylist.applePlaylistId}/tracks?limit=100`;
+      let nextUrl: string | null = `https://api.music.apple.com/v1/catalog/us/playlists/${playlist.applePlaylistId}/tracks?limit=100`;
       
       while (nextUrl && tracks.length < 200) {
         const response = await fetch(nextUrl, {
           headers: { Authorization: `Bearer ${token}` },
         });
-
         if (!response.ok) break;
-
         const data = await response.json();
         tracks = tracks.concat(data.data || []);
         nextUrl = data.next ? `https://api.music.apple.com${data.next}` : null;
       }
       
-      if (tracks.length === 0) continue;
-
-      // Filter tracks
-      let filteredTracks = tracks.filter((track: any) => {
-        // Filter out songs already in queue or already added
-        if (usedTrackIds.has(track.id)) return false;
-        // Filter out banned songs
-        if (bannedTrackIds.has(track.id)) return false;
-        // Filter out explicit if not allowed
-        if (!venue.allowExplicit && track.attributes?.contentRating === "explicit") return false;
-        return true;
-      });
+      if (tracks.length > 0) {
+        playlistTracks.set(playlist.id, { playlist, tracks });
+      }
+    }
+    
+    if (playlistTracks.size === 0) {
+      return res.status(404).json({ error: "NO_TRACKS", message: "No tracks available in any playlist" });
+    }
+    
+    // Build a consolidated candidate pool with weighted selection
+    // Each track is paired with its playlist and weighted by playlist weight
+    interface CandidateTrack {
+      track: any;
+      playlist: any;
+      weight: number;
+    }
+    
+    const candidatePool: CandidateTrack[] = [];
+    const usedTrackIds = new Set(trackIdsInQueue);
+    
+    // First pass: filter all tracks for basic criteria (banned, explicit, duplicates)
+    for (const [_, { playlist, tracks }] of playlistTracks) {
+      const playlistWeight = playlist.weight || 3;
+      for (const track of tracks) {
+        if (usedTrackIds.has(track.id)) continue;
+        if (bannedTrackIds.has(track.id)) continue;
+        if (!venue.allowExplicit && track.attributes?.contentRating === "explicit") continue;
+        candidatePool.push({ track, playlist, weight: playlistWeight });
+      }
+    }
+    
+    if (candidatePool.length === 0) {
+      return res.status(404).json({ error: "NO_AVAILABLE_TRACKS", message: "No available tracks after filtering" });
+    }
+    
+    // Second pass: filter for recently played and sample without replacement
+    const addedSongs: any[] = [];
+    const availableCandidates = [...candidatePool];
+    
+    while (addedSongs.length < songsToAdd && availableCandidates.length > 0) {
+      // Weighted random selection from available candidates
+      const totalWeight = availableCandidates.reduce((sum, c) => sum + c.weight, 0);
+      let random = Math.random() * totalWeight;
+      let selectedIdx = 0;
       
-      // Filter out recently played songs
-      const availableTracks: any[] = [];
-      for (const track of filteredTracks) {
-        const wasPlayedRecently = await storage.wasTrackPlayedRecently(venue.id, track.id, 4);
-        if (!wasPlayedRecently) {
-          availableTracks.push(track);
+      for (let i = 0; i < availableCandidates.length; i++) {
+        random -= availableCandidates[i].weight;
+        if (random <= 0) {
+          selectedIdx = i;
+          break;
         }
       }
       
-      const tracksToChooseFrom = availableTracks.length > 0 ? availableTracks : filteredTracks;
-      if (tracksToChooseFrom.length === 0) continue;
-
-      // Pick a random track
-      const randomTrack = tracksToChooseFrom[Math.floor(Math.random() * tracksToChooseFrom.length)];
-      const attrs = randomTrack.attributes;
-      usedTrackIds.add(randomTrack.id);
+      const selected = availableCandidates[selectedIdx];
+      availableCandidates.splice(selectedIdx, 1);
+      
+      // Check if track was played recently
+      const wasPlayedRecently = await storage.wasTrackPlayedRecently(venue.id, selected.track.id, 4);
+      if (wasPlayedRecently) continue;
+      
+      const attrs = selected.track.attributes;
+      usedTrackIds.add(selected.track.id);
 
       // Create a request for the song
       const request = await storage.createRequest({
         venueId: venue.id,
-        trackId: randomTrack.id,
+        trackId: selected.track.id,
         title: attrs.name,
         artist: attrs.artistName,
         album: attrs.albumName || "",
@@ -975,7 +1001,11 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
         status: "approved",
       });
       
-      addedSongs.push({ request, playlistName: randomPlaylist.name });
+      addedSongs.push({ request, playlistName: selected.playlist.name });
+    }
+
+    if (addedSongs.length === 0) {
+      return res.status(404).json({ error: "NO_AVAILABLE_TRACKS", message: "All tracks were recently played" });
     }
 
     res.json({ success: true, added: addedSongs.length, songs: addedSongs });
