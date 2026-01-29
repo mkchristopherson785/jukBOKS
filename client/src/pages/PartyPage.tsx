@@ -295,6 +295,7 @@ export default function PartyPage() {
           <SongSearch
             onSelect={(track) => requestMutation.mutate(track)}
             allowExplicit={party.venue?.allowExplicit || false}
+            blockHolidayMusic={party.venue?.blockHolidayMusic || false}
           />
           {requestMutation.isError && (
             <p className="text-red-400 text-sm mt-2">Failed to add song. Please try again.</p>

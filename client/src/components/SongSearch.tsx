@@ -3,12 +3,32 @@ import { Search, X, Music, AlertCircle, ChevronDown } from "lucide-react";
 import { useAppleMusic, type Track } from "../hooks/useAppleMusic";
 import { cn } from "../lib/utils";
 
+const HOLIDAY_KEYWORDS = [
+  'christmas', 'xmas', 'santa', 'jingle', 'noel', 'holiday', 'winter wonderland',
+  'rudolph', 'frosty', 'snowman', 'sleigh', 'mistletoe', 'hanukkah', 'dreidel',
+  'kwanzaa', 'feliz navidad', 'silent night', 'holy night', 'deck the halls',
+  'carol', 'merry', 'auld lang syne', 'new year'
+];
+
+function isHolidaySong(track: Track): boolean {
+  const titleLower = track.title.toLowerCase();
+  const artistLower = track.artist.toLowerCase();
+  const albumLower = (track.album || '').toLowerCase();
+  
+  return HOLIDAY_KEYWORDS.some(keyword => 
+    titleLower.includes(keyword) || 
+    albumLower.includes(keyword) ||
+    (keyword === 'christmas' && artistLower.includes(keyword))
+  );
+}
+
 interface SongSearchProps {
   onSelect: (track: Track) => void;
   allowExplicit?: boolean;
+  blockHolidayMusic?: boolean;
 }
 
-export function SongSearch({ onSelect, allowExplicit = false }: SongSearchProps) {
+export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic = false }: SongSearchProps) {
   const [query, setQuery] = useState("");
   const { searchTracks, results, isSearching, clearResults, loadMore, hasMore, isLoadingMore } = useAppleMusic();
 
@@ -21,9 +41,16 @@ export function SongSearch({ onSelect, allowExplicit = false }: SongSearchProps)
 
   const handleSelect = (track: Track) => {
     if (!allowExplicit && track.isExplicit) return;
+    if (blockHolidayMusic && isHolidaySong(track)) return;
     onSelect(track);
     setQuery("");
     clearResults();
+  };
+
+  const isTrackBlocked = (track: Track) => {
+    if (!allowExplicit && track.isExplicit) return true;
+    if (blockHolidayMusic && isHolidaySong(track)) return true;
+    return false;
   };
 
   return (
@@ -64,10 +91,10 @@ export function SongSearch({ onSelect, allowExplicit = false }: SongSearchProps)
                   <button
                     key={track.id}
                     onClick={() => handleSelect(track)}
-                    disabled={!allowExplicit && track.isExplicit}
+                    disabled={isTrackBlocked(track)}
                     className={cn(
                       "w-full flex items-center gap-4 p-4 hover:bg-white/10 transition-colors text-left border-b border-white/10",
-                      !allowExplicit && track.isExplicit && "opacity-50 cursor-not-allowed"
+                      isTrackBlocked(track) && "opacity-50 cursor-not-allowed"
                     )}
                   >
                     {track.albumCover ? (
@@ -90,7 +117,7 @@ export function SongSearch({ onSelect, allowExplicit = false }: SongSearchProps)
                       </div>
                       <p className="text-gray-400 text-sm truncate">{track.artist}</p>
                     </div>
-                    {!allowExplicit && track.isExplicit && (
+                    {isTrackBlocked(track) && (
                       <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />
                     )}
                   </button>

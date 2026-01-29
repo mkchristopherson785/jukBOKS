@@ -217,6 +217,7 @@ router.get("/api/v1/venues/:code", async (req: Request, res: Response) => {
       logoDarkUrl: org?.logoDarkUrl,
       primaryColor: org?.primaryColor,
       allowExplicit: venue.allowExplicit,
+      blockHolidayMusic: venue.blockHolidayMusic,
       autoApprove: venue.autoApprove,
       dailyRequestLimit: venue.dailyRequestLimit,
       isActive: venue.isActive,
@@ -603,6 +604,7 @@ router.get("/api/v1/party/:partyCode", async (req: Request, res: Response) => {
         code: venue.code,
         name: venue.name,
         allowExplicit: venue.allowExplicit,
+        blockHolidayMusic: venue.blockHolidayMusic,
         dailyRequestLimit: venue.dailyRequestLimit,
       },
       branding: {
@@ -1165,11 +1167,12 @@ router.patch("/api/me/venues/:venueId", isAuthenticated, async (req: any, res) =
       return res.status(404).json({ error: "NOT_FOUND", message: "Venue not found" });
     }
 
-    const { name, allowExplicit, autoApprove, dailyRequestLimit, isActive } = req.body;
+    const { name, allowExplicit, blockHolidayMusic, autoApprove, dailyRequestLimit, isActive } = req.body;
     
     const updatedVenue = await storage.updateVenue(venueId, {
       ...(name !== undefined && { name }),
       ...(allowExplicit !== undefined && { allowExplicit }),
+      ...(blockHolidayMusic !== undefined && { blockHolidayMusic }),
       ...(autoApprove !== undefined && { autoApprove }),
       ...(dailyRequestLimit !== undefined && { dailyRequestLimit }),
       ...(isActive !== undefined && { isActive }),

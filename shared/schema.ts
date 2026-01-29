@@ -52,6 +52,7 @@ export const venues = pgTable("venues", {
   code: text("code").notNull().unique(),
   isActive: boolean("is_active").default(true),
   allowExplicit: boolean("allow_explicit").default(false),
+  blockHolidayMusic: boolean("block_holiday_music").default(false),
   autoApprove: boolean("auto_approve").default(true),
   dailyRequestLimit: integer("daily_request_limit").default(5),
   backupPlaylistIds: jsonb("backup_playlist_ids").default([]),

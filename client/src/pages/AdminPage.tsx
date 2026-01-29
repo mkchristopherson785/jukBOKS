@@ -509,6 +509,19 @@ export default function AdminPage() {
                         </button>
                       </div>
                       <div className="flex items-center justify-between">
+                        <label className="text-gray-400 text-sm">Block Holiday Music</label>
+                        <button
+                          onClick={() => handleSettingChange("blockHolidayMusic", !selectedVenue.blockHolidayMusic)}
+                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                            selectedVenue.blockHolidayMusic
+                              ? "bg-green-600/30 text-green-300"
+                              : "bg-gray-600/30 text-gray-300"
+                          }`}
+                        >
+                          {selectedVenue.blockHolidayMusic ? "On" : "Off"}
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between">
                         <label className="text-gray-400 text-sm">Auto-Approve</label>
                         <button
                           onClick={() => handleSettingChange("autoApprove", !selectedVenue.autoApprove)}
