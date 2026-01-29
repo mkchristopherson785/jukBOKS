@@ -6,6 +6,9 @@ import KioskPage from "./pages/KioskPage";
 import AdminPage from "./pages/AdminPage";
 import VenuesPage from "./pages/VenuesPage";
 import QueuePage from "./pages/QueuePage";
+import TeamPage from "./pages/TeamPage";
+import BrandingPage from "./pages/BrandingPage";
+import SettingsPage from "./pages/SettingsPage";
 import SuperAdminPage from "./pages/SuperAdminPage";
 
 function App() {
@@ -18,6 +21,9 @@ function App() {
         <Route path="/admin" component={AdminPage} />
         <Route path="/admin/venues" component={VenuesPage} />
         <Route path="/admin/queue" component={QueuePage} />
+        <Route path="/admin/team" component={TeamPage} />
+        <Route path="/admin/branding" component={BrandingPage} />
+        <Route path="/admin/settings" component={SettingsPage} />
         <Route path="/super-admin" component={SuperAdminPage} />
         <Route>
           <div className="min-h-screen flex items-center justify-center text-white">
