@@ -1389,6 +1389,7 @@ router.post("/api/me/venues/:venueId/backup-playlists", isAuthenticated, async (
     if (playlistId) {
       // Direct playlist ID from search results - use as-is since it already has the correct format
       applePlaylistId = playlistId;
+      console.log("Adding playlist by ID:", applePlaylistId);
     } else if (playlistUrl) {
       // Extract playlist ID from Apple Music URL
       const urlMatch = playlistUrl.match(/playlist\/[^\/]+\/pl\.([a-zA-Z0-9-]+)/);
@@ -1401,7 +1402,9 @@ router.post("/api/me/venues/:venueId/backup-playlists", isAuthenticated, async (
     }
 
     // Fetch playlist details from Apple Music
+    console.log("Fetching playlist details for:", applePlaylistId);
     const playlistDetails = await fetchApplePlaylistDetails(applePlaylistId);
+    console.log("Playlist details result:", playlistDetails);
 
     const playlist = await storage.createBackupPlaylist({
       venueId: venue.id,
