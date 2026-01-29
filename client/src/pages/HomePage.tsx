@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Music2, Users, Tv, Zap, QrCode, ArrowRight, LogIn, LogOut, User } from "lucide-react";
+import { Music2, Users, Tv, Zap, QrCode, ArrowRight, LogIn, LogOut, User, ThumbsUp, Ban, ListMusic, Megaphone, Headphones, Shield, Building2 } from "lucide-react";
 import { setupDemo } from "../lib/api";
 import { useAuth } from "../hooks/use-auth";
 
@@ -80,9 +80,10 @@ export default function HomePage() {
               Pick the Music
             </span>
           </h1>
-          <p className="text-xl text-gray-300 max-w-2xl mx-auto mb-10">
-            Jukboks is a music request platform that lets guests search, request,
-            and vote on songs. Perfect for bars, restaurants, gyms, and events.
+          <p className="text-xl text-gray-300 max-w-3xl mx-auto mb-10">
+            Jukboks is a complete music request platform powered by Apple Music. 
+            Guests search, request, and vote on songs while you maintain full control. 
+            Perfect for bars, restaurants, gyms, HOAs, and events.
           </p>
           <button
             onClick={handleDemo}
@@ -94,42 +95,96 @@ export default function HomePage() {
           </button>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           <FeatureCard
             icon={<QrCode className="w-8 h-8" />}
             title="QR Code Access"
-            description="Guests scan a QR code to join the party and start requesting songs instantly"
+            description="Guests scan a QR code to join the party and start requesting songs instantly - no app download required"
           />
           <FeatureCard
-            icon={<Users className="w-8 h-8" />}
+            icon={<ThumbsUp className="w-8 h-8" />}
             title="Voting System"
-            description="Let the crowd decide what plays next with upvotes on song requests"
+            description="Let the crowd decide what plays next with upvotes and downvotes on song requests"
           />
           <FeatureCard
             icon={<Tv className="w-8 h-8" />}
             title="Kiosk Display"
-            description="Beautiful full-screen now playing display for TVs and monitors"
+            description="Beautiful full-screen now playing display for TVs and monitors with queue preview"
+          />
+          <FeatureCard
+            icon={<Headphones className="w-8 h-8" />}
+            title="Listen Along"
+            description="Remote users with Apple Music subscriptions can sync and listen to the venue's music in real-time"
+          />
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-20">
+          <FeatureCard
+            icon={<ListMusic className="w-8 h-8" />}
+            title="Backup Playlists"
+            description="Set up to 10 Apple Music playlists to auto-play when the request queue is empty"
+          />
+          <FeatureCard
+            icon={<Ban className="w-8 h-8" />}
+            title="Song Banning"
+            description="Ban inappropriate songs and prevent duplicates within 2 hours of playing"
+          />
+          <FeatureCard
+            icon={<Megaphone className="w-8 h-8" />}
+            title="Announcements"
+            description="Schedule pre-recorded audio announcements to play between songs at custom intervals"
+          />
+          <FeatureCard
+            icon={<Shield className="w-8 h-8" />}
+            title="Content Control"
+            description="Filter explicit content, set daily request limits, and auto-approve or moderate requests"
+          />
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6 mb-20">
+          <FeatureCard
+            icon={<Building2 className="w-8 h-8" />}
+            title="Multi-Venue Management"
+            description="Create and manage multiple venues under one organization with unique settings for each location"
+          />
+          <FeatureCard
+            icon={<Users className="w-8 h-8" />}
+            title="Team Collaboration"
+            description="Invite team members by email to help manage venues with shared admin access"
           />
           <FeatureCard
             icon={<Zap className="w-8 h-8" />}
             title="API Integration"
-            description="Integrate with your existing apps using our simple REST API"
+            description="Embed Jukboks in your existing apps using our REST API with secure API key authentication"
+          />
+          <FeatureCard
+            icon={<Music2 className="w-8 h-8" />}
+            title="Full Apple Music Library"
+            description="Access millions of songs from the complete Apple Music catalog for your guests to request"
           />
         </div>
 
-        <div className="bg-white/5 backdrop-blur-lg rounded-3xl border border-white/10 p-8 md:p-12">
-          <h2 className="text-3xl font-bold text-white mb-4">How It Works</h2>
+        <div className="bg-white/5 backdrop-blur-lg rounded-3xl border border-white/10 p-8 md:p-12 mb-12">
+          <h2 className="text-3xl font-bold text-white mb-8">How It Works</h2>
           <div className="grid md:grid-cols-3 gap-8">
             <Step number={1} title="Create a Venue">
-              Set up your venue with custom settings for explicit content, request limits, and backup playlists.
+              Set up your venue with custom settings for explicit content, request limits, backup playlists, and announcements.
             </Step>
             <Step number={2} title="Share QR Code">
-              Display the QR code at your venue. Guests scan to join and can immediately start requesting songs.
+              Display the QR code at your venue. Guests scan to join and can immediately start searching and requesting songs.
             </Step>
             <Step number={3} title="Play Music">
               Songs are queued based on votes. Use the kiosk display to show what's playing now and coming up next.
             </Step>
           </div>
+        </div>
+
+        <div className="bg-amber-900/20 backdrop-blur-lg rounded-2xl border border-amber-500/30 p-6 md:p-8">
+          <h3 className="text-lg font-semibold text-amber-300 mb-3">Important Notice</h3>
+          <ul className="text-gray-300 space-y-2 text-sm">
+            <li><strong>Apple Music Subscription Required:</strong> Jukboks requires a valid Apple Music subscription to stream full songs. Without a subscription, only 30-second previews are available.</li>
+            <li><strong>Copyright & Licensing:</strong> Jukboks does not provide public performance licenses. Venues are responsible for obtaining any necessary music licensing (such as ASCAP, BMI, SESAC, or other performance rights organizations) required to play music in public spaces.</li>
+          </ul>
         </div>
       </main>
 
