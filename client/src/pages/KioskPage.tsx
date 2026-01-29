@@ -297,6 +297,7 @@ export default function KioskPage() {
   const displayArtist = currentSong?.artist || nowPlaying?.artist || lastPlayedSong?.artist;
   const displayCover = currentSong?.albumCover || nowPlaying?.albumCover || lastPlayedSong?.albumCover;
   const displayPreview = currentSong?.previewUrl;
+  const displayExplicit = currentSong?.isExplicit || nowPlaying?.isExplicit;
 
   const upNextItems = queue?.items?.filter((item: any) => 
     item.id !== currentSong?.id && 
@@ -372,7 +373,14 @@ export default function KioskPage() {
               )}
               
               <div className="text-center px-2">
-                <h2 className="text-xl sm:text-4xl lg:text-6xl font-bold text-white mb-2 sm:mb-4 line-clamp-2">{displayTitle || "No song playing"}</h2>
+                <h2 className="text-xl sm:text-4xl lg:text-6xl font-bold text-white mb-2 sm:mb-4 line-clamp-2 flex items-center justify-center gap-2 sm:gap-3">
+                  {displayTitle || "No song playing"}
+                  {displayExplicit && (
+                    <span className="inline-flex items-center justify-center w-5 h-5 sm:w-7 sm:h-7 lg:w-9 lg:h-9 bg-gray-600 text-xs sm:text-sm lg:text-base font-bold rounded text-gray-300 flex-shrink-0">
+                      E
+                    </span>
+                  )}
+                </h2>
                 <p className="text-base sm:text-2xl lg:text-3xl text-gray-300 line-clamp-1">{displayArtist || "Request a song to get started"}</p>
               </div>
 

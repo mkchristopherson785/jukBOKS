@@ -960,7 +960,7 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
       let tracks: any[] = [];
       let nextUrl: string | null = `https://api.music.apple.com/v1/catalog/us/playlists/${playlist.applePlaylistId}/tracks?limit=100`;
       
-      while (nextUrl && tracks.length < 200) {
+      while (nextUrl && tracks.length < 500) {
         const response = await fetch(nextUrl, {
           headers: { Authorization: `Bearer ${token}` },
         });
