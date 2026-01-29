@@ -252,6 +252,17 @@ export async function removeBackupPlaylist(venueId: number, playlistId: string) 
   return res.json();
 }
 
+export async function updateBackupPlaylistWeight(venueId: number, playlistId: number, weight: number) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/backup-playlists/${playlistId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ weight }),
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
 // Live Listeners
 export async function registerListener(venueCode: string, listenerId: string, name?: string) {
   const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/listeners`, {

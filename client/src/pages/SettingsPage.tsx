@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, Settings, LogOut, Plus, Trash2, ListMusic, Volume2, Upload, Speaker, Shield, ArrowLeft, Search, User } from "lucide-react";
-import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, checkSuperAdmin, searchPlaylists, addBackupPlaylistById, type Announcement } from "../lib/api";
+import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, updateBackupPlaylistWeight, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, checkSuperAdmin, searchPlaylists, addBackupPlaylistById, type Announcement } from "../lib/api";
 import { useUpload } from "../hooks/use-upload";
 import { useAuth } from "../hooks/use-auth";
 import { useMusicKit } from "../hooks/useMusicKit";
@@ -186,6 +186,14 @@ export default function SettingsPage() {
 
   const removePlaylistMutation = useMutation({
     mutationFn: (playlistId: string) => removeBackupPlaylist(selectedVenue!.id, playlistId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["backupPlaylists", selectedVenueCode] });
+    },
+  });
+
+  const updatePlaylistWeightMutation = useMutation({
+    mutationFn: ({ playlistId, weight }: { playlistId: number; weight: number }) => 
+      updateBackupPlaylistWeight(selectedVenue!.id, playlistId, weight),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["backupPlaylists", selectedVenueCode] });
     },
@@ -424,9 +432,25 @@ export default function SettingsPage() {
                         <p className="text-white text-sm font-medium truncate">{playlist.name || "Playlist"}</p>
                         <p className="text-gray-400 text-xs">{playlist.trackCount || 0} tracks</p>
                       </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-gray-400 text-xs mr-1">Weight:</span>
+                        {[1, 2, 3, 4, 5].map((w) => (
+                          <button
+                            key={w}
+                            onClick={() => updatePlaylistWeightMutation.mutate({ playlistId: playlist.id, weight: w })}
+                            className={`w-5 h-5 text-xs rounded ${
+                              (playlist.weight || 3) === w 
+                                ? 'bg-indigo-600 text-white' 
+                                : 'bg-white/10 text-gray-400 hover:bg-white/20'
+                            } transition-colors`}
+                          >
+                            {w}
+                          </button>
+                        ))}
+                      </div>
                       <button
                         onClick={() => removePlaylistMutation.mutate(playlist.id.toString())}
-                        className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                        className="p-1 text-gray-400 hover:text-red-400 transition-colors ml-2"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>

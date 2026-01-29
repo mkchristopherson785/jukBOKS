@@ -872,8 +872,18 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
       return res.status(404).json({ error: "NO_PLAYLISTS", message: "No backup playlists configured" });
     }
 
-    // Pick a random playlist
-    const randomPlaylist = playlists[Math.floor(Math.random() * playlists.length)];
+    // Pick a playlist using weighted random selection
+    // Higher weight = more likely to be selected
+    const totalWeight = playlists.reduce((sum, p) => sum + (p.weight || 3), 0);
+    let random = Math.random() * totalWeight;
+    let randomPlaylist = playlists[0];
+    for (const playlist of playlists) {
+      random -= (playlist.weight || 3);
+      if (random <= 0) {
+        randomPlaylist = playlist;
+        break;
+      }
+    }
     
     const token = await getAppleMusicToken();
     if (!token) {
@@ -1478,6 +1488,46 @@ router.delete("/api/me/venues/:venueId/backup-playlists/:playlistId", isAuthenti
     res.json({ success: true });
   } catch (error) {
     console.error("Remove playlist error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+router.patch("/api/me/venues/:venueId/backup-playlists/:playlistId", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "No organization found" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const playlistIdParam = req.params.playlistId;
+    const playlists = await storage.getBackupPlaylistsByVenue(venue.id);
+    const playlist = playlists.find(p => p.applePlaylistId === playlistIdParam || p.id === parseInt(playlistIdParam));
+    
+    if (!playlist) {
+      return res.status(404).json({ error: "PLAYLIST_NOT_FOUND", message: "Playlist not found" });
+    }
+
+    const { weight } = req.body;
+    if (weight !== undefined) {
+      const validWeight = Math.max(1, Math.min(5, parseInt(weight) || 3));
+      await storage.updateBackupPlaylist(playlist.id, { weight: validWeight });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Update playlist error:", error);
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }
 });

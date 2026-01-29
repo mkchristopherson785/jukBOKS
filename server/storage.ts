@@ -64,6 +64,7 @@ export interface IStorage {
   
   createBackupPlaylist(data: InsertBackupPlaylist): Promise<BackupPlaylist>;
   getBackupPlaylistsByVenue(venueId: number): Promise<BackupPlaylist[]>;
+  updateBackupPlaylist(id: number, data: Partial<BackupPlaylist>): Promise<BackupPlaylist | undefined>;
   deleteBackupPlaylist(id: number): Promise<boolean>;
   getBackupPlaylistCount(venueId: number): Promise<number>;
   
@@ -346,6 +347,11 @@ export class DatabaseStorage implements IStorage {
 
   async getBackupPlaylistsByVenue(venueId: number): Promise<BackupPlaylist[]> {
     return db.select().from(backupPlaylists).where(eq(backupPlaylists.venueId, venueId)).orderBy(asc(backupPlaylists.position));
+  }
+
+  async updateBackupPlaylist(id: number, data: Partial<BackupPlaylist>): Promise<BackupPlaylist | undefined> {
+    const [updated] = await db.update(backupPlaylists).set(data).where(eq(backupPlaylists.id, id)).returning();
+    return updated;
   }
 
   async deleteBackupPlaylist(id: number): Promise<boolean> {
