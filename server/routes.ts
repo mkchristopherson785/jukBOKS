@@ -667,10 +667,10 @@ router.get("/api/v1/venues/:code/qrcode", async (req: Request, res: Response) =>
       });
     }
 
-    // Use deployment domain in production, dev domain in development
+    // Use custom domain in production, dev domain in development
     let baseUrl: string;
-    if (process.env.NODE_ENV === "production" && process.env.REPLIT_DEPLOYMENT_URL) {
-      baseUrl = process.env.REPLIT_DEPLOYMENT_URL;
+    if (process.env.NODE_ENV === "production") {
+      baseUrl = "https://jukboks.com";
     } else if (process.env.REPLIT_DEV_DOMAIN) {
       baseUrl = `https://${process.env.REPLIT_DEV_DOMAIN}`;
     } else {

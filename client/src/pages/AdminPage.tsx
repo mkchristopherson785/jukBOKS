@@ -451,7 +451,7 @@ export default function AdminPage() {
             </a>
             <button
               onClick={() => {
-                navigator.clipboard.writeText(`${window.location.origin}/party/${qrData?.partyCode || selectedVenueCode}`);
+                navigator.clipboard.writeText(`https://jukboks.com/party/${qrData?.partyCode || selectedVenueCode}`);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
               }}
