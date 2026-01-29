@@ -351,7 +351,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="h-screen flex flex-col overflow-hidden">
       <header className="border-b border-white/10 backdrop-blur-lg bg-black/20">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -387,7 +387,7 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-4 flex-1 overflow-hidden flex flex-col">
         <div className="flex flex-wrap items-center gap-4 mb-8 border-b border-white/10 pb-4">
           <div className="flex items-center gap-2">
             <button
@@ -886,8 +886,8 @@ export default function AdminPage() {
         )}
 
         {activeTab === "settings" && selectedVenue && (
-          <div className="max-w-6xl">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:h-[calc(100vh-180px)]">
+          <div className="max-w-6xl flex-1 flex flex-col overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 overflow-hidden">
               {/* Backup Playlists */}
               <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 lg:row-span-2 flex flex-col overflow-hidden">
                 <div className="flex items-center justify-between mb-3">
