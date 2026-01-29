@@ -175,6 +175,10 @@ export default function SuperAdminPage() {
                           <div>
                             <p className="text-white font-medium">{venue.name}</p>
                             <p className="text-gray-400 text-xs">Code: {venue.code}</p>
+                            <div className="flex items-center gap-1 mt-1 text-xs text-purple-400">
+                              <Users className="w-3 h-3" />
+                              {venue.guestCount || 0} guests
+                            </div>
                           </div>
                           <a
                             href={`/party/${venue.code}`}

@@ -129,6 +129,23 @@ export class DatabaseStorage implements IStorage {
   async getAllVenues(): Promise<Venue[]> {
     return db.select().from(venues).orderBy(venues.createdAt);
   }
+  
+  async getGuestCountsByVenue(): Promise<Map<number, number>> {
+    const result = await db
+      .select({
+        venueId: partySessions.venueId,
+        count: sql<number>`count(${guests.id})::int`,
+      })
+      .from(guests)
+      .innerJoin(partySessions, eq(guests.partySessionId, partySessions.id))
+      .groupBy(partySessions.venueId);
+    
+    const counts = new Map<number, number>();
+    for (const row of result) {
+      counts.set(row.venueId, row.count);
+    }
+    return counts;
+  }
 
   async createUser(data: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(data).returning();

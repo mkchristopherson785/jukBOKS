@@ -2569,7 +2569,14 @@ router.get("/api/super-admin/venues", isAuthenticated, async (req: any, res) => 
     }
 
     const venues = await storage.getAllVenues();
-    res.json({ venues });
+    const guestCounts = await storage.getGuestCountsByVenue();
+    
+    const venuesWithCounts = venues.map(venue => ({
+      ...venue,
+      guestCount: guestCounts.get(venue.id) || 0,
+    }));
+    
+    res.json({ venues: venuesWithCounts });
   } catch (error) {
     console.error("Super admin get venues error:", error);
     res.status(500).json({ error: "SERVER_ERROR" });
