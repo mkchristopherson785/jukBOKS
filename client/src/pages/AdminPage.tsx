@@ -351,8 +351,8 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      <header className="border-b border-white/10 backdrop-blur-lg bg-black/20">
+    <div className="min-h-screen flex flex-col">
+      <header className="border-b border-white/10 backdrop-blur-lg bg-black/20 flex-shrink-0">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <a href="/" className="flex items-center">
@@ -387,9 +387,9 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-4 flex-1 overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between gap-4 mb-8 border-b border-white/10 pb-4">
-          <div className="flex items-center gap-2">
+      <main className="max-w-7xl mx-auto px-4 py-4 flex-1 flex flex-col overflow-auto">
+        <div className="flex flex-wrap items-center gap-4 mb-4 border-b border-white/10 pb-4 flex-shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => setActiveTab("venues")}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
@@ -430,7 +430,7 @@ export default function AdminPage() {
             </button>
           </div>
 
-          <div className={`flex items-center gap-2 ${selectedVenue ? '' : 'invisible'}`}>
+          <div className={`flex flex-wrap items-center gap-2 ${selectedVenue ? '' : 'hidden sm:flex sm:invisible'}`}>
             <a
               href={qrData?.partyUrl || `/party/${selectedVenueCode}`}
               target="_blank"
@@ -553,7 +553,7 @@ export default function AdminPage() {
         </div>
 
         {activeTab === "venues" && (
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-1 flex flex-col min-h-0 overflow-auto">
         {venuesLoading ? (
           <div className="flex justify-center py-20">
             <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
@@ -706,7 +706,7 @@ export default function AdminPage() {
         )}
 
         {activeTab === "team" && (
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-1 flex flex-col min-h-0 overflow-auto">
             <div className="flex items-center justify-between mb-8">
               <h1 className="text-3xl font-bold text-white">Team Members</h1>
               {teamData?.isOwner && (
@@ -768,7 +768,7 @@ export default function AdminPage() {
         )}
 
         {activeTab === "branding" && teamData?.isOwner && (
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-1 flex flex-col min-h-0 overflow-auto">
             <div className="grid md:grid-cols-2 gap-4 flex-1 min-h-0 overflow-auto">
               <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
                 <h3 className="text-lg font-semibold text-white mb-3">Organization Name</h3>
@@ -874,7 +874,7 @@ export default function AdminPage() {
         )}
 
         {activeTab === "settings" && selectedVenue && (
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex-1 flex flex-col min-h-0 overflow-auto">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-1 min-h-0 overflow-hidden">
               {/* Backup Playlists */}
               <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 lg:row-span-2 flex flex-col min-h-0 overflow-hidden">
