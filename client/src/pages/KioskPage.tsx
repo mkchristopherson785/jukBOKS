@@ -132,20 +132,24 @@ export default function KioskPage() {
     }
   }, [code, refetchQueue, isAutoPlaying]);
 
+  // Track if we've already tried to pre-populate the queue
+  const [hasTriedAutoPlay, setHasTriedAutoPlay] = useState(false);
+  
   // Pre-populate queue with backup songs when kiosk page first loads
   useEffect(() => {
-    if (!code || !queue) return;
+    if (!code || !queue || hasTriedAutoPlay) return;
     
     const playableItems = queue.items?.filter((item: any) => 
       (item.status === "approved" || item.status === "pending") && 
       (item.previewUrl || item.trackId)
     ) || [];
     
-    // If queue is empty, trigger auto-play to populate it
+    // If queue is empty, trigger auto-play to populate it (only once on initial load)
     if (playableItems.length === 0) {
+      setHasTriedAutoPlay(true);
       triggerAutoPlay();
     }
-  }, [code, queue, triggerAutoPlay]);
+  }, [code, queue, triggerAutoPlay, hasTriedAutoPlay]);
 
   const playNextSong = useCallback(() => {
     if (isTransitioning || !queue?.items) return;
