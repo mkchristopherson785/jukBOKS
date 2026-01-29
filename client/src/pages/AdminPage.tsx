@@ -434,6 +434,23 @@ export default function AdminPage() {
               Settings
             </button>
           </div>
+          
+          {activeTab === "settings" && venues.length > 0 && (
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-gray-400 text-sm">Venue:</span>
+              <select
+                value={selectedVenueCode || ""}
+                onChange={(e) => setSelectedVenueCode(e.target.value)}
+                className="px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
+              >
+                {venues.map((venue: any) => (
+                  <option key={venue.code} value={venue.code} className="bg-gray-900">
+                    {venue.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {activeTab === "team" && (
