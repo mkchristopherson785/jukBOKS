@@ -78,6 +78,13 @@ export default function AdminPage() {
       title: "Settings",
       description: "Configure backup playlists, announcements, and integrations",
     },
+    ...(superAdminCheck?.isSuperAdmin ? [{
+      href: "/super-admin",
+      icon: Shield,
+      title: "Super Admin",
+      description: "View all organizations and venues across the platform",
+      highlight: true,
+    }] : []),
   ];
 
   return (
@@ -88,15 +95,6 @@ export default function AdminPage() {
             <img src="/assets/logo-full.png" alt="Jukboks" className="h-12" />
           </a>
           <div className="flex items-center gap-4">
-            {superAdminCheck?.isSuperAdmin && (
-              <a
-                href="/super-admin"
-                className="p-2 text-yellow-400 hover:text-yellow-300 transition-colors"
-                title="Super Admin"
-              >
-                <Shield className="w-5 h-5" />
-              </a>
-            )}
             <span className="text-gray-400 text-sm hidden sm:block">{user?.email}</span>
             <a
               href="/api/logout"
@@ -114,15 +112,23 @@ export default function AdminPage() {
         <p className="text-gray-400 mb-8">Manage your Jukboks organization</p>
 
         <div className="grid md:grid-cols-2 gap-4">
-          {navItems.map((item) => (
+          {navItems.map((item: any) => (
             <a
               key={item.href}
               href={item.href}
-              className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6 hover:bg-white/10 hover:border-indigo-500/50 transition-all group"
+              className={`backdrop-blur-lg rounded-xl border p-6 transition-all group ${
+                item.highlight 
+                  ? "bg-yellow-500/10 border-yellow-500/30 hover:bg-yellow-500/20 hover:border-yellow-500/50" 
+                  : "bg-white/5 border-white/10 hover:bg-white/10 hover:border-indigo-500/50"
+              }`}
             >
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-indigo-600/20 flex items-center justify-center group-hover:bg-indigo-600/30 transition-colors">
-                  <item.icon className="w-6 h-6 text-indigo-400" />
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${
+                  item.highlight 
+                    ? "bg-yellow-600/20 group-hover:bg-yellow-600/30" 
+                    : "bg-indigo-600/20 group-hover:bg-indigo-600/30"
+                }`}>
+                  <item.icon className={`w-6 h-6 ${item.highlight ? "text-yellow-400" : "text-indigo-400"}`} />
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
