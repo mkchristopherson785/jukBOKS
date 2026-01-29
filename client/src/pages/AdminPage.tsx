@@ -19,7 +19,7 @@ export default function AdminPage() {
   const [selectedVenueCode, setSelectedVenueCode] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newVenueName, setNewVenueName] = useState("");
-  const [activeTab, setActiveTab] = useState<"venues" | "team" | "branding" | "settings">("venues");
+  const [activeTab, setActiveTab] = useState<"team" | "branding" | "settings">("team");
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteError, setInviteError] = useState("");
@@ -390,15 +390,20 @@ export default function AdminPage() {
       <main className="max-w-7xl mx-auto px-4 py-4 flex-1 flex flex-col overflow-auto">
         <div className="flex flex-wrap items-center gap-4 mb-4 border-b border-white/10 pb-4 flex-shrink-0">
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setActiveTab("venues")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                activeTab === "venues" ? "bg-indigo-600 text-white" : "text-gray-400 hover:text-white"
-              }`}
+            <a
+              href="/admin/venues"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
             >
               <MapPin className="w-5 h-5" />
               Venues
-            </button>
+            </a>
+            <a
+              href="/admin/queue"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <Music2 className="w-5 h-5" />
+              Queue
+            </a>
             <button
               onClick={() => setActiveTab("team")}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
@@ -429,294 +434,7 @@ export default function AdminPage() {
               Settings
             </button>
           </div>
-
-          <div className={`flex flex-wrap items-center gap-2 ${selectedVenue ? '' : 'hidden sm:flex sm:invisible'}`}>
-            <a
-              href={qrData?.partyUrl || `/party/${selectedVenueCode}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors"
-            >
-              <QrCode className="w-4 h-4" />
-              Party
-            </a>
-            <a
-              href={`/kiosk/${selectedVenueCode}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition-colors"
-            >
-              <Tv className="w-4 h-4" />
-              Kiosk
-            </a>
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(`https://jukboks.com/party/${qrData?.partyCode || selectedVenueCode}`);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
-            >
-              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-              {copied ? "Copied!" : "Copy Link"}
-            </button>
-            <div className="h-6 w-px bg-white/20" />
-            <div className="relative">
-              <button
-                onClick={() => setShowSettingsPopover(!showSettingsPopover)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
-              >
-                <Settings className="w-4 h-4" />
-                Settings
-                  {listenersData?.count > 0 && (
-                    <span className="flex items-center gap-1 ml-1 text-green-400">
-                      <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-                      {listenersData.count}
-                    </span>
-                  )}
-                </button>
-                {showSettingsPopover && (
-                  <>
-                    <div 
-                      className="fixed inset-0 z-40" 
-                      onClick={() => setShowSettingsPopover(false)} 
-                    />
-                    <div className="absolute top-full left-0 mt-2 w-64 bg-gray-900 border border-white/10 rounded-xl shadow-xl z-50 p-4 space-y-4">
-                      <div className="flex items-center justify-between">
-                        <label className="text-gray-400 text-sm">Request Limit</label>
-                        <select
-                          value={selectedVenue.dailyRequestLimit === 0 ? "unlimited" : selectedVenue.dailyRequestLimit}
-                          onChange={(e) => handleSettingChange("dailyRequestLimit", e.target.value === "unlimited" ? 0 : parseInt(e.target.value))}
-                          className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-sm focus:outline-none focus:border-indigo-500"
-                        >
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => (
-                            <option key={n} value={n} className="bg-gray-900">{n}</option>
-                          ))}
-                          <option value="unlimited" className="bg-gray-900">∞</option>
-                        </select>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <label className="text-gray-400 text-sm">Allow Explicit</label>
-                        <button
-                          onClick={() => handleSettingChange("allowExplicit", !selectedVenue.allowExplicit)}
-                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                            selectedVenue.allowExplicit
-                              ? "bg-green-600/30 text-green-300"
-                              : "bg-red-600/30 text-red-300"
-                          }`}
-                        >
-                          {selectedVenue.allowExplicit ? "On" : "Off"}
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <label className="text-gray-400 text-sm">Block Holiday Music</label>
-                        <button
-                          onClick={() => handleSettingChange("blockHolidayMusic", !selectedVenue.blockHolidayMusic)}
-                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                            selectedVenue.blockHolidayMusic
-                              ? "bg-green-600/30 text-green-300"
-                              : "bg-gray-600/30 text-gray-300"
-                          }`}
-                        >
-                          {selectedVenue.blockHolidayMusic ? "On" : "Off"}
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <label className="text-gray-400 text-sm">Auto-Approve</label>
-                        <button
-                          onClick={() => handleSettingChange("autoApprove", !selectedVenue.autoApprove)}
-                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                            selectedVenue.autoApprove
-                              ? "bg-green-600/30 text-green-300"
-                              : "bg-gray-600/30 text-gray-300"
-                          }`}
-                        >
-                          {selectedVenue.autoApprove ? "On" : "Off"}
-                        </button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <label className="text-gray-400 text-sm">Venue Active</label>
-                        <button
-                          onClick={() => handleSettingChange("isActive", !selectedVenue.isActive)}
-                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-                            selectedVenue.isActive
-                              ? "bg-green-600/30 text-green-300"
-                              : "bg-gray-600/30 text-gray-300"
-                          }`}
-                        >
-                          {selectedVenue.isActive ? "On" : "Off"}
-                        </button>
-                      </div>
-                      <div className="border-t border-white/10 pt-3 flex items-center justify-between">
-                        <span className="text-gray-400 text-sm">Listening</span>
-                        {listenersData?.count > 0 ? (
-                          <div className="flex items-center gap-1.5 text-sm">
-                            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                            <span className="text-green-400 font-semibold">{listenersData.count}</span>
-                          </div>
-                        ) : (
-                          <span className="text-gray-500 text-sm">0</span>
-                        )}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-          </div>
         </div>
-
-        {activeTab === "venues" && (
-          <div className="flex-1 flex flex-col min-h-0 overflow-auto">
-        {venuesLoading ? (
-          <div className="flex justify-center py-20">
-            <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
-          </div>
-        ) : venues.length === 0 ? (
-          <div className="text-center py-20">
-            <MapPin className="w-16 h-16 mx-auto text-gray-500 mb-4" />
-            <h2 className="text-2xl font-bold text-white mb-2">No Venues Yet</h2>
-            <p className="text-gray-400 mb-6">Create your first venue to start hosting music parties</p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-              Create Your First Venue
-            </button>
-          </div>
-        ) : (
-          <div className="grid lg:grid-cols-4 gap-6 flex-1 min-h-0 overflow-hidden">
-            <div className="space-y-2 overflow-y-auto min-h-0">
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wide mb-2">My Venues</h2>
-              {venues.map((venue: any) => (
-                <div
-                  key={venue.id}
-                  className={`w-full p-4 rounded-xl transition-colors ${
-                    selectedVenueCode === venue.code
-                      ? "bg-indigo-600/30 border border-indigo-500"
-                      : "bg-white/5 border border-white/10 hover:bg-white/10"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <button
-                      onClick={() => setSelectedVenueCode(venue.code)}
-                      className="flex-1 text-left"
-                    >
-                      <p className="text-white font-medium">{venue.name}</p>
-                      <p className="text-gray-400 text-sm font-mono">{venue.code}</p>
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteVenue(venue.id, venue.name);
-                      }}
-                      className="p-2 text-gray-400 hover:text-red-400 transition-colors"
-                      title="Delete venue"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="w-full flex items-center justify-center gap-2 p-3 border border-dashed border-white/20 hover:border-indigo-500 hover:bg-white/5 text-gray-400 hover:text-white rounded-xl transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                New Venue
-              </button>
-            </div>
-
-            {selectedVenue && (
-              <div className="lg:col-span-3 flex flex-col min-h-0 overflow-hidden">
-                {/* Main Content: Queue + Sidebar (Playlists + Announcements) */}
-                <div className="grid lg:grid-cols-3 gap-4 flex-1 min-h-0 overflow-hidden">
-                  {/* Queue - Takes 2 columns */}
-                  <div className="lg:col-span-2 bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 flex flex-col min-h-0 overflow-hidden">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-lg font-bold text-white">Queue ({queue?.items?.length || 0})</h3>
-                      {queue?.items?.[0] && (
-                        <button
-                          onClick={() => skipSongMutation.mutate(queue.items[0].id)}
-                          disabled={skipSongMutation.isPending}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
-                          title="Skip current song"
-                        >
-                          <SkipForward className="w-4 h-4" />
-                          Skip
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex-1 overflow-y-auto">
-                      <QueueList items={queue?.items || []} />
-                    </div>
-                  </div>
-
-                  {/* Right Sidebar - Play History */}
-                  <div className="flex flex-col min-h-0 overflow-hidden">
-                    {/* Play History & Banned Songs */}
-                    <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 flex flex-col flex-1 min-h-0 overflow-hidden">
-                      <h3 className="text-md font-bold text-white flex items-center gap-2 mb-3">
-                        <History className="w-4 h-4" />
-                        Recent Plays
-                      </h3>
-                      <div className="space-y-2 flex-1 overflow-y-auto">
-                        {playHistory.length === 0 ? (
-                          <p className="text-gray-500 text-xs text-center py-2">No play history yet</p>
-                        ) : (
-                          playHistory.slice(0, 10).map((song: any) => {
-                            const isBanned = bannedSongs.some((b: any) => b.trackId === song.trackId);
-                            return (
-                              <div key={song.id} className="flex items-center gap-2 p-2 bg-white/5 rounded">
-                                <img src={song.albumCover || "/placeholder.svg"} alt="" className="w-8 h-8 rounded object-cover" />
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-white text-xs font-medium truncate">{song.title}</p>
-                                  <p className="text-gray-400 text-xs truncate">{song.artist}</p>
-                                </div>
-                                <button
-                                  onClick={() => isBanned 
-                                    ? unbanSongMutation.mutate(song.trackId)
-                                    : banSongMutation.mutate({ trackId: song.trackId, title: song.title, artist: song.artist, albumCover: song.albumCover })
-                                  }
-                                  className={`p-1.5 rounded transition-colors ${isBanned ? 'text-red-400 hover:text-red-300' : 'text-gray-400 hover:text-red-400'}`}
-                                  title={isBanned ? "Unban" : "Ban this song"}
-                                >
-                                  <Ban className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-
-                      {bannedSongs.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-white/10">
-                          <p className="text-xs text-gray-400 mb-2">Banned Songs ({bannedSongs.length})</p>
-                          <div className="space-y-1 max-h-24 overflow-y-auto">
-                            {bannedSongs.map((song: any) => (
-                              <div key={song.id} className="flex items-center gap-2 p-1.5 bg-red-500/10 rounded text-xs">
-                                <span className="text-red-400 truncate flex-1">{song.title} - {song.artist}</span>
-                                <button
-                                  onClick={() => unbanSongMutation.mutate(song.trackId)}
-                                  className="text-gray-400 hover:text-white transition-colors"
-                                  title="Unban"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-          </div>
-        )}
 
         {activeTab === "team" && (
           <div className="flex-1 flex flex-col min-h-0 overflow-auto">
