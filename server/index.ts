@@ -43,6 +43,7 @@ async function createServer() {
       server: {
         middlewareMode: true,
         hmr: { port: 5001 },
+        allowedHosts: true,
       },
       appType: "spa",
     });
