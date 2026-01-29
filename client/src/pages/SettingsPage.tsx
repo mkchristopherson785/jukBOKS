@@ -37,14 +37,29 @@ export default function SettingsPage() {
     try {
       const response = await musicKit.api.music('/v1/me/library/playlists', { limit: 50 });
       const playlists = response.data.data || [];
-      const formattedPlaylists = playlists.map((p: any) => ({
-        id: p.id,
-        name: p.attributes?.name || "Unknown Playlist",
-        curatorName: "My Library",
-        trackCount: p.attributes?.trackCount || 0,
-        artworkUrl: p.attributes?.artwork?.url?.replace("{w}x{h}", "100x100") || null,
-        isLibrary: true,
+      
+      const formattedPlaylists = await Promise.all(playlists.map(async (p: any) => {
+        let trackCount = p.attributes?.trackCount || 0;
+        
+        if (trackCount === 0) {
+          try {
+            const tracksResponse = await musicKit.api.music(`/v1/me/library/playlists/${p.id}/tracks?limit=1`);
+            trackCount = tracksResponse.data.meta?.total || 0;
+          } catch (e) {
+            console.error("Failed to fetch track count for playlist:", p.id);
+          }
+        }
+        
+        return {
+          id: p.id,
+          name: p.attributes?.name || "Unknown Playlist",
+          curatorName: "My Library",
+          trackCount,
+          artworkUrl: p.attributes?.artwork?.url?.replace("{w}x{h}", "100x100") || null,
+          isLibrary: true,
+        };
       }));
+      
       setLibraryPlaylists(formattedPlaylists);
     } catch (error) {
       console.error("Failed to fetch library playlists:", error);
