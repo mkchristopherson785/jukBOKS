@@ -129,7 +129,7 @@ router.get("/api/apple-music/search", async (req: Request, res: Response) => {
 });
 
 router.get("/api/apple-music/search-playlists", async (req: Request, res: Response) => {
-  const { term, limit = "10" } = req.query;
+  const { term, limit = "25" } = req.query;
   
   if (!term || typeof term !== "string") {
     return res.status(400).json({ error: "Search term required" });
