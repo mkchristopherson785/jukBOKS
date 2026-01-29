@@ -51,9 +51,9 @@ export default function SettingsPage() {
   });
 
   const { data: backupPlaylists = [] } = useQuery({
-    queryKey: ["backupPlaylists", selectedVenue?.id],
-    queryFn: () => fetchBackupPlaylists(selectedVenue!.id),
-    enabled: !!selectedVenue?.id,
+    queryKey: ["backupPlaylists", selectedVenueCode],
+    queryFn: () => fetchBackupPlaylists(selectedVenueCode!),
+    enabled: !!selectedVenueCode,
   });
 
   const { data: announcementsData } = useQuery({
@@ -66,7 +66,7 @@ export default function SettingsPage() {
   const addPlaylistMutation = useMutation({
     mutationFn: (url: string) => addBackupPlaylist(selectedVenue!.id, url),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["backupPlaylists", selectedVenue?.id] });
+      queryClient.invalidateQueries({ queryKey: ["backupPlaylists", selectedVenueCode] });
       setShowPlaylistModal(false);
       setPlaylistUrl("");
       setPlaylistError("");
@@ -79,7 +79,7 @@ export default function SettingsPage() {
   const removePlaylistMutation = useMutation({
     mutationFn: (playlistId: string) => removeBackupPlaylist(selectedVenue!.id, playlistId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["backupPlaylists", selectedVenue?.id] });
+      queryClient.invalidateQueries({ queryKey: ["backupPlaylists", selectedVenueCode] });
     },
   });
 
