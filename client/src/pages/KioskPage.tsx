@@ -297,72 +297,74 @@ export default function KioskPage() {
 
   if (!isStarted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="mb-8 flex justify-center">
+          <div className="mb-6 sm:mb-8 flex justify-center">
             {venue?.logoUrl ? (
-              <img src={venue.logoUrl} alt="" className="h-24 w-auto" />
+              <img src={venue.logoUrl} alt="" className="h-16 sm:h-24 w-auto" />
             ) : (
-              <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                <Music2 className="w-14 h-14 text-white" />
+              <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+                <Music2 className="w-10 h-10 sm:w-14 sm:h-14 text-white" />
               </div>
             )}
           </div>
-          <h1 className="text-4xl font-bold text-white mb-2">{venue?.name || "Jukboks"}</h1>
-          <p className="text-gray-400 mb-8">Kiosk Mode</p>
+          <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2">{venue?.name || "Jukboks"}</h1>
+          <p className="text-gray-400 mb-6 sm:mb-8">Kiosk Mode</p>
           <button
             onClick={() => setIsStarted(true)}
-            className="px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full text-white text-xl font-semibold flex items-center gap-3 mx-auto hover:scale-105 transition-transform"
+            className="px-6 py-3 sm:px-8 sm:py-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full text-white text-lg sm:text-xl font-semibold flex items-center gap-2 sm:gap-3 mx-auto hover:scale-105 transition-transform"
           >
-            <Play className="w-6 h-6" />
+            <Play className="w-5 h-5 sm:w-6 sm:h-6" />
             Start Kiosk
           </button>
-          <p className="text-gray-500 text-sm mt-6">Click to enable music playback</p>
+          <p className="text-gray-500 text-sm mt-4 sm:mt-6">Tap to enable music playback</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex relative">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex flex-col lg:flex-row relative">
       {!isFullscreen && (
         <button
           onClick={toggleFullscreen}
-          className="absolute top-4 right-4 p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors z-10"
+          className="absolute top-2 right-2 sm:top-4 sm:right-4 p-2 sm:p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors z-10"
           title="Enter Fullscreen"
         >
-          <Maximize className="w-6 h-6 text-white" />
+          <Maximize className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
         </button>
       )}
-      <div className="flex-1 flex flex-col items-center justify-center p-8">
+      
+      {/* Now Playing Section */}
+      <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8">
         <div className="w-full max-w-3xl">
           {isPlayingAnnouncement && currentAnnouncement ? (
             <>
-              <div className="mb-12 flex justify-center">
-                <div className="w-96 h-96 rounded-3xl shadow-2xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
-                  <Volume2 className="w-48 h-48 text-white/80 animate-pulse" />
+              <div className="mb-6 sm:mb-12 flex justify-center">
+                <div className="w-48 h-48 sm:w-72 sm:h-72 lg:w-96 lg:h-96 rounded-2xl sm:rounded-3xl shadow-2xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
+                  <Volume2 className="w-24 h-24 sm:w-36 sm:h-36 lg:w-48 lg:h-48 text-white/80 animate-pulse" />
                 </div>
               </div>
               <div className="text-center">
-                <h2 className="text-6xl font-bold text-white mb-4">{currentAnnouncement.name}</h2>
-                <p className="text-2xl text-gray-300">Announcement</p>
+                <h2 className="text-2xl sm:text-4xl lg:text-6xl font-bold text-white mb-2 sm:mb-4">{currentAnnouncement.name}</h2>
+                <p className="text-lg sm:text-xl lg:text-2xl text-gray-300">Announcement</p>
               </div>
             </>
           ) : (
             <>
               {displayCover && (
-                <div className="mb-12 flex justify-center">
+                <div className="mb-6 sm:mb-12 flex justify-center">
                   <img 
                     src={displayCover} 
                     alt={displayTitle || "Album"} 
-                    className="w-96 h-96 rounded-3xl shadow-2xl object-cover"
+                    className="w-48 h-48 sm:w-72 sm:h-72 lg:w-96 lg:h-96 rounded-2xl sm:rounded-3xl shadow-2xl object-cover"
                   />
                 </div>
               )}
               
-              <div className="text-center">
-                <h2 className="text-6xl font-bold text-white mb-4">{displayTitle || "No song playing"}</h2>
-                <p className="text-3xl text-gray-300">{displayArtist || "Request a song to get started"}</p>
+              <div className="text-center px-2">
+                <h2 className="text-xl sm:text-4xl lg:text-6xl font-bold text-white mb-2 sm:mb-4 line-clamp-2">{displayTitle || "No song playing"}</h2>
+                <p className="text-base sm:text-2xl lg:text-3xl text-gray-300 line-clamp-1">{displayArtist || "Request a song to get started"}</p>
               </div>
 
               <MusicKitPlayer
@@ -382,8 +384,8 @@ export default function KioskPage() {
         </div>
       </div>
 
-      {/* Logo in bottom left */}
-      <div className="absolute bottom-4 left-4">
+      {/* Logo in bottom left - hidden on mobile */}
+      <div className="hidden sm:block absolute bottom-4 left-4">
         {venue?.logoUrl ? (
           <img src={venue.logoUrl} alt="" className="h-12 w-auto opacity-70" />
         ) : (
@@ -391,66 +393,76 @@ export default function KioskPage() {
         )}
       </div>
 
-      <div className="w-96 bg-black/30 backdrop-blur-lg border-l border-white/10 p-6 flex flex-col">
-        <h2 className="text-xl font-bold text-white mb-6">Up Next</h2>
+      {/* Queue Sidebar - becomes bottom section on mobile */}
+      <div className="lg:w-96 bg-black/30 backdrop-blur-lg border-t lg:border-t-0 lg:border-l border-white/10 p-4 sm:p-6 flex flex-col max-h-[40vh] lg:max-h-none">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h2 className="text-lg sm:text-xl font-bold text-white">Up Next</h2>
+          {/* Mobile QR code - inline with header */}
+          {qrData?.qrCode && (
+            <div className="lg:hidden flex items-center gap-2">
+              <img src={qrData.qrCode} alt="Scan to join" className="w-12 h-12" />
+            </div>
+          )}
+        </div>
 
-        <div className="flex-1 overflow-y-auto space-y-3">
-          {upNextItems.map((item: any, index: number) => (
+        <div className="flex-1 overflow-y-auto space-y-2 sm:space-y-3">
+          {upNextItems.slice(0, 5).map((item: any, index: number) => (
             <div
               key={item.id}
-              className={`flex items-center gap-3 p-3 rounded-xl ${
+              className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg sm:rounded-xl ${
                 item.previewUrl ? "bg-white/5" : "bg-white/5 opacity-50"
               }`}
             >
-              <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-sm">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-xs sm:text-sm flex-shrink-0">
                 {index + 1}
               </div>
               {item.albumCover ? (
-                <img src={item.albumCover} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                <img src={item.albumCover} alt="" className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover flex-shrink-0" />
               ) : (
-                <div className="w-12 h-12 rounded-lg bg-gray-700 flex items-center justify-center">
-                  <Music2 className="w-5 h-5 text-gray-500" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gray-700 flex items-center justify-center flex-shrink-0">
+                  <Music2 className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-white font-medium truncate text-sm flex items-center gap-1">
+                <p className="text-white font-medium truncate text-xs sm:text-sm flex items-center gap-1">
                   {item.title}
                   {item.isExplicit && (
-                    <span className="inline-flex items-center justify-center w-3.5 h-3.5 bg-gray-600 text-[8px] font-bold rounded text-gray-300">
+                    <span className="inline-flex items-center justify-center w-3 h-3 sm:w-3.5 sm:h-3.5 bg-gray-600 text-[7px] sm:text-[8px] font-bold rounded text-gray-300 flex-shrink-0">
                       E
                     </span>
                   )}
                 </p>
-                <p className="text-gray-400 text-xs truncate">{item.artist}</p>
+                <p className="text-gray-400 text-[10px] sm:text-xs truncate">{item.artist}</p>
                 {item.isAutoPlay ? (
-                  <p className="text-purple-400 text-xs flex items-center gap-1">
-                    <Radio className="w-3 h-3" />
+                  <p className="text-purple-400 text-[10px] sm:text-xs flex items-center gap-1">
+                    <Radio className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                     Auto-play
                   </p>
                 ) : item.requesterName ? (
-                  <p className="text-gray-500 text-xs flex items-center gap-1">
-                    <User className="w-3 h-3" />
+                  <p className="text-gray-500 text-[10px] sm:text-xs flex items-center gap-1">
+                    <User className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                     {item.requesterName}
                   </p>
                 ) : null}
               </div>
-              <div className="flex items-center gap-1 text-indigo-400 text-sm">
-                <ThumbsUp className="w-4 h-4" />
+              <div className="flex items-center gap-1 text-indigo-400 text-xs sm:text-sm flex-shrink-0">
+                <ThumbsUp className="w-3 h-3 sm:w-4 sm:h-4" />
                 {item.netVotes || 0}
               </div>
             </div>
           ))}
 
           {upNextItems.length === 0 && (
-            <div className="text-center text-gray-400 py-8">
-              <Music2 className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>No songs in queue</p>
+            <div className="text-center text-gray-400 py-4 sm:py-8">
+              <Music2 className="w-8 h-8 sm:w-12 sm:h-12 mx-auto mb-2 sm:mb-3 opacity-50" />
+              <p className="text-sm sm:text-base">No songs in queue</p>
             </div>
           )}
         </div>
 
+        {/* Desktop QR code */}
         {qrData?.qrCode && (
-          <div className="mt-6 pt-6 border-t border-white/10">
+          <div className="hidden lg:block mt-6 pt-6 border-t border-white/10">
             <div className="flex flex-col items-center">
               <img src={qrData.qrCode} alt="Scan to join" className="w-32 h-32" />
               <p className="text-white font-medium mt-2 text-center text-sm">
