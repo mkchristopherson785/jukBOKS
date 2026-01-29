@@ -132,6 +132,21 @@ export default function KioskPage() {
     }
   }, [code, refetchQueue, isAutoPlaying]);
 
+  // Pre-populate queue with backup songs when kiosk page first loads
+  useEffect(() => {
+    if (!code || !queue) return;
+    
+    const playableItems = queue.items?.filter((item: any) => 
+      (item.status === "approved" || item.status === "pending") && 
+      (item.previewUrl || item.trackId)
+    ) || [];
+    
+    // If queue is empty, trigger auto-play to populate it
+    if (playableItems.length === 0) {
+      triggerAutoPlay();
+    }
+  }, [code, queue, triggerAutoPlay]);
+
   const playNextSong = useCallback(() => {
     if (isTransitioning || !queue?.items) return;
     
