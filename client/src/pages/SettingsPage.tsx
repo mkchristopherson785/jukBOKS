@@ -114,8 +114,27 @@ export default function SettingsPage() {
   });
 
   const addPlaylistByIdMutation = useMutation({
-    mutationFn: (playlist: { id: string; name: string; trackCount: number; artworkUrl: string | null }) => 
-      addBackupPlaylistById(selectedVenue!.id, playlist),
+    mutationFn: async (playlist: { id: string; name: string; trackCount: number; artworkUrl: string | null; isLibrary?: boolean }) => {
+      let finalTrackCount = playlist.trackCount;
+      
+      if (playlist.isLibrary && musicKit) {
+        try {
+          const response = await musicKit.api.music(`/v1/me/library/playlists/${playlist.id}?include=tracks`);
+          const playlistData = response.data.data?.[0];
+          if (playlistData) {
+            finalTrackCount = playlistData.relationships?.tracks?.data?.length || 0;
+            console.log("Fetched library playlist track count:", finalTrackCount);
+          }
+        } catch (error) {
+          console.error("Failed to fetch library playlist details:", error);
+        }
+      }
+      
+      return addBackupPlaylistById(selectedVenue!.id, {
+        ...playlist,
+        trackCount: finalTrackCount,
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["backupPlaylists", selectedVenueCode] });
       setShowPlaylistModal(false);
