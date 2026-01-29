@@ -894,7 +894,7 @@ export default function AdminPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {/* Backup Playlists */}
-              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 lg:row-span-2">
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 lg:row-span-2 lg:min-h-[calc(100vh-200px)] flex flex-col">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     <ListMusic className="w-4 h-4" />
@@ -911,7 +911,7 @@ export default function AdminPage() {
                 <p className="text-gray-400 text-xs mb-3">
                   Auto-play when queue is empty.
                 </p>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                <div className="space-y-1.5 flex-1 overflow-y-auto">
                   {backupPlaylists.length === 0 ? (
                     <p className="text-gray-500 text-xs text-center py-3">No playlists added</p>
                   ) : (
