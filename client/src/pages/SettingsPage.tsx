@@ -119,11 +119,18 @@ export default function SettingsPage() {
       
       if (playlist.isLibrary && musicKit) {
         try {
-          const response = await musicKit.api.music(`/v1/me/library/playlists/${playlist.id}?include=tracks`);
-          const playlistData = response.data.data?.[0];
-          if (playlistData) {
-            finalTrackCount = playlistData.relationships?.tracks?.data?.length || 0;
-            console.log("Fetched library playlist track count:", finalTrackCount);
+          const response = await musicKit.api.music(`/v1/me/library/playlists/${playlist.id}/tracks?limit=1`);
+          const meta = response.data.meta;
+          if (meta?.total !== undefined) {
+            finalTrackCount = meta.total;
+            console.log("Fetched library playlist track count from meta.total:", finalTrackCount);
+          } else {
+            const fullResponse = await musicKit.api.music(`/v1/me/library/playlists/${playlist.id}?include=tracks`);
+            const playlistData = fullResponse.data.data?.[0];
+            if (playlistData) {
+              finalTrackCount = playlistData.relationships?.tracks?.data?.length || 0;
+              console.log("Fetched library playlist track count from tracks:", finalTrackCount);
+            }
           }
         } catch (error) {
           console.error("Failed to fetch library playlist details:", error);
