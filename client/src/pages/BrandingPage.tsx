@@ -43,7 +43,7 @@ export default function BrandingPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-indigo-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex items-center justify-center">
         <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
       </div>
     );
@@ -55,7 +55,7 @@ export default function BrandingPage() {
 
   if (!teamData?.isOwner) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-indigo-900 flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex flex-col items-center justify-center">
         <p className="text-white text-xl mb-4">Only the organization owner can access branding settings.</p>
         <a href="/admin" className="text-indigo-400 hover:text-indigo-300">Back to Dashboard</a>
       </div>
@@ -63,7 +63,7 @@ export default function BrandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-indigo-900 flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex flex-col overflow-hidden">
       <header className="border-b border-white/10 p-4 flex-shrink-0">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <a href="/" className="flex items-center">
