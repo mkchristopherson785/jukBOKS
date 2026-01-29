@@ -177,14 +177,12 @@ async function fetchApplePlaylistDetails(playlistId: string) {
       return null;
     }
 
-    // Try to get track count from tracks relationship or attributes
-    const tracksData = playlist.relationships?.tracks?.data;
-    const trackCount = tracksData?.length || playlist.attributes?.trackCount || 0;
+    // Use the trackCount attribute which has the accurate total (not capped at 100)
+    const trackCount = playlist.attributes?.trackCount || playlist.relationships?.tracks?.data?.length || 0;
 
     console.log("Playlist details:", {
       name: playlist.attributes?.name,
       trackCount,
-      hasTracksRelation: !!tracksData,
       attrTrackCount: playlist.attributes?.trackCount
     });
 
