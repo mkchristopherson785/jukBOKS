@@ -773,15 +773,10 @@ export default function AdminPage() {
         )}
 
         {activeTab === "branding" && teamData?.isOwner && (
-          <div className="max-w-2xl">
-            <h1 className="text-3xl font-bold text-white mb-8">Branding Settings</h1>
-            <p className="text-gray-400 mb-6">
-              Customize how your organization appears on the front website and kiosk displays.
-            </p>
-
-            <div className="space-y-6">
-              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Organization Name</h3>
+          <div className="max-w-4xl flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="grid md:grid-cols-2 gap-4 flex-1 min-h-0 overflow-auto">
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
+                <h3 className="text-lg font-semibold text-white mb-3">Organization Name</h3>
                 <input
                   type="text"
                   defaultValue={organization?.name || ""}
@@ -790,21 +785,59 @@ export default function AdminPage() {
                       updateOrgMutation.mutate({ name: e.target.value });
                     }
                   }}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500"
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500"
                   placeholder="Your Organization Name"
                 />
               </div>
 
-              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Logo</h3>
-                <p className="text-gray-400 text-sm mb-4">Upload your organization logo (shown on kiosk and party pages)</p>
-                
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
+                <h3 className="text-lg font-semibold text-white mb-3">Colors</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-gray-400 text-xs mb-1">Primary Color</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={organization?.primaryColor || "#2563eb"}
+                        onChange={(e) => updateOrgMutation.mutate({ primaryColor: e.target.value })}
+                        className="w-10 h-8 rounded cursor-pointer border-0"
+                      />
+                      <input
+                        type="text"
+                        value={organization?.primaryColor || "#2563eb"}
+                        onChange={(e) => updateOrgMutation.mutate({ primaryColor: e.target.value })}
+                        className="flex-1 px-2 py-1 bg-white/5 border border-white/10 rounded text-white text-sm focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-gray-400 text-xs mb-1">Accent Color</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={organization?.accentColor || "#f59e0b"}
+                        onChange={(e) => updateOrgMutation.mutate({ accentColor: e.target.value })}
+                        className="w-10 h-8 rounded cursor-pointer border-0"
+                      />
+                      <input
+                        type="text"
+                        value={organization?.accentColor || "#f59e0b"}
+                        onChange={(e) => updateOrgMutation.mutate({ accentColor: e.target.value })}
+                        className="flex-1 px-2 py-1 bg-white/5 border border-white/10 rounded text-white text-sm focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 md:col-span-2">
+                <h3 className="text-lg font-semibold text-white mb-3">Logo</h3>
                 <div className="flex items-center gap-4">
                   {organization?.logoUrl ? (
-                    <img src={organization.logoUrl} alt="Logo" className="h-16 w-auto rounded-lg bg-white/10 p-2" />
+                    <img src={organization.logoUrl} alt="Logo" className="h-12 w-auto rounded-lg bg-white/10 p-1" />
                   ) : (
-                    <div className="h-16 w-16 rounded-lg bg-white/10 flex items-center justify-center">
-                      <Music2 className="w-8 h-8 text-gray-500" />
+                    <div className="h-12 w-12 rounded-lg bg-white/10 flex items-center justify-center">
+                      <Music2 className="w-6 h-6 text-gray-500" />
                     </div>
                   )}
                   <div className="flex-1">
@@ -816,69 +849,29 @@ export default function AdminPage() {
                           updateOrgMutation.mutate({ logoUrl: e.target.value || undefined });
                         }
                       }}
-                      className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 text-sm"
+                      className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 text-sm"
                       placeholder="Logo URL (or upload below)"
                     />
-                    <label className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg cursor-pointer transition-colors text-sm">
-                      <Upload className="w-4 h-4" />
-                      {isUploading ? "Uploading..." : "Upload Logo"}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        disabled={isUploading}
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const result = await uploadFile(file);
-                            if (result?.objectPath) {
-                              updateOrgMutation.mutate({ logoUrl: result.objectPath });
-                            }
+                  </div>
+                  <label className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg cursor-pointer transition-colors text-sm">
+                    <Upload className="w-4 h-4" />
+                    {isUploading ? "Uploading..." : "Upload"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={isUploading}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const result = await uploadFile(file);
+                          if (result?.objectPath) {
+                            updateOrgMutation.mutate({ logoUrl: result.objectPath });
                           }
-                        }}
-                      />
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Colors</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-gray-400 text-sm mb-2">Primary Color</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={organization?.primaryColor || "#2563eb"}
-                        onChange={(e) => updateOrgMutation.mutate({ primaryColor: e.target.value })}
-                        className="w-12 h-10 rounded cursor-pointer border-0"
-                      />
-                      <input
-                        type="text"
-                        value={organization?.primaryColor || "#2563eb"}
-                        onChange={(e) => updateOrgMutation.mutate({ primaryColor: e.target.value })}
-                        className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-gray-400 text-sm mb-2">Accent Color</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={organization?.accentColor || "#f59e0b"}
-                        onChange={(e) => updateOrgMutation.mutate({ accentColor: e.target.value })}
-                        className="w-12 h-10 rounded cursor-pointer border-0"
-                      />
-                      <input
-                        type="text"
-                        value={organization?.accentColor || "#f59e0b"}
-                        onChange={(e) => updateOrgMutation.mutate({ accentColor: e.target.value })}
-                        className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-indigo-500"
-                      />
-                    </div>
-                  </div>
+                        }
+                      }}
+                    />
+                  </label>
                 </div>
               </div>
             </div>
