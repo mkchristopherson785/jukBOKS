@@ -14,7 +14,7 @@ Jukboks is a standalone SaaS platform that enables businesses (bars, restaurants
 - **Per-Venue Settings**: Explicit content filtering, daily request limits (1-10 or unlimited), auto-approve
 - **Upvote/Downvote System**: Guests can thumbs up or thumbs down songs in the queue
 - **Duplicate Song Prevention**: Songs can't be requested again within 2 hours of playing
-- **Backup Playlists**: Up to 10 playlists per venue for auto-play when queue is empty
+- **Backup Playlists**: Up to 10 playlists per venue for auto-play when queue is empty, with weighted selection (1-5) to control how often each playlist is used
 - **Announcements**: Pre-recorded audio announcements that play between songs (configurable by song count or time interval, with sequential or random play modes)
 - **Multi-Organization Support**: Each business manages their own venues
 - **Team Management**: Invite team members by email to share admin access to venues
