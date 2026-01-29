@@ -84,14 +84,9 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-indigo-900 flex flex-col overflow-hidden">
       <header className="border-b border-white/10 p-4 flex-shrink-0">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <a href="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                <Music2 className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold text-white">Jukboks</span>
-            </a>
-          </div>
+          <a href="/" className="flex items-center">
+            <img src="/assets/logo-full.png" alt="Jukboks" className="h-12" />
+          </a>
           <div className="flex items-center gap-4">
             {superAdminCheck?.isSuperAdmin && (
               <a

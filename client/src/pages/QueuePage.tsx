@@ -108,44 +108,48 @@ export default function QueuePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900">
-      <header className="border-b border-white/10 backdrop-blur-lg bg-black/20">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setLocation("/admin")}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <a href="/" className="flex items-center">
-              <img src="/assets/logo-full.png" alt="Jukboks" className="h-12" />
-            </a>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-indigo-900 flex flex-col overflow-hidden">
+      <header className="border-b border-white/10 p-4 flex-shrink-0">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <a href="/" className="flex items-center">
+            <img src="/assets/logo-full.png" alt="Jukboks" className="h-12" />
+          </a>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-gray-300">
-              {user?.profileImageUrl ? (
-                <img src={user.profileImageUrl} alt="" className="w-8 h-8 rounded-full" />
-              ) : (
-                <User className="w-5 h-5" />
-              )}
-              <span className="hidden sm:inline">{user?.firstName || user?.email}</span>
-            </div>
             {superAdminCheck?.isSuperAdmin && (
-              <a href="/super-admin" className="px-3 py-2 text-amber-400 hover:text-amber-300 font-medium transition-colors" title="Super Admin">
-                <Shield className="w-4 h-4" />
+              <a
+                href="/super-admin"
+                className="p-2 text-yellow-400 hover:text-yellow-300 transition-colors"
+                title="Super Admin"
+              >
+                <Shield className="w-5 h-5" />
               </a>
             )}
-            <a href="/api/logout" className="px-3 py-2 text-gray-300 hover:text-white font-medium transition-colors flex items-center gap-2">
-              <LogOut className="w-4 h-4" />
+            <span className="text-gray-400 text-sm hidden sm:block">{user?.email}</span>
+            <a
+              href="/api/logout"
+              className="p-2 text-gray-400 hover:text-white transition-colors"
+              title="Sign Out"
+            >
+              <LogOut className="w-5 h-5" />
             </a>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-6 flex-1 flex flex-col overflow-auto w-full">
+        <div className="flex items-center gap-4 mb-6">
+          <a
+            href="/admin"
+            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Back to Dashboard
+          </a>
+        </div>
+
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
+            <Music className="w-8 h-8 text-indigo-400" />
             <h1 className="text-3xl font-bold text-white">Queue</h1>
             {venues.length > 1 && (
               <select
