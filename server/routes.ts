@@ -1387,8 +1387,8 @@ router.post("/api/me/venues/:venueId/backup-playlists", isAuthenticated, async (
     let applePlaylistId: string;
     
     if (playlistId) {
-      // Direct playlist ID from search results
-      applePlaylistId = playlistId.startsWith('pl.') ? playlistId : `pl.${playlistId}`;
+      // Direct playlist ID from search results - use as-is since it already has the correct format
+      applePlaylistId = playlistId;
     } else if (playlistUrl) {
       // Extract playlist ID from Apple Music URL
       const urlMatch = playlistUrl.match(/playlist\/[^\/]+\/pl\.([a-zA-Z0-9-]+)/);

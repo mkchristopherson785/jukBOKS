@@ -224,13 +224,12 @@ export async function searchPlaylists(term: string) {
 }
 
 export async function addBackupPlaylistById(venueId: number, playlist: { id: string; name: string; trackCount: number; artworkUrl: string | null; isLibrary?: boolean }) {
-  const playlistId = playlist.id.startsWith('pl.') ? playlist.id : `pl.${playlist.id}`;
   const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/backup-playlists`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({ 
-      playlistId,
+      playlistId: playlist.id,
       isLibrary: playlist.isLibrary || false
     }),
   });
