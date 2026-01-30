@@ -519,3 +519,11 @@ export async function superAdminDeleteOrganization(orgId: number) {
   if (!res.ok) throw new Error("Failed to delete organization");
   return res.json();
 }
+
+export async function superAdminGetVenueGuests(venueId: number) {
+  const res = await fetch(`${API_BASE}/api/super-admin/venues/${venueId}/guests`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to fetch guests");
+  return res.json();
+}

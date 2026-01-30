@@ -2727,6 +2727,27 @@ router.get("/api/super-admin/venues", isAuthenticated, async (req: any, res) => 
   }
 });
 
+// Super admin: Get guests for a venue
+router.get("/api/super-admin/venues/:venueId/guests", isAuthenticated, async (req: any, res) => {
+  try {
+    const userEmail = req.user?.claims?.email;
+    if (!isSuperAdmin(userEmail)) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "Super admin access required" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    if (isNaN(venueId)) {
+      return res.status(400).json({ error: "INVALID_ID", message: "Invalid venue ID" });
+    }
+
+    const guests = await storage.getGuestsByVenue(venueId);
+    res.json({ guests });
+  } catch (error) {
+    console.error("Super admin get venue guests error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 // Super admin: Delete any venue
 router.delete("/api/super-admin/venues/:venueId", isAuthenticated, async (req: any, res) => {
   try {

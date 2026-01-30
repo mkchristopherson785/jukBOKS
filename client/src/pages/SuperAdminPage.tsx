@@ -2,8 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useState } from "react";
 import { useAuth } from "../hooks/use-auth";
-import { checkSuperAdmin, fetchAllOrganizations, fetchAllVenues, superAdminDeleteVenue, superAdminDeleteOrganization } from "../lib/api";
-import { Building2, ArrowLeft, Users, Calendar, ExternalLink, Trash2, MapPin } from "lucide-react";
+import { checkSuperAdmin, fetchAllOrganizations, fetchAllVenues, superAdminDeleteVenue, superAdminDeleteOrganization, superAdminGetVenueGuests } from "../lib/api";
+import { Building2, ArrowLeft, Users, Calendar, ExternalLink, Trash2, MapPin, X } from "lucide-react";
 
 export default function SuperAdminPage() {
   const [, navigate] = useLocation();
@@ -11,6 +11,9 @@ export default function SuperAdminPage() {
   const queryClient = useQueryClient();
   const [venueToDelete, setVenueToDelete] = useState<{ id: number; name: string } | null>(null);
   const [orgToDelete, setOrgToDelete] = useState<{ id: number; name: string; venueCount: number } | null>(null);
+  const [viewGuestsVenue, setViewGuestsVenue] = useState<{ id: number; name: string } | null>(null);
+  const [guestsList, setGuestsList] = useState<any[]>([]);
+  const [loadingGuests, setLoadingGuests] = useState(false);
 
   const { data: superAdminCheck, isLoading: checkLoading } = useQuery({
     queryKey: ["super-admin-check"],
@@ -46,6 +49,20 @@ export default function SuperAdminPage() {
       setOrgToDelete(null);
     },
   });
+
+  const handleViewGuests = async (venue: { id: number; name: string }) => {
+    setViewGuestsVenue(venue);
+    setLoadingGuests(true);
+    try {
+      const data = await superAdminGetVenueGuests(venue.id);
+      setGuestsList(data.guests || []);
+    } catch (error) {
+      console.error("Failed to load guests:", error);
+      setGuestsList([]);
+    } finally {
+      setLoadingGuests(false);
+    }
+  };
 
   if (authLoading || checkLoading) {
     return (
@@ -203,10 +220,13 @@ export default function SuperAdminPage() {
                           <div>
                             <p className="text-white font-medium">{venue.name}</p>
                             <p className="text-gray-400 text-xs">Code: {venue.code}</p>
-                            <div className="flex items-center gap-1 mt-1 text-xs text-purple-400">
+                            <button
+                              onClick={() => handleViewGuests({ id: venue.id, name: venue.name })}
+                              className="flex items-center gap-1 mt-1 text-xs text-purple-400 hover:text-purple-300 transition-colors"
+                            >
                               <Users className="w-3 h-3" />
                               {venue.guestCount || 0} guests
-                            </div>
+                            </button>
                           </div>
                           <div className="flex items-center gap-1">
                             <a
@@ -295,6 +315,42 @@ export default function SuperAdminPage() {
                 {deleteOrgMutation.isPending ? "Deleting..." : "Delete Organization"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {viewGuestsVenue && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-900 border border-white/10 rounded-xl p-6 max-w-lg w-full max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-white">Guests - {viewGuestsVenue.name}</h3>
+              <button
+                onClick={() => { setViewGuestsVenue(null); setGuestsList([]); }}
+                className="p-1 hover:bg-white/10 rounded transition-colors text-gray-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {loadingGuests ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
+              </div>
+            ) : guestsList.length === 0 ? (
+              <p className="text-gray-400 text-center py-8">No guests found</p>
+            ) : (
+              <div className="overflow-y-auto flex-1 space-y-2">
+                {guestsList.map((guest: any) => (
+                  <div key={guest.id} className="bg-white/5 rounded-lg p-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-white font-medium">{guest.nickname || "Anonymous"}</p>
+                      <p className="text-gray-400 text-xs">
+                        {guest.requestCount || 0} requests • Last active: {guest.lastActiveAt ? new Date(guest.lastActiveAt).toLocaleString() : "Never"}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

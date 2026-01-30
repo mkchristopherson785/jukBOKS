@@ -148,6 +148,21 @@ export class DatabaseStorage implements IStorage {
     return counts;
   }
 
+  async getGuestsByVenue(venueId: number): Promise<any[]> {
+    return db
+      .select({
+        id: guests.id,
+        nickname: guests.nickname,
+        requestCount: guests.requestCount,
+        createdAt: guests.createdAt,
+        lastActiveAt: guests.lastActiveAt,
+      })
+      .from(guests)
+      .innerJoin(partySessions, eq(guests.partySessionId, partySessions.id))
+      .where(eq(partySessions.venueId, venueId))
+      .orderBy(desc(guests.lastActiveAt));
+  }
+
   async createUser(data: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(data).returning();
     return user;
