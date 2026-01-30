@@ -158,12 +158,36 @@ router.get("/api/apple-music/search-playlists", async (req: Request, res: Respon
     const data = await response.json();
     const playlists = data.results?.playlists?.data || [];
     
-    const results = playlists.map((playlist: any) => ({
-      id: playlist.id,
-      name: playlist.attributes?.name || "Unknown Playlist",
-      curatorName: playlist.attributes?.curatorName || "Apple Music",
-      trackCount: playlist.attributes?.trackCount || 0,
-      artworkUrl: playlist.attributes?.artwork?.url?.replace("{w}x{h}", "100x100") || null,
+    // Fetch accurate track counts for playlists showing exactly 100 (likely capped)
+    const results = await Promise.all(playlists.map(async (playlist: any) => {
+      let trackCount = playlist.attributes?.trackCount || 0;
+      
+      // If trackCount is exactly 100, fetch actual count from tracks endpoint
+      if (trackCount === 100) {
+        try {
+          const tracksResponse = await fetch(
+            `https://api.music.apple.com/v1/catalog/us/playlists/${playlist.id}/tracks?limit=1`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (tracksResponse.ok) {
+            const tracksData = await tracksResponse.json();
+            const metaTotal = tracksData.meta?.total;
+            if (metaTotal && metaTotal > trackCount) {
+              trackCount = metaTotal;
+            }
+          }
+        } catch (e) {
+          // Keep original count on error
+        }
+      }
+      
+      return {
+        id: playlist.id,
+        name: playlist.attributes?.name || "Unknown Playlist",
+        curatorName: playlist.attributes?.curatorName || "Apple Music",
+        trackCount,
+        artworkUrl: playlist.attributes?.artwork?.url?.replace("{w}x{h}", "100x100") || null,
+      };
     }));
     
     res.json({ results });
