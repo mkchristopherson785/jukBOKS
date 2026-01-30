@@ -383,7 +383,7 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
                   <div>
                     <p className="text-white font-medium">Request Limit</p>
-                    <p className="text-gray-400 text-xs">Per guest, per day</p>
+                    <p className="text-gray-400 text-xs">Songs per guest in queue</p>
                   </div>
                   <select
                     value={selectedVenue.dailyRequestLimit ?? 5}
