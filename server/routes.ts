@@ -1744,7 +1744,210 @@ router.patch("/api/me/venues/:venueId/backup-playlists/:playlistId", isAuthentic
   }
 });
 
-// ==================== Announcements ====================
+// ==================== Announcement Groups ====================
+
+// Get all announcement groups with their announcements for a venue
+router.get("/api/me/venues/:venueId/announcement-groups", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "No organization found" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const groups = await storage.getAnnouncementGroupsByVenue(venue.id);
+    const groupsWithAnnouncements = await Promise.all(
+      groups.map(async (group) => {
+        const announcements = await storage.getAnnouncementsByGroup(group.id);
+        return { ...group, announcements };
+      })
+    );
+
+    res.json({ groups: groupsWithAnnouncements });
+  } catch (error) {
+    console.error("Get announcement groups error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Create a new announcement group
+router.post("/api/me/venues/:venueId/announcement-groups", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "No organization found" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const { name, frequencyType, frequency, playMode } = req.body;
+    
+    const existingGroups = await storage.getAnnouncementGroupsByVenue(venue.id);
+    
+    const group = await storage.createAnnouncementGroup({
+      venueId: venue.id,
+      name: name || "Announcements",
+      frequencyType: frequencyType || "songs",
+      frequency: frequency || 5,
+      playMode: playMode || "sequential",
+      position: existingGroups.length,
+    });
+
+    res.json({ success: true, group: { ...group, announcements: [] } });
+  } catch (error) {
+    console.error("Create announcement group error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Update an announcement group
+router.patch("/api/me/venues/:venueId/announcement-groups/:groupId", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "No organization found" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const groupId = parseInt(req.params.groupId);
+    const group = await storage.getAnnouncementGroup(groupId);
+    if (!group || group.venueId !== venue.id) {
+      return res.status(404).json({ error: "GROUP_NOT_FOUND", message: "Announcement group not found" });
+    }
+
+    const { name, frequencyType, frequency, playMode } = req.body;
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name;
+    if (frequencyType !== undefined) updateData.frequencyType = frequencyType;
+    if (frequency !== undefined) updateData.frequency = frequency;
+    if (playMode !== undefined) updateData.playMode = playMode;
+
+    const updated = await storage.updateAnnouncementGroup(groupId, updateData);
+    const announcements = await storage.getAnnouncementsByGroup(groupId);
+    res.json({ success: true, group: { ...updated, announcements } });
+  } catch (error) {
+    console.error("Update announcement group error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Delete an announcement group
+router.delete("/api/me/venues/:venueId/announcement-groups/:groupId", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "No organization found" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const groupId = parseInt(req.params.groupId);
+    const group = await storage.getAnnouncementGroup(groupId);
+    if (!group || group.venueId !== venue.id) {
+      return res.status(404).json({ error: "GROUP_NOT_FOUND", message: "Announcement group not found" });
+    }
+
+    await storage.deleteAnnouncementGroup(groupId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Delete announcement group error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Add announcement to a group
+router.post("/api/me/venues/:venueId/announcement-groups/:groupId/announcements", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "No organization found" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const groupId = parseInt(req.params.groupId);
+    const group = await storage.getAnnouncementGroup(groupId);
+    if (!group || group.venueId !== venue.id) {
+      return res.status(404).json({ error: "GROUP_NOT_FOUND", message: "Announcement group not found" });
+    }
+
+    const { name, audioUrl, duration } = req.body;
+    if (!name || !audioUrl) {
+      return res.status(400).json({ error: "MISSING_FIELDS", message: "Name and audio URL are required" });
+    }
+
+    const existingAnnouncements = await storage.getAnnouncementsByGroup(groupId);
+    
+    const announcement = await storage.createAnnouncement({
+      venueId: venue.id,
+      groupId: groupId,
+      name,
+      audioUrl,
+      duration: duration || null,
+      isActive: true,
+      position: existingAnnouncements.length,
+    });
+
+    res.json({ success: true, announcement });
+  } catch (error) {
+    console.error("Add announcement to group error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// ==================== Announcements (Legacy) ====================
 
 // Get all announcements for a venue
 router.get("/api/me/venues/:venueId/announcements", isAuthenticated, async (req: any, res) => {
@@ -1926,7 +2129,7 @@ router.patch("/api/me/venues/:venueId/announcement-settings", isAuthenticated, a
   }
 });
 
-// Get next announcement to play (used by kiosk)
+// Get next announcement to play (used by kiosk) - now works with groups
 router.get("/api/v1/venues/:code/next-announcement", async (req: Request, res: Response) => {
   try {
     const venue = await storage.getVenueByCode(req.params.code);
@@ -1934,87 +2137,84 @@ router.get("/api/v1/venues/:code/next-announcement", async (req: Request, res: R
       return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
     }
 
-    // Check if announcements are enabled
-    if (!venue.announcementFrequencyType) {
-      return res.json({ shouldPlay: false, announcement: null });
+    // Get all announcement groups for this venue
+    const groups = await storage.getAnnouncementGroupsByVenue(venue.id);
+    if (groups.length === 0) {
+      return res.json({ shouldPlay: false, announcement: null, groupId: null });
     }
 
-    const activeAnnouncements = await storage.getActiveAnnouncementsByVenue(venue.id);
-    if (activeAnnouncements.length === 0) {
-      return res.json({ shouldPlay: false, announcement: null });
-    }
+    // Check each group to see if any should play
+    for (const group of groups) {
+      const activeAnnouncements = await storage.getActiveAnnouncementsByGroup(group.id);
+      if (activeAnnouncements.length === 0) continue;
 
-    let shouldPlay = false;
+      let shouldPlay = false;
 
-    if (venue.announcementFrequencyType === 'songs') {
-      // Play after every X songs
-      const songsSince = venue.songsSinceAnnouncement || 0;
-      const frequency = venue.announcementFrequency || 5;
-      shouldPlay = songsSince >= frequency;
-    } else if (venue.announcementFrequencyType === 'minutes') {
-      // Play every X minutes
-      const lastPlayed = venue.lastAnnouncementAt;
-      const frequency = venue.announcementFrequency || 30;
-      if (!lastPlayed) {
-        shouldPlay = true;
-      } else {
-        const minutesSince = (Date.now() - new Date(lastPlayed).getTime()) / 60000;
-        shouldPlay = minutesSince >= frequency;
-      }
-    } else if (venue.announcementFrequencyType === 'hourly') {
-      // Play at the top of each hour
-      const now = new Date();
-      const lastPlayed = venue.lastAnnouncementAt;
-      const currentHour = now.getHours();
-      const currentMinute = now.getMinutes();
-      
-      // Check if we're within the first 5 minutes of the hour
-      if (currentMinute < 5) {
+      if (group.frequencyType === 'songs') {
+        const songsSince = group.songsSincePlay || 0;
+        const frequency = group.frequency || 5;
+        shouldPlay = songsSince >= frequency;
+      } else if (group.frequencyType === 'minutes') {
+        const lastPlayed = group.lastPlayedAt;
+        const frequency = group.frequency || 30;
         if (!lastPlayed) {
           shouldPlay = true;
         } else {
-          const lastPlayedDate = new Date(lastPlayed);
-          const lastPlayedHour = lastPlayedDate.getHours();
-          const lastPlayedDay = lastPlayedDate.toDateString();
-          const today = now.toDateString();
-          
-          // Play if we haven't played this hour yet
-          shouldPlay = lastPlayedDay !== today || lastPlayedHour !== currentHour;
+          const minutesSince = (Date.now() - new Date(lastPlayed).getTime()) / 60000;
+          shouldPlay = minutesSince >= frequency;
+        }
+      } else if (group.frequencyType === 'hourly') {
+        const now = new Date();
+        const lastPlayed = group.lastPlayedAt;
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        
+        if (currentMinute < 5) {
+          if (!lastPlayed) {
+            shouldPlay = true;
+          } else {
+            const lastPlayedDate = new Date(lastPlayed);
+            const lastPlayedHour = lastPlayedDate.getHours();
+            const lastPlayedDay = lastPlayedDate.toDateString();
+            const today = now.toDateString();
+            shouldPlay = lastPlayedDay !== today || lastPlayedHour !== currentHour;
+          }
         }
       }
-    }
 
-    if (!shouldPlay) {
-      return res.json({ shouldPlay: false, announcement: null });
-    }
+      if (shouldPlay) {
+        let announcement;
+        if (group.playMode === 'random') {
+          const randomIndex = Math.floor(Math.random() * activeAnnouncements.length);
+          announcement = activeAnnouncements[randomIndex];
+        } else {
+          // Sequential - use lastPlayedIndex to track position
+          const lastIndex = group.lastPlayedIndex ?? -1;
+          const nextIndex = (lastIndex + 1) % activeAnnouncements.length;
+          announcement = activeAnnouncements[nextIndex];
+        }
 
-    // Pick announcement based on play mode
-    let announcement;
-    if (venue.announcementPlayMode === 'random') {
-      const randomIndex = Math.floor(Math.random() * activeAnnouncements.length);
-      announcement = activeAnnouncements[randomIndex];
-    } else {
-      // Sequential - need to track which one was last played
-      // For simplicity, we'll just use the first one (can be enhanced later)
-      announcement = activeAnnouncements[0];
-    }
-
-    res.json({ 
-      shouldPlay: true, 
-      announcement: {
-        id: announcement.id,
-        name: announcement.name,
-        audioUrl: announcement.audioUrl,
-        duration: announcement.duration,
+        return res.json({ 
+          shouldPlay: true, 
+          groupId: group.id,
+          announcement: {
+            id: announcement.id,
+            name: announcement.name,
+            audioUrl: announcement.audioUrl,
+            duration: announcement.duration,
+          }
+        });
       }
-    });
+    }
+
+    return res.json({ shouldPlay: false, announcement: null, groupId: null });
   } catch (error) {
     console.error("Get next announcement error:", error);
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }
 });
 
-// Mark announcement as played (update counters)
+// Mark announcement as played (update group counters)
 router.post("/api/v1/venues/:code/announcement-played", async (req: Request, res: Response) => {
   try {
     const venue = await storage.getVenueByCode(req.params.code);
@@ -2022,11 +2222,22 @@ router.post("/api/v1/venues/:code/announcement-played", async (req: Request, res
       return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
     }
 
-    // Reset song counter and update last played time
-    await storage.updateVenue(venue.id, {
-      songsSinceAnnouncement: 0,
-      lastAnnouncementAt: new Date(),
-    });
+    const { groupId, announcementId } = req.body;
+    
+    if (groupId) {
+      // Update the specific group's counters
+      const group = await storage.getAnnouncementGroup(groupId);
+      if (group && group.venueId === venue.id) {
+        const announcements = await storage.getActiveAnnouncementsByGroup(groupId);
+        const announcementIndex = announcements.findIndex(a => a.id === announcementId);
+        
+        await storage.updateAnnouncementGroup(groupId, {
+          songsSincePlay: 0,
+          lastPlayedAt: new Date(),
+          lastPlayedIndex: announcementIndex >= 0 ? announcementIndex : group.lastPlayedIndex,
+        });
+      }
+    }
 
     res.json({ success: true });
   } catch (error) {
@@ -2035,7 +2246,7 @@ router.post("/api/v1/venues/:code/announcement-played", async (req: Request, res
   }
 });
 
-// Increment song counter (called when a song finishes)
+// Increment song counter for all announcement groups
 router.post("/api/v1/venues/:code/song-finished", async (req: Request, res: Response) => {
   try {
     const venue = await storage.getVenueByCode(req.params.code);
@@ -2043,12 +2254,16 @@ router.post("/api/v1/venues/:code/song-finished", async (req: Request, res: Resp
       return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
     }
 
-    const currentCount = venue.songsSinceAnnouncement || 0;
-    await storage.updateVenue(venue.id, {
-      songsSinceAnnouncement: currentCount + 1,
-    });
+    // Increment song count for all announcement groups
+    const groups = await storage.getAnnouncementGroupsByVenue(venue.id);
+    for (const group of groups) {
+      const currentCount = group.songsSincePlay || 0;
+      await storage.updateAnnouncementGroup(group.id, {
+        songsSincePlay: currentCount + 1,
+      });
+    }
 
-    res.json({ success: true, songsSinceAnnouncement: currentCount + 1 });
+    res.json({ success: true });
   } catch (error) {
     console.error("Song finished error:", error);
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });

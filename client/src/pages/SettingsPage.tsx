@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, Settings, LogOut, Plus, Trash2, ListMusic, Volume2, Upload, Speaker, Shield, ArrowLeft, Search, User } from "lucide-react";
-import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, updateBackupPlaylistWeight, fetchAnnouncements, createAnnouncement, deleteAnnouncement, updateAnnouncement, updateAnnouncementSettings, checkSuperAdmin, searchPlaylists, addBackupPlaylistById, type Announcement } from "../lib/api";
+import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, updateBackupPlaylistWeight, fetchAnnouncementGroups, createAnnouncementGroup, updateAnnouncementGroup, deleteAnnouncementGroup, addAnnouncementToGroup, deleteAnnouncement, updateAnnouncement, checkSuperAdmin, searchPlaylists, addBackupPlaylistById, type AnnouncementGroup, type Announcement } from "../lib/api";
 import { useUpload } from "../hooks/use-upload";
 import { useAuth } from "../hooks/use-auth";
 import { useMusicKit } from "../hooks/useMusicKit";
@@ -30,6 +30,11 @@ export default function SettingsPage() {
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [announcementName, setAnnouncementName] = useState("");
   const [announcementError, setAnnouncementError] = useState("");
+  const [addingToGroupId, setAddingToGroupId] = useState<number | null>(null);
+  const [showNewGroupModal, setShowNewGroupModal] = useState(false);
+  const [newGroupFrequencyType, setNewGroupFrequencyType] = useState("songs");
+  const [newGroupFrequency, setNewGroupFrequency] = useState(5);
+  const [newGroupPlayMode, setNewGroupPlayMode] = useState("sequential");
 
   const fetchLibraryPlaylists = useCallback(async () => {
     if (!musicKit || !musicKitAuthorized) return;
@@ -106,12 +111,12 @@ export default function SettingsPage() {
     enabled: !!selectedVenueCode,
   });
 
-  const { data: announcementsData } = useQuery({
-    queryKey: ["announcements", selectedVenue?.id],
-    queryFn: () => fetchAnnouncements(selectedVenue!.id),
+  const { data: announcementGroupsData } = useQuery({
+    queryKey: ["announcement-groups", selectedVenue?.id],
+    queryFn: () => fetchAnnouncementGroups(selectedVenue!.id),
     enabled: !!selectedVenue?.id,
   });
-  const announcements = announcementsData?.announcements || [];
+  const announcementGroups = announcementGroupsData?.groups || [];
 
   const addPlaylistMutation = useMutation({
     mutationFn: (url: string) => addBackupPlaylist(selectedVenue!.id, url),
@@ -199,14 +204,39 @@ export default function SettingsPage() {
     },
   });
 
-  const createAnnouncementMutation = useMutation({
-    mutationFn: (data: { name: string; audioUrl: string }) => 
-      createAnnouncement(selectedVenue!.id, data),
+  const createGroupMutation = useMutation({
+    mutationFn: (data: { frequencyType?: string; frequency?: number; playMode?: string }) => 
+      createAnnouncementGroup(selectedVenue!.id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["announcements", selectedVenue?.id] });
+      queryClient.invalidateQueries({ queryKey: ["announcement-groups", selectedVenue?.id] });
+      setShowNewGroupModal(false);
+    },
+  });
+
+  const updateGroupMutation = useMutation({
+    mutationFn: ({ groupId, data }: { groupId: number; data: { frequencyType?: string; frequency?: number; playMode?: string } }) => 
+      updateAnnouncementGroup(selectedVenue!.id, groupId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["announcement-groups", selectedVenue?.id] });
+    },
+  });
+
+  const deleteGroupMutation = useMutation({
+    mutationFn: (groupId: number) => deleteAnnouncementGroup(selectedVenue!.id, groupId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["announcement-groups", selectedVenue?.id] });
+    },
+  });
+
+  const addAnnouncementMutation = useMutation({
+    mutationFn: ({ groupId, data }: { groupId: number; data: { name: string; audioUrl: string } }) => 
+      addAnnouncementToGroup(selectedVenue!.id, groupId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["announcement-groups", selectedVenue?.id] });
       setShowAnnouncementModal(false);
       setAnnouncementName("");
       setAnnouncementError("");
+      setAddingToGroupId(null);
     },
     onError: (error: any) => {
       setAnnouncementError(error.message || "Failed to create announcement");
@@ -216,7 +246,7 @@ export default function SettingsPage() {
   const deleteAnnouncementMutation = useMutation({
     mutationFn: (announcementId: number) => deleteAnnouncement(selectedVenue!.id, announcementId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["announcements", selectedVenue?.id] });
+      queryClient.invalidateQueries({ queryKey: ["announcement-groups", selectedVenue?.id] });
     },
   });
 
@@ -224,15 +254,7 @@ export default function SettingsPage() {
     mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) => 
       updateAnnouncement(selectedVenue!.id, id, { isActive }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["announcements", selectedVenue?.id] });
-    },
-  });
-
-  const updateAnnouncementSettingsMutation = useMutation({
-    mutationFn: (data: { frequencyType?: string | null; frequency?: number; playMode?: string }) => 
-      updateAnnouncementSettings(selectedVenue!.id, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["venue", selectedVenueCode] });
+      queryClient.invalidateQueries({ queryKey: ["announcement-groups", selectedVenue?.id] });
     },
   });
 
@@ -256,11 +278,18 @@ export default function SettingsPage() {
       setAnnouncementError("Please enter a name for the announcement");
       return;
     }
+    if (!addingToGroupId) {
+      setAnnouncementError("No group selected");
+      return;
+    }
     const result = await uploadFile(file);
     if (result?.objectPath) {
-      createAnnouncementMutation.mutate({
-        name: announcementName.trim(),
-        audioUrl: result.objectPath,
+      addAnnouncementMutation.mutate({
+        groupId: addingToGroupId,
+        data: {
+          name: announcementName.trim(),
+          audioUrl: result.objectPath,
+        },
       });
     }
   };
@@ -464,85 +493,121 @@ export default function SettingsPage() {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-bold text-white flex items-center gap-2">
                   <Volume2 className="w-4 h-4" />
-                  Announcements ({announcements.length})
+                  Announcements ({announcementGroups.reduce((acc, g) => acc + (g.announcements?.length || 0), 0)})
                 </h3>
                 <button
-                  onClick={() => setShowAnnouncementModal(true)}
-                  className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors"
+                  onClick={() => setShowNewGroupModal(true)}
+                  className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded transition-colors flex items-center gap-1"
+                  title="Add new announcement group with different rules"
                 >
                   <Plus className="w-4 h-4" />
+                  <span className="text-xs">New Group</span>
                 </button>
               </div>
               
-              <div className="mb-3 p-3 bg-white/5 rounded-lg">
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <label className="text-gray-400 text-xs">Play:</label>
-                    <select
-                      value={selectedVenue.announcementFrequencyType || "disabled"}
-                      onChange={(e) => updateAnnouncementSettingsMutation.mutate({ 
-                        frequencyType: e.target.value === "disabled" ? null : e.target.value 
-                      })}
-                      className="px-2 py-1 text-sm bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:border-indigo-500"
+              <div className="flex-1 overflow-y-auto space-y-3">
+                {announcementGroups.length === 0 ? (
+                  <div className="text-center py-6">
+                    <p className="text-gray-500 text-sm mb-3">No announcement groups yet</p>
+                    <button
+                      onClick={() => setShowNewGroupModal(true)}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg transition-colors"
                     >
-                      <option value="disabled" className="bg-gray-900">Disabled</option>
-                      <option value="songs" className="bg-gray-900">Every X songs</option>
-                      <option value="minutes" className="bg-gray-900">Every X min</option>
-                      <option value="hourly" className="bg-gray-900">Hourly</option>
-                    </select>
+                      Create First Group
+                    </button>
                   </div>
-                  {selectedVenue.announcementFrequencyType && selectedVenue.announcementFrequencyType !== 'hourly' && (
-                    <select
-                      value={selectedVenue.announcementFrequency || 5}
-                      onChange={(e) => updateAnnouncementSettingsMutation.mutate({ frequency: parseInt(e.target.value) })}
-                      className="px-2 py-1 text-sm bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:border-indigo-500"
-                    >
-                      {selectedVenue.announcementFrequencyType === 'songs' 
-                        ? [1, 2, 3, 4, 5, 10, 15, 20].map(n => (
-                            <option key={n} value={n} className="bg-gray-900">{n}</option>
-                          ))
-                        : [5, 10, 15, 30, 45, 60, 90, 120].map(n => (
-                            <option key={n} value={n} className="bg-gray-900">{n}</option>
-                          ))
-                      }
-                    </select>
-                  )}
-                  <div className="flex items-center gap-1.5">
-                    <label className="text-gray-400 text-xs">Order:</label>
-                    <select
-                      value={selectedVenue.announcementPlayMode || "sequential"}
-                      onChange={(e) => updateAnnouncementSettingsMutation.mutate({ playMode: e.target.value })}
-                      className="px-2 py-1 text-sm bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:border-indigo-500"
-                    >
-                      <option value="sequential" className="bg-gray-900">Sequential</option>
-                      <option value="random" className="bg-gray-900">Random</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 flex-1 overflow-y-auto">
-                {announcements.length === 0 ? (
-                  <p className="text-gray-500 text-xs text-center py-3 col-span-full">No announcements yet</p>
                 ) : (
-                  announcements.map((announcement: Announcement) => (
-                    <div key={announcement.id} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg">
-                      <Volume2 className={`w-3 h-3 ${announcement.isActive ? 'text-green-400' : 'text-gray-500'}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm truncate">{announcement.name}</p>
+                  announcementGroups.map((group: AnnouncementGroup) => (
+                    <div key={group.id} className="p-3 bg-white/5 rounded-lg border border-white/10">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={group.frequencyType}
+                            onChange={(e) => updateGroupMutation.mutate({ 
+                              groupId: group.id, 
+                              data: { frequencyType: e.target.value } 
+                            })}
+                            className="px-2 py-1 text-xs bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:border-indigo-500"
+                          >
+                            <option value="songs" className="bg-gray-900">Every X songs</option>
+                            <option value="minutes" className="bg-gray-900">Every X min</option>
+                            <option value="hourly" className="bg-gray-900">Hourly</option>
+                          </select>
+                        </div>
+                        {group.frequencyType !== 'hourly' && (
+                          <select
+                            value={group.frequency}
+                            onChange={(e) => updateGroupMutation.mutate({ 
+                              groupId: group.id, 
+                              data: { frequency: parseInt(e.target.value) } 
+                            })}
+                            className="px-2 py-1 text-xs bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:border-indigo-500"
+                          >
+                            {group.frequencyType === 'songs' 
+                              ? [1, 2, 3, 4, 5, 10, 15, 20].map(n => (
+                                  <option key={n} value={n} className="bg-gray-900">{n}</option>
+                                ))
+                              : [5, 10, 15, 30, 45, 60, 90, 120].map(n => (
+                                  <option key={n} value={n} className="bg-gray-900">{n}</option>
+                                ))
+                            }
+                          </select>
+                        )}
+                        <select
+                          value={group.playMode}
+                          onChange={(e) => updateGroupMutation.mutate({ 
+                            groupId: group.id, 
+                            data: { playMode: e.target.value } 
+                          })}
+                          className="px-2 py-1 text-xs bg-white/10 border border-white/20 rounded text-white focus:outline-none focus:border-indigo-500"
+                        >
+                          <option value="sequential" className="bg-gray-900">Sequential</option>
+                          <option value="random" className="bg-gray-900">Random</option>
+                        </select>
+                        <div className="flex-1" />
+                        <button
+                          onClick={() => {
+                            setAddingToGroupId(group.id);
+                            setShowAnnouncementModal(true);
+                          }}
+                          className="p-1 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
+                          title="Add announcement to this group"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => deleteGroupMutation.mutate(group.id)}
+                          className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                          title="Delete group"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => toggleAnnouncementMutation.mutate({ id: announcement.id, isActive: !announcement.isActive })}
-                        className={`px-1.5 py-0.5 text-xs rounded ${announcement.isActive ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}
-                      >
-                        {announcement.isActive ? "On" : "Off"}
-                      </button>
-                      <button
-                        onClick={() => deleteAnnouncementMutation.mutate(announcement.id)}
-                        className="p-0.5 text-gray-400 hover:text-red-400 transition-colors"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                      
+                      <div className="space-y-1">
+                        {(!group.announcements || group.announcements.length === 0) ? (
+                          <p className="text-gray-500 text-xs py-1">No announcements in this group</p>
+                        ) : (
+                          group.announcements.map((announcement: Announcement) => (
+                            <div key={announcement.id} className="flex items-center gap-2 p-1.5 bg-white/5 rounded">
+                              <Volume2 className={`w-3 h-3 ${announcement.isActive ? 'text-green-400' : 'text-gray-500'}`} />
+                              <p className="text-white text-xs flex-1 truncate">{announcement.name}</p>
+                              <button
+                                onClick={() => toggleAnnouncementMutation.mutate({ id: announcement.id, isActive: !announcement.isActive })}
+                                className={`px-1.5 py-0.5 text-xs rounded ${announcement.isActive ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}
+                              >
+                                {announcement.isActive ? "On" : "Off"}
+                              </button>
+                              <button
+                                onClick={() => deleteAnnouncementMutation.mutate(announcement.id)}
+                                className="p-0.5 text-gray-400 hover:text-red-400 transition-colors"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </div>
                   ))
                 )}
@@ -732,13 +797,13 @@ export default function SettingsPage() {
             <label className="block w-full">
               <div className="flex items-center justify-center gap-2 px-4 py-3 bg-white/5 border border-dashed border-white/20 rounded-lg text-gray-300 hover:bg-white/10 cursor-pointer transition-colors">
                 <Upload className="w-5 h-5" />
-                {isUploading || createAnnouncementMutation.isPending ? "Uploading..." : "Choose Audio File"}
+                {isUploading || addAnnouncementMutation.isPending ? "Uploading..." : "Choose Audio File"}
               </div>
               <input
                 type="file"
                 accept="audio/*"
                 className="hidden"
-                disabled={isUploading || createAnnouncementMutation.isPending}
+                disabled={isUploading || addAnnouncementMutation.isPending}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) {
@@ -756,10 +821,96 @@ export default function SettingsPage() {
                   setShowAnnouncementModal(false);
                   setAnnouncementName("");
                   setAnnouncementError("");
+                  setAddingToGroupId(null);
                 }}
                 className="flex-1 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNewGroupModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-gray-900 rounded-2xl border border-white/10 p-6 w-full max-w-md mx-4">
+            <h2 className="text-xl font-bold text-white mb-4">Create Announcement Group</h2>
+            <p className="text-gray-400 mb-4">
+              Create a new group with its own playback rules. You can add announcements to it after creation.
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-gray-400 text-sm mb-1">Play announcements:</label>
+                <select
+                  value={newGroupFrequencyType}
+                  onChange={(e) => setNewGroupFrequencyType(e.target.value)}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="songs" className="bg-gray-900">Every X songs</option>
+                  <option value="minutes" className="bg-gray-900">Every X minutes</option>
+                  <option value="hourly" className="bg-gray-900">Hourly (top of hour)</option>
+                </select>
+              </div>
+              
+              {newGroupFrequencyType !== 'hourly' && (
+                <div>
+                  <label className="block text-gray-400 text-sm mb-1">
+                    {newGroupFrequencyType === 'songs' ? 'Number of songs:' : 'Minutes:'}
+                  </label>
+                  <select
+                    value={newGroupFrequency}
+                    onChange={(e) => setNewGroupFrequency(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    {newGroupFrequencyType === 'songs' 
+                      ? [1, 2, 3, 4, 5, 10, 15, 20].map(n => (
+                          <option key={n} value={n} className="bg-gray-900">{n}</option>
+                        ))
+                      : [5, 10, 15, 30, 45, 60, 90, 120].map(n => (
+                          <option key={n} value={n} className="bg-gray-900">{n}</option>
+                        ))
+                    }
+                  </select>
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-gray-400 text-sm mb-1">Play order:</label>
+                <select
+                  value={newGroupPlayMode}
+                  onChange={(e) => setNewGroupPlayMode(e.target.value)}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="sequential" className="bg-gray-900">Sequential</option>
+                  <option value="random" className="bg-gray-900">Random</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowNewGroupModal(false);
+                  setNewGroupFrequencyType("songs");
+                  setNewGroupFrequency(5);
+                  setNewGroupPlayMode("sequential");
+                }}
+                className="flex-1 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => createGroupMutation.mutate({
+                  frequencyType: newGroupFrequencyType,
+                  frequency: newGroupFrequency,
+                  playMode: newGroupPlayMode,
+                })}
+                disabled={createGroupMutation.isPending}
+                className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {createGroupMutation.isPending ? "Creating..." : "Create Group"}
               </button>
             </div>
           </div>

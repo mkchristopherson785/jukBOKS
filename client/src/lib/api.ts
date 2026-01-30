@@ -357,11 +357,80 @@ export async function fetchNextAnnouncement(venueCode: string) {
   return res.json();
 }
 
-export async function markAnnouncementPlayed(venueCode: string) {
+export async function markAnnouncementPlayed(venueCode: string, groupId?: number, announcementId?: number) {
   const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/announcement-played`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ groupId, announcementId }),
   });
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+// Announcement Groups API
+export interface AnnouncementGroup {
+  id: number;
+  venueId: number;
+  name: string;
+  frequencyType: string;
+  frequency: number;
+  playMode: string;
+  position: number;
+  lastPlayedAt: string | null;
+  songsSincePlay: number;
+  lastPlayedIndex: number;
+  createdAt: string;
+  announcements: Announcement[];
+}
+
+export async function fetchAnnouncementGroups(venueId: number): Promise<{ groups: AnnouncementGroup[] }> {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/announcement-groups`, { credentials: "include" });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function createAnnouncementGroup(venueId: number, data: { name?: string; frequencyType?: string; frequency?: number; playMode?: string }) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/announcement-groups`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function updateAnnouncementGroup(venueId: number, groupId: number, data: { name?: string; frequencyType?: string; frequency?: number; playMode?: string }) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/announcement-groups/${groupId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function deleteAnnouncementGroup(venueId: number, groupId: number) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/announcement-groups/${groupId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
+  return res.json();
+}
+
+export async function addAnnouncementToGroup(venueId: number, groupId: number, data: { name: string; audioUrl: string; duration?: number }) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/announcement-groups/${groupId}/announcements`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errData = await res.json();
+    throw new Error(errData.message || `${res.status}: ${res.statusText}`);
+  }
   return res.json();
 }
 

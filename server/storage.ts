@@ -1,7 +1,7 @@
 import { eq, and, desc, sql, gte, asc, or } from "drizzle-orm";
 import { db } from "./db";
 import {
-  organizations, users, venues, requests, votes, partySessions, guests, backupPlaylists, organizationMembers, announcements, bannedSongs,
+  organizations, users, venues, requests, votes, partySessions, guests, backupPlaylists, organizationMembers, announcements, announcementGroups, bannedSongs,
   type Organization, type InsertOrganization,
   type User, type InsertUser,
   type Venue, type InsertVenue,
@@ -11,6 +11,7 @@ import {
   type Guest, type InsertGuest,
   type BackupPlaylist, type InsertBackupPlaylist,
   type OrganizationMember, type InsertOrganizationMember,
+  type AnnouncementGroup, type InsertAnnouncementGroup,
   type Announcement, type InsertAnnouncement,
   type BannedSong,
 } from "../shared/schema";
@@ -152,7 +153,7 @@ export class DatabaseStorage implements IStorage {
     return db
       .select({
         id: guests.id,
-        nickname: guests.nickname,
+        nickname: guests.name,
         requestCount: guests.requestCount,
         createdAt: guests.createdAt,
         lastActiveAt: guests.lastActiveAt,
@@ -487,6 +488,41 @@ export class DatabaseStorage implements IStorage {
   async getAnnouncementCount(venueId: number): Promise<number> {
     const result = await db.select({ count: sql<number>`count(*)::int` }).from(announcements).where(eq(announcements.venueId, venueId));
     return result[0]?.count || 0;
+  }
+
+  async createAnnouncementGroup(data: InsertAnnouncementGroup): Promise<AnnouncementGroup> {
+    const [group] = await db.insert(announcementGroups).values(data).returning();
+    return group;
+  }
+
+  async getAnnouncementGroupsByVenue(venueId: number): Promise<AnnouncementGroup[]> {
+    return db.select().from(announcementGroups).where(eq(announcementGroups.venueId, venueId)).orderBy(asc(announcementGroups.position));
+  }
+
+  async getAnnouncementGroup(id: number): Promise<AnnouncementGroup | undefined> {
+    const [group] = await db.select().from(announcementGroups).where(eq(announcementGroups.id, id));
+    return group;
+  }
+
+  async updateAnnouncementGroup(id: number, data: Partial<AnnouncementGroup>): Promise<AnnouncementGroup | undefined> {
+    const [group] = await db.update(announcementGroups).set(data).where(eq(announcementGroups.id, id)).returning();
+    return group;
+  }
+
+  async deleteAnnouncementGroup(id: number): Promise<boolean> {
+    await db.delete(announcements).where(eq(announcements.groupId, id));
+    await db.delete(announcementGroups).where(eq(announcementGroups.id, id));
+    return true;
+  }
+
+  async getAnnouncementsByGroup(groupId: number): Promise<Announcement[]> {
+    return db.select().from(announcements).where(eq(announcements.groupId, groupId)).orderBy(asc(announcements.position));
+  }
+
+  async getActiveAnnouncementsByGroup(groupId: number): Promise<Announcement[]> {
+    return db.select().from(announcements).where(
+      and(eq(announcements.groupId, groupId), eq(announcements.isActive, true))
+    ).orderBy(asc(announcements.position));
   }
 
   async banSong(venueId: number, trackId: string, title: string, artist: string, albumCover?: string): Promise<BannedSong> {

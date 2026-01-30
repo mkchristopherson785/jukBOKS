@@ -15,7 +15,7 @@ Jukboks is a standalone SaaS platform that enables businesses (bars, restaurants
 - **Upvote/Downvote System**: Guests can thumbs up or thumbs down songs in the queue
 - **Duplicate Song Prevention**: Songs can't be requested again within 2 hours of playing
 - **Backup Playlists**: Up to 10 playlists per venue for auto-play when queue is empty, with weighted selection (1-5) to control how often each playlist is used
-- **Announcements**: Pre-recorded audio announcements that play between songs (configurable by song count or time interval, with sequential or random play modes)
+- **Announcement Groups**: Multiple announcement groups per venue, each with independent timing rules (every X songs, every X minutes, or hourly) and play modes (sequential/random). Add announcements to the same group to share rules, or create new groups for different schedules.
 - **Multi-Organization Support**: Each business manages their own venues
 - **Team Management**: Invite team members by email to share admin access to venues
 - **Integration API**: External apps can embed Jukboks functionality
@@ -72,13 +72,20 @@ jukboks/
 - **party_sessions**: Daily QR codes for guest access
 - **guests**: Anonymous party attendees with request limits
 - **backup_playlists**: Apple Music playlists for auto-play when queue is empty (max 10 per venue)
-- **announcements**: Pre-recorded audio files that play between songs (name, audioUrl, isActive, position)
+- **announcement_groups**: Groups of announcements with independent scheduling rules (frequencyType, frequency, playMode)
+- **announcements**: Pre-recorded audio files linked to announcement groups (name, audioUrl, isActive, position, groupId)
 - **auth_users**: Authentication users from Replit Auth (linked via ownerId)
 
-## Venue Settings
-- **announcementFrequencyType**: null (disabled), 'songs' (every X songs), 'minutes' (every X minutes), or 'hourly' (top of each hour)
-- **announcementFrequency**: Number of songs or minutes between announcements (default: 5, not used for 'hourly')
-- **announcementPlayMode**: 'sequential' or 'random' for multiple announcements
+## Announcement Groups
+Each announcement group has its own independent scheduling:
+- **frequencyType**: 'songs' (every X songs), 'minutes' (every X minutes), or 'hourly' (top of each hour)
+- **frequency**: Number of songs or minutes between announcements (default: 5, not used for 'hourly')
+- **playMode**: 'sequential' or 'random' for multiple announcements in the group
+- **songsSincePlay**: Counter for song-based triggers
+- **lastPlayedAt**: Timestamp for time-based triggers
+- **lastPlayedIndex**: Index tracking for sequential play mode
+
+Example use case: 2 announcements with hourly/sequential + 1 announcement every 10 minutes
 
 ## API Endpoints
 

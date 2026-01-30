@@ -213,14 +213,16 @@ export default function KioskPage() {
       if (result.shouldPlay && result.announcement) {
         setIsPlayingAnnouncement(true);
         setCurrentAnnouncement(result.announcement);
+        const playedGroupId = result.groupId;
+        const playedAnnouncementId = result.announcement.id;
         
         // Create and play the audio element
         const audio = new Audio(result.announcement.audioUrl);
         setAnnouncementAudio(audio);
         
         audio.onended = async () => {
-          // Mark announcement as played
-          await markAnnouncementPlayed(code);
+          // Mark announcement as played with group context
+          await markAnnouncementPlayed(code, playedGroupId, playedAnnouncementId);
           setIsPlayingAnnouncement(false);
           setCurrentAnnouncement(null);
           setAnnouncementAudio(null);

@@ -224,9 +224,34 @@ export const backupPlaylistsRelations = relations(backupPlaylists, ({ one }) => 
   }),
 }));
 
+export const announcementGroups = pgTable("announcement_groups", {
+  id: serial("id").primaryKey(),
+  venueId: integer("venue_id").notNull().references(() => venues.id),
+  name: text("name").notNull().default("Announcements"),
+  frequencyType: text("frequency_type").notNull().default("songs"),
+  frequency: integer("frequency").notNull().default(5),
+  playMode: text("play_mode").notNull().default("sequential"),
+  position: integer("position").notNull().default(0),
+  lastPlayedAt: timestamp("last_played_at"),
+  songsSincePlay: integer("songs_since_play").default(0),
+  lastPlayedIndex: integer("last_played_index").default(-1),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  venueIdx: index("announcement_groups_venue_idx").on(table.venueId),
+}));
+
+export const announcementGroupsRelations = relations(announcementGroups, ({ one, many }) => ({
+  venue: one(venues, {
+    fields: [announcementGroups.venueId],
+    references: [venues.id],
+  }),
+  announcements: many(announcements),
+}));
+
 export const announcements = pgTable("announcements", {
   id: serial("id").primaryKey(),
   venueId: integer("venue_id").notNull().references(() => venues.id),
+  groupId: integer("group_id").references(() => announcementGroups.id),
   name: text("name").notNull(),
   audioUrl: text("audio_url").notNull(),
   duration: integer("duration"),
@@ -235,12 +260,17 @@ export const announcements = pgTable("announcements", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   venueIdx: index("announcements_venue_idx").on(table.venueId),
+  groupIdx: index("announcements_group_idx").on(table.groupId),
 }));
 
 export const announcementsRelations = relations(announcements, ({ one }) => ({
   venue: one(venues, {
     fields: [announcements.venueId],
     references: [venues.id],
+  }),
+  group: one(announcementGroups, {
+    fields: [announcements.groupId],
+    references: [announcementGroups.id],
   }),
 }));
 
@@ -317,6 +347,8 @@ export type Guest = typeof guests.$inferSelect;
 export type InsertGuest = z.infer<typeof insertGuestSchema>;
 export type BackupPlaylist = typeof backupPlaylists.$inferSelect;
 export type InsertBackupPlaylist = z.infer<typeof insertBackupPlaylistSchema>;
+export type AnnouncementGroup = typeof announcementGroups.$inferSelect;
+export type InsertAnnouncementGroup = typeof announcementGroups.$inferInsert;
 export type Announcement = typeof announcements.$inferSelect;
 export type InsertAnnouncement = z.infer<typeof insertAnnouncementSchema>;
 export type BannedSong = typeof bannedSongs.$inferSelect;
