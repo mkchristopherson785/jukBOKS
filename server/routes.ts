@@ -200,9 +200,9 @@ async function fetchApplePlaylistDetails(playlistId: string) {
   }
 
   try {
-    // Include tracks relationship to get accurate track count
+    // First, get basic playlist info
     const response = await fetch(
-      `https://api.music.apple.com/v1/catalog/us/playlists/${playlistId}?include=tracks`,
+      `https://api.music.apple.com/v1/catalog/us/playlists/${playlistId}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -222,8 +222,28 @@ async function fetchApplePlaylistDetails(playlistId: string) {
       return null;
     }
 
-    // Use the trackCount attribute which has the accurate total (not capped at 100)
-    const trackCount = playlist.attributes?.trackCount || playlist.relationships?.tracks?.data?.length || 0;
+    // Get trackCount from attributes (most accurate)
+    let trackCount = playlist.attributes?.trackCount || 0;
+    
+    // If trackCount is 0, 100, or not present, fetch from tracks endpoint to get accurate count
+    if (!trackCount || trackCount === 100) {
+      try {
+        const tracksResponse = await fetch(
+          `https://api.music.apple.com/v1/catalog/us/playlists/${playlistId}/tracks?limit=1`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (tracksResponse.ok) {
+          const tracksData = await tracksResponse.json();
+          const metaTotal = tracksData.meta?.total;
+          if (metaTotal && metaTotal > trackCount) {
+            console.log(`Track count updated from meta.total: ${trackCount} -> ${metaTotal}`);
+            trackCount = metaTotal;
+          }
+        }
+      } catch (e) {
+        console.error("Failed to fetch track count from meta:", e);
+      }
+    }
 
     console.log("Playlist details:", {
       name: playlist.attributes?.name,
@@ -960,7 +980,9 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
       let tracks: any[] = [];
       let nextUrl: string | null = `https://api.music.apple.com/v1/catalog/us/playlists/${playlist.applePlaylistId}/tracks?limit=100`;
       
+      let pageNum = 0;
       while (nextUrl && tracks.length < 500) {
+        pageNum++;
         const response = await fetch(nextUrl, {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -971,10 +993,13 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
           break;
         }
         const data = await response.json();
-        console.log(`Playlist ${playlist.name} (${playlist.applePlaylistId}): fetched ${data.data?.length || 0} tracks`);
+        const batchSize = data.data?.length || 0;
         tracks = tracks.concat(data.data || []);
+        const hasNext = !!data.next;
+        console.log(`Playlist ${playlist.name} page ${pageNum}: fetched ${batchSize} tracks, total: ${tracks.length}, hasNext: ${hasNext}`);
         nextUrl = data.next ? `https://api.music.apple.com${data.next}` : null;
       }
+      console.log(`Playlist ${playlist.name}: TOTAL ${tracks.length} tracks fetched (db shows ${playlist.trackCount})`)
       
       if (tracks.length > 0) {
         playlistTracks.set(playlist.id, { playlist, tracks });
