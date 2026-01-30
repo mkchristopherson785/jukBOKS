@@ -420,11 +420,36 @@ router.post("/api/v1/venues/:code/kiosk-heartbeat", async (req: Request, res: Re
       return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
     }
 
-    await storage.updateVenue(venue.id, {
-      kioskLockHeartbeat: new Date(),
-    });
+    const { deviceId, deviceName, playbackStatus } = req.body;
+    const now = new Date();
+    
+    // Check if another device has the lock (within last 90 seconds)
+    const lockExpired = !venue.kioskLockHeartbeat || 
+      (now.getTime() - venue.kioskLockHeartbeat.getTime()) > 90000;
+    const hasLock = venue.kioskLockId === deviceId;
+    const canAcquireLock = lockExpired || hasLock;
 
-    res.json({ success: true, timestamp: new Date().toISOString() });
+    if (canAcquireLock) {
+      await storage.updateVenue(venue.id, {
+        kioskLockId: deviceId,
+        kioskLockHeartbeat: now,
+        kioskPlaybackStatus: playbackStatus || "idle",
+        kioskDeviceName: deviceName || "Unknown Device",
+      });
+      res.json({ 
+        success: true, 
+        hasLock: true,
+        timestamp: now.toISOString() 
+      });
+    } else {
+      // Another device has the lock
+      res.json({ 
+        success: true, 
+        hasLock: false,
+        lockedBy: venue.kioskDeviceName || "Another Device",
+        timestamp: now.toISOString() 
+      });
+    }
   } catch (error) {
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }
@@ -445,6 +470,8 @@ router.get("/api/v1/venues/:code/kiosk-status", async (req: Request, res: Respon
     res.json({
       isOnline,
       lastHeartbeat: heartbeat?.toISOString() || null,
+      playbackStatus: venue.kioskPlaybackStatus || "idle",
+      deviceName: venue.kioskDeviceName || null,
       kioskScheduleEnabled: venue.kioskScheduleEnabled,
       kioskStartTime: venue.kioskStartTime,
       kioskEndTime: venue.kioskEndTime,

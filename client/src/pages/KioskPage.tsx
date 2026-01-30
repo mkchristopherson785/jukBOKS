@@ -1,6 +1,6 @@
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, ThumbsUp, Play, User, Radio, Volume2, Maximize, Minimize, Clock, Pause } from "lucide-react";
+import { Music2, ThumbsUp, Play, User, Radio, Volume2, Maximize, Minimize, Clock, Pause, Speaker } from "lucide-react";
 import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnouncement, markAnnouncementPlayed, markSongFinished, fetchSonosStatus, sendKioskHeartbeat } from "../lib/api";
 import { MusicKitPlayer } from "../components/MusicKitPlayer";
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -84,6 +84,30 @@ export default function KioskPage() {
   const [scheduleStatus, setScheduleStatus] = useState<{ isActive: boolean; nextStart?: string; nextEnd?: string }>({ isActive: true });
   const [isSchedulePaused, setIsSchedulePaused] = useState(false);
   const [manualOverride, setManualOverride] = useState(false);
+  const [hasLock, setHasLock] = useState(true);
+  const [lockedByDevice, setLockedByDevice] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  
+  // Generate or retrieve persistent device ID
+  const deviceId = useMemo(() => {
+    const stored = localStorage.getItem("jukboks-device-id");
+    if (stored) return stored;
+    const newId = `kiosk-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    localStorage.setItem("jukboks-device-id", newId);
+    return newId;
+  }, []);
+  
+  // Get a friendly device name
+  const deviceName = useMemo(() => {
+    const ua = navigator.userAgent;
+    if (/iPad/.test(ua)) return "iPad";
+    if (/iPhone/.test(ua)) return "iPhone";
+    if (/Macintosh/.test(ua)) return "Mac";
+    if (/Windows/.test(ua)) return "Windows PC";
+    if (/Android/.test(ua)) return "Android";
+    if (/Raspberry Pi|Linux/.test(ua)) return "Raspberry Pi";
+    return "Browser Kiosk";
+  }, []);
 
   const { data: venue } = useQuery({
     queryKey: ["venue", code],
@@ -132,11 +156,24 @@ export default function KioskPage() {
 
   // Send heartbeat every 30 seconds when kiosk is running
   useEffect(() => {
-    if (!code || !isStarted || isSchedulePaused) return;
+    if (!code) return;
+
+    const getPlaybackStatus = (): "idle" | "playing" | "paused" | "scheduled" => {
+      if (!isStarted) return "idle";
+      if (isSchedulePaused) return "scheduled";
+      if (isPlaying) return "playing";
+      return "paused";
+    };
 
     const sendHeartbeat = async () => {
       try {
-        await sendKioskHeartbeat(code);
+        const result = await sendKioskHeartbeat(code, {
+          deviceId,
+          deviceName,
+          playbackStatus: getPlaybackStatus(),
+        });
+        setHasLock(result.hasLock);
+        setLockedByDevice(result.lockedBy || null);
       } catch (error) {
         console.error("Failed to send kiosk heartbeat:", error);
       }
@@ -145,7 +182,7 @@ export default function KioskPage() {
     sendHeartbeat();
     const interval = setInterval(sendHeartbeat, 30000);
     return () => clearInterval(interval);
-  }, [code, isStarted, isSchedulePaused]);
+  }, [code, isStarted, isSchedulePaused, isPlaying, deviceId, deviceName]);
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
@@ -413,6 +450,32 @@ export default function KioskPage() {
     }
   }, [scheduleStatus.isActive, isSchedulePaused]);
 
+  // Show lock warning when another device is controlling playback
+  if (!hasLock && lockedByDevice && isStarted) {
+    return (
+      <div className="min-h-screen bg-transparent flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="mb-6 sm:mb-8 flex justify-center">
+            <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center">
+              <Speaker className="w-10 h-10 sm:w-14 sm:h-14 text-white" />
+            </div>
+          </div>
+          <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2">Playback Locked</h1>
+          <p className="text-gray-400 mb-6 max-w-md mx-auto">
+            Another device is currently controlling playback for this venue.
+          </p>
+          <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4 sm:p-6 max-w-sm mx-auto">
+            <p className="text-white font-medium mb-1">Active Device</p>
+            <p className="text-amber-400 text-lg font-semibold">{lockedByDevice}</p>
+            <p className="text-gray-500 text-sm mt-2">
+              Close the kiosk on that device to take control here
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (isSchedulePaused || (!isStarted && venue?.kioskScheduleEnabled && !scheduleStatus.isActive)) {
     return (
       <div className="min-h-screen bg-transparent flex items-center justify-center p-4">
@@ -551,6 +614,7 @@ export default function KioskPage() {
                 hideControls
                 onTogglePlay={(handler) => setTogglePlayHandler(() => handler)}
                 onSkipHandler={(handler) => setSkipHandler(() => handler)}
+                onPlayingChange={setIsPlaying}
                 trackName={currentSong?.title}
                 venueCode={code}
                 sonosEnabled={false}

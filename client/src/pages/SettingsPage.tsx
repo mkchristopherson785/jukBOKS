@@ -524,28 +524,49 @@ export default function SettingsPage() {
                       />
                       <p className="text-gray-500 text-xs mt-1">Get notified if kiosk goes offline during scheduled hours</p>
                     </div>
-                    <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
-                      <div className={`w-3 h-3 rounded-full ${kioskStatus?.isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-                      <div className="flex-1">
-                        <p className="text-white text-sm font-medium">
-                          Kiosk Status: {kioskStatus?.isOnline ? 'Online' : 'Offline'}
-                        </p>
-                        {kioskStatus?.lastHeartbeat && (
-                          <p className="text-gray-400 text-xs">
-                            Last seen: {new Date(kioskStatus.lastHeartbeat).toLocaleTimeString()}
+                    <div className="p-3 bg-white/5 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
+                          kioskStatus?.isOnline 
+                            ? kioskStatus?.playbackStatus === 'playing' 
+                              ? 'bg-green-500 animate-pulse' 
+                              : 'bg-yellow-500'
+                            : 'bg-red-500'
+                        }`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm font-medium">
+                            {kioskStatus?.isOnline 
+                              ? kioskStatus?.playbackStatus === 'playing' 
+                                ? 'Playing' 
+                                : kioskStatus?.playbackStatus === 'paused'
+                                  ? 'Paused'
+                                  : kioskStatus?.playbackStatus === 'scheduled'
+                                    ? 'Waiting for Schedule'
+                                    : 'Ready'
+                              : 'Offline'}
                           </p>
+                          {kioskStatus?.isOnline && kioskStatus?.deviceName && (
+                            <p className="text-indigo-400 text-xs truncate">
+                              {kioskStatus.deviceName}
+                            </p>
+                          )}
+                          {kioskStatus?.lastHeartbeat && (
+                            <p className="text-gray-500 text-xs">
+                              Last seen: {new Date(kioskStatus.lastHeartbeat).toLocaleTimeString()}
+                            </p>
+                          )}
+                        </div>
+                        {selectedVenueCode && (
+                          <a
+                            href={`/kiosk/${selectedVenueCode}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-indigo-400 hover:text-indigo-300 text-xs flex-shrink-0"
+                          >
+                            Open Kiosk
+                          </a>
                         )}
                       </div>
-                      {selectedVenueCode && (
-                        <a
-                          href={`/kiosk/${selectedVenueCode}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-indigo-400 hover:text-indigo-300 text-xs"
-                        >
-                          Open Kiosk
-                        </a>
-                      )}
                     </div>
                   </>
                 )}

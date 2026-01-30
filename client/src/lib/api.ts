@@ -18,13 +18,18 @@ export async function fetchNowPlaying(code: string) {
   return res.json();
 }
 
-export async function sendKioskHeartbeat(code: string) {
+export async function sendKioskHeartbeat(code: string, options: {
+  deviceId: string;
+  deviceName: string;
+  playbackStatus: "idle" | "playing" | "paused" | "scheduled";
+}) {
   const res = await fetch(`${API_BASE}/api/v1/venues/${code}/kiosk-heartbeat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(options),
   });
   if (!res.ok) throw new Error("Failed to send heartbeat");
-  return res.json();
+  return res.json() as Promise<{ success: boolean; hasLock: boolean; lockedBy?: string; timestamp: string }>;
 }
 
 export async function fetchKioskStatus(code: string) {

@@ -11,12 +11,13 @@ interface MusicKitPlayerProps {
   hideControls?: boolean;
   onTogglePlay?: (handler: () => void) => void;
   onSkipHandler?: (handler: () => void) => void;
+  onPlayingChange?: (isPlaying: boolean) => void;
   trackName?: string;
   venueCode?: string;
   sonosEnabled?: boolean;
 }
 
-export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideControls, onTogglePlay, onSkipHandler, trackName, venueCode, sonosEnabled }: MusicKitPlayerProps) {
+export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideControls, onTogglePlay, onSkipHandler, onPlayingChange, trackName, venueCode, sonosEnabled }: MusicKitPlayerProps) {
   const {
     isConfigured,
     isAuthorized,
@@ -35,6 +36,12 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
   const [sonosPlaying, setSonosPlaying] = useState(false);
   const currentlyPlayingTrackRef = useRef<string | null>(null);
   const sonosTrackRef = useRef<string | null>(null);
+
+  // Notify parent of playing state changes
+  useEffect(() => {
+    const currentlyPlaying = isPlaying || previewPlaying || sonosPlaying;
+    onPlayingChange?.(currentlyPlaying);
+  }, [isPlaying, previewPlaying, sonosPlaying, onPlayingChange]);
 
   useEffect(() => {
     if (previewUrl && usePreview) {
