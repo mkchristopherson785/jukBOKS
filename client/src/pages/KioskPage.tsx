@@ -5,7 +5,10 @@ import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnounce
 import { MusicKitPlayer } from "../components/MusicKitPlayer";
 import { useState, useEffect, useCallback, useMemo } from "react";
 
-function isWithinSchedule(venue: any): { isActive: boolean; nextStart?: string; nextEnd?: string } {
+type DaySchedule = { startTime: string; endTime: string };
+type DaySchedules = Record<string, DaySchedule>;
+
+function isWithinSchedule(venue: any): { isActive: boolean; nextStart?: string; nextEnd?: string; todaySchedule?: DaySchedule } {
   if (!venue?.kioskScheduleEnabled) {
     return { isActive: true };
   }
@@ -17,9 +20,21 @@ function isWithinSchedule(venue: any): { isActive: boolean; nextStart?: string; 
   const dayOrder = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
   const today = dayMap[now.getDay()];
   const activeDays = (venue.kioskScheduleDays as string[]) || ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+  const daySchedules = (venue.kioskDaySchedules as DaySchedules) || {};
 
-  const startTime = venue.kioskStartTime || "12:00";
-  const endTime = venue.kioskEndTime || "21:00";
+  // Get schedule for a specific day (use per-day if set, otherwise default)
+  const getScheduleForDay = (day: string): DaySchedule => {
+    if (daySchedules[day]) {
+      return daySchedules[day];
+    }
+    return {
+      startTime: venue.kioskStartTime || "12:00",
+      endTime: venue.kioskEndTime || "21:00"
+    };
+  };
+
+  const todaySchedule = getScheduleForDay(today);
+  const { startTime, endTime } = todaySchedule;
 
   const [startHour, startMin] = startTime.split(":").map(Number);
   const [endHour, endMin] = endTime.split(":").map(Number);
@@ -33,11 +48,11 @@ function isWithinSchedule(venue: any): { isActive: boolean; nextStart?: string; 
   if (activeDays.includes(today)) {
     if (isOvernightSchedule) {
       if (currentMinutes >= startMinutes || currentMinutes < endMinutes) {
-        return { isActive: true, nextEnd: endTime };
+        return { isActive: true, nextEnd: endTime, todaySchedule };
       }
     } else {
       if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
-        return { isActive: true, nextEnd: endTime };
+        return { isActive: true, nextEnd: endTime, todaySchedule };
       }
     }
   }
@@ -45,24 +60,26 @@ function isWithinSchedule(venue: any): { isActive: boolean; nextStart?: string; 
   if (isOvernightSchedule && currentMinutes < endMinutes) {
     const yesterday = dayMap[(now.getDay() + 6) % 7];
     if (activeDays.includes(yesterday)) {
-      return { isActive: true, nextEnd: endTime };
+      const yesterdaySchedule = getScheduleForDay(yesterday);
+      return { isActive: true, nextEnd: yesterdaySchedule.endTime, todaySchedule: yesterdaySchedule };
     }
   }
 
   if (activeDays.includes(today) && currentMinutes < startMinutes) {
-    return { isActive: false, nextStart: startTime };
+    return { isActive: false, nextStart: startTime, todaySchedule };
   }
 
   for (let i = 1; i <= 7; i++) {
     const nextDayIndex = (now.getDay() + i) % 7;
     const nextDay = dayOrder[nextDayIndex];
     if (activeDays.includes(nextDay)) {
+      const nextDaySchedule = getScheduleForDay(nextDay);
       const dayName = nextDay.charAt(0).toUpperCase() + nextDay.slice(1);
-      return { isActive: false, nextStart: `${dayName} ${startTime}` };
+      return { isActive: false, nextStart: `${dayName} ${nextDaySchedule.startTime}`, todaySchedule };
     }
   }
 
-  return { isActive: false, nextStart: "No scheduled days" };
+  return { isActive: false, nextStart: "No scheduled days", todaySchedule };
 }
 
 const API_BASE = "";

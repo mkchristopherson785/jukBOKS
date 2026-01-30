@@ -61,6 +61,7 @@ export const venues = pgTable("venues", {
   kioskScheduleDays: jsonb("kiosk_schedule_days").default(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]),
   kioskStartTime: text("kiosk_start_time").default("12:00"),
   kioskEndTime: text("kiosk_end_time").default("21:00"),
+  kioskDaySchedules: jsonb("kiosk_day_schedules").default({}),
   scheduledStartTime: text("scheduled_start_time"),
   scheduledEndTime: text("scheduled_end_time"),
   currentlyPlayingId: text("currently_playing_id"),

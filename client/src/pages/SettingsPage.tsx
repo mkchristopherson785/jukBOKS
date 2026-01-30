@@ -458,60 +458,73 @@ export default function SettingsPage() {
                 
                 {selectedVenue.kioskScheduleEnabled && (
                   <>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-white text-sm mb-1 block">Start Time</label>
-                        <input
-                          type="time"
-                          value={selectedVenue.kioskStartTime || "12:00"}
-                          onChange={(e) => updateVenueMutation.mutate({ kioskStartTime: e.target.value })}
-                          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-white text-sm mb-1 block">End Time</label>
-                        <input
-                          type="time"
-                          value={selectedVenue.kioskEndTime || "21:00"}
-                          onChange={(e) => updateVenueMutation.mutate({ kioskEndTime: e.target.value })}
-                          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
-                        />
-                      </div>
-                    </div>
                     <div>
-                      <label className="text-white text-sm mb-2 block">Active Days</label>
-                      <div className="flex flex-wrap gap-2">
+                      <label className="text-white text-sm mb-2 block">Schedule by Day</label>
+                      <div className="space-y-2">
                         {[
-                          { key: "sun", label: "Sun" },
-                          { key: "mon", label: "Mon" },
-                          { key: "tue", label: "Tue" },
-                          { key: "wed", label: "Wed" },
-                          { key: "thu", label: "Thu" },
-                          { key: "fri", label: "Fri" },
-                          { key: "sat", label: "Sat" },
+                          { key: "sun", label: "Sunday" },
+                          { key: "mon", label: "Monday" },
+                          { key: "tue", label: "Tuesday" },
+                          { key: "wed", label: "Wednesday" },
+                          { key: "thu", label: "Thursday" },
+                          { key: "fri", label: "Friday" },
+                          { key: "sat", label: "Saturday" },
                         ].map((day) => {
                           const days = (selectedVenue.kioskScheduleDays as string[]) || ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
                           const isActive = days.includes(day.key);
+                          const daySchedules = (selectedVenue.kioskDaySchedules as Record<string, { startTime: string; endTime: string }>) || {};
+                          const daySchedule = daySchedules[day.key];
+                          const startTime = daySchedule?.startTime || selectedVenue.kioskStartTime || "12:00";
+                          const endTime = daySchedule?.endTime || selectedVenue.kioskEndTime || "21:00";
+                          
                           return (
-                            <button
-                              key={day.key}
-                              onClick={() => {
-                                const newDays = isActive
-                                  ? days.filter((d) => d !== day.key)
-                                  : [...days, day.key];
-                                updateVenueMutation.mutate({ kioskScheduleDays: newDays });
-                              }}
-                              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                                isActive
-                                  ? "bg-indigo-600 text-white"
-                                  : "bg-white/10 text-gray-400 hover:bg-white/20"
-                              }`}
-                            >
-                              {day.label}
-                            </button>
+                            <div key={day.key} className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  const newDays = isActive
+                                    ? days.filter((d) => d !== day.key)
+                                    : [...days, day.key];
+                                  updateVenueMutation.mutate({ kioskScheduleDays: newDays });
+                                }}
+                                className={`w-20 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors text-left ${
+                                  isActive
+                                    ? "bg-indigo-600 text-white"
+                                    : "bg-white/10 text-gray-400 hover:bg-white/20"
+                                }`}
+                              >
+                                {day.label.slice(0, 3)}
+                              </button>
+                              {isActive && (
+                                <>
+                                  <input
+                                    type="time"
+                                    value={startTime}
+                                    onChange={(e) => {
+                                      const newSchedules = { ...daySchedules, [day.key]: { startTime: e.target.value, endTime } };
+                                      updateVenueMutation.mutate({ kioskDaySchedules: newSchedules });
+                                    }}
+                                    className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-xs focus:outline-none focus:border-indigo-500"
+                                  />
+                                  <span className="text-gray-400 text-xs">to</span>
+                                  <input
+                                    type="time"
+                                    value={endTime}
+                                    onChange={(e) => {
+                                      const newSchedules = { ...daySchedules, [day.key]: { startTime, endTime: e.target.value } };
+                                      updateVenueMutation.mutate({ kioskDaySchedules: newSchedules });
+                                    }}
+                                    className="px-2 py-1 bg-white/10 border border-white/20 rounded text-white text-xs focus:outline-none focus:border-indigo-500"
+                                  />
+                                </>
+                              )}
+                              {!isActive && (
+                                <span className="text-gray-500 text-xs">Off</span>
+                              )}
+                            </div>
                           );
                         })}
                       </div>
+                      <p className="text-gray-500 text-xs mt-2">Click a day to enable/disable, then set custom times for each day</p>
                     </div>
                     <div>
                       <label className="text-white text-sm mb-1 block">Alert Email (optional)</label>
