@@ -510,3 +510,12 @@ export async function superAdminDeleteVenue(venueId: number) {
   if (!res.ok) throw new Error("Failed to delete venue");
   return res.json();
 }
+
+export async function superAdminDeleteOrganization(orgId: number) {
+  const res = await fetch(`${API_BASE}/api/super-admin/organizations/${orgId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to delete organization");
+  return res.json();
+}

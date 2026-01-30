@@ -75,6 +75,7 @@ export interface IStorage {
   getOrganizationsByMemberAuthId(authUserId: string): Promise<Organization[]>;
   updateOrganizationMember(id: number, data: Partial<OrganizationMember>): Promise<OrganizationMember | undefined>;
   deleteOrganizationMember(id: number): Promise<boolean>;
+  deleteOrganization(id: number): Promise<boolean>;
   
   createAnnouncement(data: InsertAnnouncement): Promise<Announcement>;
   getAnnouncementsByVenue(venueId: number): Promise<Announcement[]>;
@@ -422,6 +423,19 @@ export class DatabaseStorage implements IStorage {
 
   async deleteOrganizationMember(id: number): Promise<boolean> {
     await db.delete(organizationMembers).where(eq(organizationMembers.id, id));
+    return true;
+  }
+
+  async deleteOrganization(id: number): Promise<boolean> {
+    // Get all venues for this org and delete them first
+    const orgVenues = await db.select().from(venues).where(eq(venues.organizationId, id));
+    for (const venue of orgVenues) {
+      await this.deleteVenue(venue.id);
+    }
+    // Delete organization members
+    await db.delete(organizationMembers).where(eq(organizationMembers.id, id));
+    // Delete the organization
+    await db.delete(organizations).where(eq(organizations.id, id));
     return true;
   }
 

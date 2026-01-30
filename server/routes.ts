@@ -2677,6 +2677,34 @@ router.get("/api/super-admin/organizations", isAuthenticated, async (req: any, r
   }
 });
 
+// Super admin: Delete any organization
+router.delete("/api/super-admin/organizations/:orgId", isAuthenticated, async (req: any, res) => {
+  try {
+    const userEmail = req.user?.claims?.email;
+    if (!isSuperAdmin(userEmail)) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "Super admin access required" });
+    }
+
+    const orgId = parseInt(req.params.orgId);
+    if (isNaN(orgId)) {
+      return res.status(400).json({ error: "INVALID_ID", message: "Invalid organization ID" });
+    }
+
+    const org = await storage.getOrganization(orgId);
+    if (!org) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Organization not found" });
+    }
+
+    await storage.deleteOrganization(orgId);
+    console.log(`Super admin ${userEmail} deleted organization ${org.name} (ID: ${orgId})`);
+    
+    res.json({ success: true, message: "Organization deleted" });
+  } catch (error) {
+    console.error("Super admin delete organization error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 router.get("/api/super-admin/venues", isAuthenticated, async (req: any, res) => {
   try {
     const userEmail = req.user?.claims?.email;

@@ -2,14 +2,15 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useState } from "react";
 import { useAuth } from "../hooks/use-auth";
-import { checkSuperAdmin, fetchAllOrganizations, fetchAllVenues, superAdminDeleteVenue } from "../lib/api";
-import { Building2, MapPin, ArrowLeft, Users, Calendar, ExternalLink, Trash2 } from "lucide-react";
+import { checkSuperAdmin, fetchAllOrganizations, fetchAllVenues, superAdminDeleteVenue, superAdminDeleteOrganization } from "../lib/api";
+import { Building2, ArrowLeft, Users, Calendar, ExternalLink, Trash2, MapPin } from "lucide-react";
 
 export default function SuperAdminPage() {
   const [, navigate] = useLocation();
   const { user, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const [venueToDelete, setVenueToDelete] = useState<{ id: number; name: string } | null>(null);
+  const [orgToDelete, setOrgToDelete] = useState<{ id: number; name: string; venueCount: number } | null>(null);
 
   const { data: superAdminCheck, isLoading: checkLoading } = useQuery({
     queryKey: ["super-admin-check"],
@@ -34,6 +35,15 @@ export default function SuperAdminPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["super-admin-venues"] });
       setVenueToDelete(null);
+    },
+  });
+
+  const deleteOrgMutation = useMutation({
+    mutationFn: (orgId: number) => superAdminDeleteOrganization(orgId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["super-admin-organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["super-admin-venues"] });
+      setOrgToDelete(null);
     },
   });
 
@@ -158,7 +168,7 @@ export default function SuperAdminPage() {
                       <p className="text-gray-400 text-sm">/{org.slug}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4 text-sm text-gray-400">
+                  <div className="flex items-center gap-2 text-sm text-gray-400">
                     <div className="flex items-center gap-1">
                       <Calendar className="w-4 h-4" />
                       {new Date(org.createdAt).toLocaleDateString()}
@@ -170,6 +180,13 @@ export default function SuperAdminPage() {
                     }`}>
                       {org.subscriptionStatus || 'trial'}
                     </span>
+                    <button
+                      onClick={() => setOrgToDelete({ id: org.id, name: org.name, venueCount: getOrgVenues(org.id).length })}
+                      className="p-2 hover:bg-red-500/20 rounded transition-colors text-gray-400 hover:text-red-400"
+                      title="Delete organization"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
                 
@@ -247,6 +264,35 @@ export default function SuperAdminPage() {
                 className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
               >
                 {deleteVenueMutation.isPending ? "Deleting..." : "Delete Venue"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {orgToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-900 border border-white/10 rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-semibold text-white mb-2">Delete Organization</h3>
+            <p className="text-gray-400 mb-4">
+              Are you sure you want to delete <span className="text-white font-medium">{orgToDelete.name}</span>? 
+              {orgToDelete.venueCount > 0 && (
+                <span className="text-red-400"> This will also delete {orgToDelete.venueCount} venue{orgToDelete.venueCount > 1 ? 's' : ''} and all their data.</span>
+              )}
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setOrgToDelete(null)}
+                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => deleteOrgMutation.mutate(orgToDelete.id)}
+                disabled={deleteOrgMutation.isPending}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {deleteOrgMutation.isPending ? "Deleting..." : "Delete Organization"}
               </button>
             </div>
           </div>
