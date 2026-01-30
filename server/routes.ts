@@ -165,19 +165,31 @@ router.get("/api/apple-music/search-playlists", async (req: Request, res: Respon
       
       // Always try to get accurate count from tracks endpoint meta.total
       try {
+        // Use limit=100 to get proper pagination metadata
         const tracksResponse = await fetch(
-          `https://api.music.apple.com/v1/catalog/us/playlists/${playlist.id}/tracks?limit=1`,
+          `https://api.music.apple.com/v1/catalog/us/playlists/${playlist.id}/tracks?limit=100`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         if (tracksResponse.ok) {
           const tracksData = await tracksResponse.json();
           const metaTotal = tracksData.meta?.total;
-          console.log(`Playlist "${playlist.attributes?.name}" (${playlist.id}): attr=${attrTrackCount}, meta.total=${metaTotal}`);
+          const hasNext = !!tracksData.next;
+          const dataLength = tracksData.data?.length || 0;
+          console.log(`Playlist "${playlist.attributes?.name}" (${playlist.id}): attr=${attrTrackCount}, meta=${JSON.stringify(tracksData.meta)}, dataLen=${dataLength}, hasNext=${hasNext}`);
+          
+          // Use meta.total if available, otherwise count based on pagination
           if (metaTotal && metaTotal > 0) {
             trackCount = metaTotal;
+          } else if (hasNext && dataLength === 100) {
+            // If there's a next page and we got 100 tracks, there are more than 100
+            // Estimate at least 101 to indicate "100+"
+            trackCount = dataLength + 100; // Conservative estimate
+          } else if (dataLength > 0) {
+            trackCount = dataLength;
           }
         } else {
-          console.log(`Failed to fetch tracks for ${playlist.id}: ${tracksResponse.status}`);
+          const errorText = await tracksResponse.text();
+          console.log(`Failed to fetch tracks for ${playlist.id}: ${tracksResponse.status} - ${errorText.substring(0, 200)}`);
         }
       } catch (e) {
         console.error(`Error fetching tracks for ${playlist.id}:`, e);
@@ -248,27 +260,51 @@ async function fetchApplePlaylistDetails(playlistId: string) {
       return null;
     }
 
-    // Get trackCount from attributes first (most accurate for large playlists)
+    // Get trackCount from attributes first
     let trackCount = playlist.attributes?.trackCount || 0;
+    const attrCount = trackCount;
     
-    // If trackCount is missing or suspicious (0 or exactly 100), fetch from tracks endpoint
-    if (!trackCount || trackCount === 100) {
-      try {
-        const tracksResponse = await fetch(
-          `https://api.music.apple.com/v1/catalog/us/playlists/${playlistId}/tracks?limit=1`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (tracksResponse.ok) {
-          const tracksData = await tracksResponse.json();
-          const metaTotal = tracksData.meta?.total;
-          if (metaTotal && metaTotal > trackCount) {
-            console.log(`Track count updated from meta.total: ${trackCount} -> ${metaTotal}`);
-            trackCount = metaTotal;
+    // Always try to get accurate count from tracks endpoint meta.total
+    try {
+      // Use limit=100 to get proper pagination metadata
+      const tracksResponse = await fetch(
+        `https://api.music.apple.com/v1/catalog/us/playlists/${playlistId}/tracks?limit=100`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (tracksResponse.ok) {
+        const tracksData = await tracksResponse.json();
+        const metaTotal = tracksData.meta?.total;
+        const hasNext = !!tracksData.next;
+        const dataLength = tracksData.data?.length || 0;
+        console.log(`fetchApplePlaylistDetails: attr=${attrCount}, meta=${JSON.stringify(tracksData.meta)}, dataLen=${dataLength}, hasNext=${hasNext}`);
+        
+        // Use meta.total if available, otherwise count based on pagination
+        if (metaTotal && metaTotal > 0) {
+          trackCount = metaTotal;
+        } else if (hasNext && dataLength === 100) {
+          // If there's a next page, paginate to count all tracks
+          let totalCount = dataLength;
+          let nextUrl: string | null = tracksData.next;
+          while (nextUrl) {
+            const nextResponse = await fetch(`https://api.music.apple.com${nextUrl}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!nextResponse.ok) break;
+            const nextData = await nextResponse.json();
+            totalCount += nextData.data?.length || 0;
+            nextUrl = nextData.next || null;
+            if (totalCount > 1000) break; // Safety limit
           }
+          trackCount = totalCount;
+          console.log(`fetchApplePlaylistDetails: counted ${totalCount} tracks via pagination`);
+        } else if (dataLength > 0) {
+          trackCount = dataLength;
         }
-      } catch (e) {
-        console.error("Failed to fetch track count from meta:", e);
+      } else {
+        console.log(`fetchApplePlaylistDetails tracks fetch failed: ${tracksResponse.status}`);
       }
+    } catch (e) {
+      console.error("Failed to fetch track count from meta:", e);
     }
     
     // Final fallback to relationships.tracks.data.length if still 0
