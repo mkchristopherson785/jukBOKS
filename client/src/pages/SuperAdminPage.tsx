@@ -66,7 +66,7 @@ export default function SuperAdminPage() {
 
   if (authLoading || checkLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-transparent flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
       </div>
     );
@@ -74,7 +74,7 @@ export default function SuperAdminPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-transparent flex items-center justify-center">
         <div className="text-white text-center">
           <p className="text-xl mb-4">Please log in to access this page.</p>
           <button
@@ -90,7 +90,7 @@ export default function SuperAdminPage() {
 
   if (!superAdminCheck?.isSuperAdmin) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-transparent flex items-center justify-center">
         <div className="text-white text-center">
           <p className="text-xl mb-4">Access denied. Super admin privileges required.</p>
           <button
@@ -110,7 +110,7 @@ export default function SuperAdminPage() {
   const getOrgVenues = (orgId: number) => venues.filter((v: any) => v.organizationId === orgId);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900">
+    <div className="min-h-screen bg-transparent">
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex items-center gap-4 mb-8">
           <button

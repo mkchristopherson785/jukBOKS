@@ -167,7 +167,7 @@ export default function PartyPage() {
 
   if (showJoinForm) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-transparent">
         <div className="w-full max-w-md bg-white/10 backdrop-blur-lg rounded-3xl border border-white/20 p-8">
           <div className="flex items-center mb-6">
             <img src="/assets/logo-full.png" alt="Jukboks" className="h-14" />
@@ -206,7 +206,7 @@ export default function PartyPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-transparent">
         <div className="animate-spin w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full" />
       </div>
     );
@@ -214,7 +214,7 @@ export default function PartyPage() {
 
   if (error || !party) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-white bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900">
+      <div className="min-h-screen flex items-center justify-center text-white bg-transparent">
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-2">Party Not Found</h2>
           <p className="text-gray-400">This party may have ended or the code is invalid.</p>
@@ -224,7 +224,7 @@ export default function PartyPage() {
   }
 
   return (
-    <div className="min-h-screen pb-8 bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900">
+    <div className="min-h-screen pb-8 bg-transparent">
       <header className="border-b border-white/10 backdrop-blur-lg bg-black/20 sticky top-0 z-40">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">

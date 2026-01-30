@@ -309,7 +309,7 @@ export default function KioskPage() {
 
   if (!isStarted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-transparent flex items-center justify-center p-4">
         <div className="text-center">
           <div className="mb-6 sm:mb-8 flex justify-center">
             {venue?.logoUrl ? (
@@ -336,7 +336,7 @@ export default function KioskPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-indigo-950 to-gray-900 flex flex-col lg:flex-row relative">
+    <div className="min-h-screen bg-transparent flex flex-col lg:flex-row relative">
       {!isFullscreen && (
         <button
           onClick={toggleFullscreen}
