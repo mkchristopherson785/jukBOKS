@@ -200,9 +200,9 @@ async function fetchApplePlaylistDetails(playlistId: string) {
   }
 
   try {
-    // First, get basic playlist info
+    // First, get basic playlist info with tracks relationship for accurate count
     const response = await fetch(
-      `https://api.music.apple.com/v1/catalog/us/playlists/${playlistId}`,
+      `https://api.music.apple.com/v1/catalog/us/playlists/${playlistId}?include=tracks`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -222,10 +222,10 @@ async function fetchApplePlaylistDetails(playlistId: string) {
       return null;
     }
 
-    // Get trackCount from attributes (most accurate)
+    // Get trackCount from attributes first (most accurate for large playlists)
     let trackCount = playlist.attributes?.trackCount || 0;
     
-    // If trackCount is 0, 100, or not present, fetch from tracks endpoint to get accurate count
+    // If trackCount is missing or suspicious (0 or exactly 100), fetch from tracks endpoint
     if (!trackCount || trackCount === 100) {
       try {
         const tracksResponse = await fetch(
@@ -243,6 +243,12 @@ async function fetchApplePlaylistDetails(playlistId: string) {
       } catch (e) {
         console.error("Failed to fetch track count from meta:", e);
       }
+    }
+    
+    // Final fallback to relationships.tracks.data.length if still 0
+    if (!trackCount && playlist.relationships?.tracks?.data?.length) {
+      trackCount = playlist.relationships.tracks.data.length;
+      console.log(`Track count from relationships: ${trackCount}`);
     }
 
     console.log("Playlist details:", {
