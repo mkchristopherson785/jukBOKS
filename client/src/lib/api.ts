@@ -142,6 +142,10 @@ export async function updateVenue(venueId: number, data: {
   autoApprove?: boolean;
   dailyRequestLimit?: number;
   isActive?: boolean;
+  kioskScheduleEnabled?: boolean;
+  kioskScheduleDays?: string[];
+  kioskStartTime?: string;
+  kioskEndTime?: string;
 }) {
   const res = await fetch(`${API_BASE}/api/me/venues/${venueId}`, {
     method: "PATCH",

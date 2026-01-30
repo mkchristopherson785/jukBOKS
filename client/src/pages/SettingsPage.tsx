@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Settings, LogOut, Plus, Trash2, ListMusic, Volume2, Upload, Speaker, Shield, ArrowLeft, Search, User } from "lucide-react";
+import { Music2, Settings, LogOut, Plus, Trash2, ListMusic, Volume2, Upload, Speaker, Shield, ArrowLeft, Search, User, Clock } from "lucide-react";
 import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, updateBackupPlaylistWeight, fetchAnnouncementGroups, createAnnouncementGroup, updateAnnouncementGroup, deleteAnnouncementGroup, addAnnouncementToGroup, deleteAnnouncement, updateAnnouncement, checkSuperAdmin, searchPlaylists, addBackupPlaylistById, type AnnouncementGroup, type Announcement } from "../lib/api";
 import { useUpload } from "../hooks/use-upload";
 import { useAuth } from "../hooks/use-auth";
@@ -427,6 +427,87 @@ export default function SettingsPage() {
                     <option value="0" className="bg-gray-900">Unlimited</option>
                   </select>
                 </div>
+              </div>
+            </div>
+
+            <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <Clock className="w-5 h-5" />
+                Kiosk Schedule
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-white font-medium">Enable Schedule</p>
+                    <p className="text-gray-400 text-xs">Auto-start/stop kiosk at scheduled times</p>
+                  </div>
+                  <button
+                    onClick={() => updateVenueMutation.mutate({ kioskScheduleEnabled: !selectedVenue.kioskScheduleEnabled })}
+                    className={`w-12 h-6 rounded-full transition-colors ${selectedVenue.kioskScheduleEnabled ? 'bg-indigo-600' : 'bg-gray-600'}`}
+                  >
+                    <div className={`w-5 h-5 bg-white rounded-full transition-transform ${selectedVenue.kioskScheduleEnabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+                
+                {selectedVenue.kioskScheduleEnabled && (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-white text-sm mb-1 block">Start Time</label>
+                        <input
+                          type="time"
+                          value={selectedVenue.kioskStartTime || "12:00"}
+                          onChange={(e) => updateVenueMutation.mutate({ kioskStartTime: e.target.value })}
+                          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-white text-sm mb-1 block">End Time</label>
+                        <input
+                          type="time"
+                          value={selectedVenue.kioskEndTime || "21:00"}
+                          onChange={(e) => updateVenueMutation.mutate({ kioskEndTime: e.target.value })}
+                          className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-white text-sm mb-2 block">Active Days</label>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { key: "sun", label: "Sun" },
+                          { key: "mon", label: "Mon" },
+                          { key: "tue", label: "Tue" },
+                          { key: "wed", label: "Wed" },
+                          { key: "thu", label: "Thu" },
+                          { key: "fri", label: "Fri" },
+                          { key: "sat", label: "Sat" },
+                        ].map((day) => {
+                          const days = (selectedVenue.kioskScheduleDays as string[]) || ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+                          const isActive = days.includes(day.key);
+                          return (
+                            <button
+                              key={day.key}
+                              onClick={() => {
+                                const newDays = isActive
+                                  ? days.filter((d) => d !== day.key)
+                                  : [...days, day.key];
+                                updateVenueMutation.mutate({ kioskScheduleDays: newDays });
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                isActive
+                                  ? "bg-indigo-600 text-white"
+                                  : "bg-white/10 text-gray-400 hover:bg-white/20"
+                              }`}
+                            >
+                              {day.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

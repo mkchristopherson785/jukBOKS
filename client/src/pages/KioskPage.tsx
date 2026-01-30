@@ -1,9 +1,46 @@
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, ThumbsUp, Play, User, Radio, Volume2, Maximize, Minimize } from "lucide-react";
+import { Music2, ThumbsUp, Play, User, Radio, Volume2, Maximize, Minimize, Clock, Pause } from "lucide-react";
 import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnouncement, markAnnouncementPlayed, markSongFinished, fetchSonosStatus } from "../lib/api";
 import { MusicKitPlayer } from "../components/MusicKitPlayer";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+
+function isWithinSchedule(venue: any): { isActive: boolean; nextStart?: string; nextEnd?: string } {
+  if (!venue?.kioskScheduleEnabled) {
+    return { isActive: true };
+  }
+
+  const now = new Date();
+  const dayMap: { [key: number]: string } = {
+    0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat"
+  };
+  const today = dayMap[now.getDay()];
+  const activeDays = (venue.kioskScheduleDays as string[]) || ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+
+  if (!activeDays.includes(today)) {
+    return { isActive: false, nextStart: "tomorrow" };
+  }
+
+  const startTime = venue.kioskStartTime || "12:00";
+  const endTime = venue.kioskEndTime || "21:00";
+
+  const [startHour, startMin] = startTime.split(":").map(Number);
+  const [endHour, endMin] = endTime.split(":").map(Number);
+
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const startMinutes = startHour * 60 + startMin;
+  const endMinutes = endHour * 60 + endMin;
+
+  if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
+    return { isActive: true, nextEnd: endTime };
+  }
+
+  if (currentMinutes < startMinutes) {
+    return { isActive: false, nextStart: startTime };
+  }
+
+  return { isActive: false, nextStart: "tomorrow" };
+}
 
 const API_BASE = "";
 
@@ -21,6 +58,35 @@ export default function KioskPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [togglePlayHandler, setTogglePlayHandler] = useState<(() => void) | null>(null);
   const [skipHandler, setSkipHandler] = useState<(() => void) | null>(null);
+  const [scheduleStatus, setScheduleStatus] = useState<{ isActive: boolean; nextStart?: string; nextEnd?: string }>({ isActive: true });
+  const [isSchedulePaused, setIsSchedulePaused] = useState(false);
+
+  const { data: venue } = useQuery({
+    queryKey: ["venue", code],
+    queryFn: () => fetchVenue(code!),
+    enabled: !!code,
+  });
+
+  useEffect(() => {
+    if (!venue) return;
+
+    const checkSchedule = () => {
+      const status = isWithinSchedule(venue);
+      setScheduleStatus(status);
+
+      if (venue.kioskScheduleEnabled) {
+        if (status.isActive && !isStarted && !isSchedulePaused) {
+          setIsStarted(true);
+        } else if (!status.isActive && isStarted) {
+          setIsSchedulePaused(true);
+        }
+      }
+    };
+
+    checkSchedule();
+    const interval = setInterval(checkSchedule, 30000);
+    return () => clearInterval(interval);
+  }, [venue, isStarted, isSchedulePaused]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -43,20 +109,6 @@ export default function KioskPage() {
       document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
     }
   }, []);
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, []);
-
-  const { data: venue } = useQuery({
-    queryKey: ["venue", code],
-    queryFn: () => fetchVenue(code!),
-    enabled: !!code,
-  });
 
   const { data: nowPlaying } = useQuery({
     queryKey: ["nowPlaying", code],
@@ -307,6 +359,56 @@ export default function KioskPage() {
     item.status !== "playing"
   ).sort((a: any, b: any) => (b.netVotes || 0) - (a.netVotes || 0)).slice(0, 8) || [];
 
+  useEffect(() => {
+    if (isSchedulePaused && scheduleStatus.isActive) {
+      setIsSchedulePaused(false);
+    }
+  }, [scheduleStatus.isActive, isSchedulePaused]);
+
+  if (isSchedulePaused || (!isStarted && venue?.kioskScheduleEnabled && !scheduleStatus.isActive)) {
+    return (
+      <div className="min-h-screen bg-transparent flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="mb-6 sm:mb-8 flex justify-center">
+            {venue?.logoUrl ? (
+              <img src={venue.logoUrl} alt="" className="h-16 sm:h-24 w-auto opacity-50" />
+            ) : (
+              <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-gray-600 to-gray-700 flex items-center justify-center">
+                <Pause className="w-10 h-10 sm:w-14 sm:h-14 text-white" />
+              </div>
+            )}
+          </div>
+          <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2">{venue?.name || "Jukboks"}</h1>
+          <div className="flex items-center justify-center gap-2 text-gray-400 mb-6 sm:mb-8">
+            <Clock className="w-5 h-5" />
+            <span>Outside Scheduled Hours</span>
+          </div>
+          <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4 sm:p-6 max-w-sm mx-auto mb-6">
+            <p className="text-white font-medium mb-2">Scheduled Hours</p>
+            <p className="text-indigo-400 text-lg font-semibold">
+              {venue?.kioskStartTime || "12:00"} - {venue?.kioskEndTime || "21:00"}
+            </p>
+            {scheduleStatus.nextStart && (
+              <p className="text-gray-400 text-sm mt-2">
+                Resumes {scheduleStatus.nextStart === "tomorrow" ? "tomorrow" : `at ${scheduleStatus.nextStart}`}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              setIsSchedulePaused(false);
+              setIsStarted(true);
+            }}
+            className="px-6 py-3 bg-white/10 hover:bg-white/20 rounded-full text-white font-medium flex items-center gap-2 mx-auto transition-colors"
+          >
+            <Play className="w-4 h-4" />
+            Start Anyway
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!isStarted) {
     return (
       <div className="min-h-screen bg-transparent flex items-center justify-center p-4">
@@ -322,6 +424,12 @@ export default function KioskPage() {
           </div>
           <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2">{venue?.name || "Jukboks"}</h1>
           <p className="text-gray-400 mb-6 sm:mb-8">Kiosk Mode</p>
+          {venue?.kioskScheduleEnabled && scheduleStatus.isActive && (
+            <div className="flex items-center justify-center gap-2 text-green-400 text-sm mb-4">
+              <Clock className="w-4 h-4" />
+              <span>Scheduled until {scheduleStatus.nextEnd || venue?.kioskEndTime}</span>
+            </div>
+          )}
           <button
             onClick={() => setIsStarted(true)}
             className="px-6 py-3 sm:px-8 sm:py-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full text-white text-lg sm:text-xl font-semibold flex items-center gap-2 sm:gap-3 mx-auto hover:scale-105 transition-transform"
