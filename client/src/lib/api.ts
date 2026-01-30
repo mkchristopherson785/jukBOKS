@@ -501,3 +501,12 @@ export async function fetchAllVenues() {
   if (!res.ok) throw new Error("Failed to fetch venues");
   return res.json();
 }
+
+export async function superAdminDeleteVenue(venueId: number) {
+  const res = await fetch(`${API_BASE}/api/super-admin/venues/${venueId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to delete venue");
+  return res.json();
+}

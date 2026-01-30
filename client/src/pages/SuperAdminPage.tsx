@@ -1,12 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useState } from "react";
 import { useAuth } from "../hooks/use-auth";
-import { checkSuperAdmin, fetchAllOrganizations, fetchAllVenues } from "../lib/api";
-import { Building2, MapPin, ArrowLeft, Users, Calendar, ExternalLink } from "lucide-react";
+import { checkSuperAdmin, fetchAllOrganizations, fetchAllVenues, superAdminDeleteVenue } from "../lib/api";
+import { Building2, MapPin, ArrowLeft, Users, Calendar, ExternalLink, Trash2 } from "lucide-react";
 
 export default function SuperAdminPage() {
   const [, navigate] = useLocation();
   const { user, isLoading: authLoading } = useAuth();
+  const queryClient = useQueryClient();
+  const [venueToDelete, setVenueToDelete] = useState<{ id: number; name: string } | null>(null);
 
   const { data: superAdminCheck, isLoading: checkLoading } = useQuery({
     queryKey: ["super-admin-check"],
@@ -24,6 +27,14 @@ export default function SuperAdminPage() {
     queryKey: ["super-admin-venues"],
     queryFn: fetchAllVenues,
     enabled: superAdminCheck?.isSuperAdmin === true,
+  });
+
+  const deleteVenueMutation = useMutation({
+    mutationFn: (venueId: number) => superAdminDeleteVenue(venueId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["super-admin-venues"] });
+      setVenueToDelete(null);
+    },
   });
 
   if (authLoading || checkLoading) {
@@ -180,14 +191,23 @@ export default function SuperAdminPage() {
                               {venue.guestCount || 0} guests
                             </div>
                           </div>
-                          <a
-                            href={`/party/${venue.code}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 hover:bg-white/10 rounded transition-colors text-gray-400 hover:text-white"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </a>
+                          <div className="flex items-center gap-1">
+                            <a
+                              href={`/party/${venue.code}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-2 hover:bg-white/10 rounded transition-colors text-gray-400 hover:text-white"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                            <button
+                              onClick={() => setVenueToDelete({ id: venue.id, name: venue.name })}
+                              className="p-2 hover:bg-red-500/20 rounded transition-colors text-gray-400 hover:text-red-400"
+                              title="Delete venue"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -205,6 +225,33 @@ export default function SuperAdminPage() {
           </div>
         )}
       </div>
+
+      {venueToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-900 border border-white/10 rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-semibold text-white mb-2">Delete Venue</h3>
+            <p className="text-gray-400 mb-4">
+              Are you sure you want to delete <span className="text-white font-medium">{venueToDelete.name}</span>? 
+              This will permanently remove all queue items, requests, and settings for this venue.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setVenueToDelete(null)}
+                className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => deleteVenueMutation.mutate(venueToDelete.id)}
+                disabled={deleteVenueMutation.isPending}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                {deleteVenueMutation.isPending ? "Deleting..." : "Delete Venue"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

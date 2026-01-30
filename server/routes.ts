@@ -2699,4 +2699,32 @@ router.get("/api/super-admin/venues", isAuthenticated, async (req: any, res) => 
   }
 });
 
+// Super admin: Delete any venue
+router.delete("/api/super-admin/venues/:venueId", isAuthenticated, async (req: any, res) => {
+  try {
+    const userEmail = req.user?.claims?.email;
+    if (!isSuperAdmin(userEmail)) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "Super admin access required" });
+    }
+
+    const venueId = parseInt(req.params.venueId);
+    if (isNaN(venueId)) {
+      return res.status(400).json({ error: "INVALID_ID", message: "Invalid venue ID" });
+    }
+
+    const venue = await storage.getVenue(venueId);
+    if (!venue) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Venue not found" });
+    }
+
+    await storage.deleteVenue(venueId);
+    console.log(`Super admin ${userEmail} deleted venue ${venue.name} (ID: ${venueId})`);
+    
+    res.json({ success: true, message: "Venue deleted" });
+  } catch (error) {
+    console.error("Super admin delete venue error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 export default router;
