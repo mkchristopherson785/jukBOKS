@@ -158,27 +158,29 @@ router.get("/api/apple-music/search-playlists", async (req: Request, res: Respon
     const data = await response.json();
     const playlists = data.results?.playlists?.data || [];
     
-    // Fetch accurate track counts for playlists showing exactly 100 (likely capped)
+    // Fetch accurate track counts for all playlists from tracks endpoint meta.total
     const results = await Promise.all(playlists.map(async (playlist: any) => {
-      let trackCount = playlist.attributes?.trackCount || 0;
+      const attrTrackCount = playlist.attributes?.trackCount || 0;
+      let trackCount = attrTrackCount;
       
-      // If trackCount is exactly 100, fetch actual count from tracks endpoint
-      if (trackCount === 100) {
-        try {
-          const tracksResponse = await fetch(
-            `https://api.music.apple.com/v1/catalog/us/playlists/${playlist.id}/tracks?limit=1`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          if (tracksResponse.ok) {
-            const tracksData = await tracksResponse.json();
-            const metaTotal = tracksData.meta?.total;
-            if (metaTotal && metaTotal > trackCount) {
-              trackCount = metaTotal;
-            }
+      // Always try to get accurate count from tracks endpoint meta.total
+      try {
+        const tracksResponse = await fetch(
+          `https://api.music.apple.com/v1/catalog/us/playlists/${playlist.id}/tracks?limit=1`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (tracksResponse.ok) {
+          const tracksData = await tracksResponse.json();
+          const metaTotal = tracksData.meta?.total;
+          console.log(`Playlist "${playlist.attributes?.name}" (${playlist.id}): attr=${attrTrackCount}, meta.total=${metaTotal}`);
+          if (metaTotal && metaTotal > 0) {
+            trackCount = metaTotal;
           }
-        } catch (e) {
-          // Keep original count on error
+        } else {
+          console.log(`Failed to fetch tracks for ${playlist.id}: ${tracksResponse.status}`);
         }
+      } catch (e) {
+        console.error(`Error fetching tracks for ${playlist.id}:`, e);
       }
       
       return {
