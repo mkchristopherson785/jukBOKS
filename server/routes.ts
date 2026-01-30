@@ -1110,6 +1110,19 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
     const addedSongs: any[] = [];
     const availableCandidates = [...candidatePool];
     
+    // Track last artist to prevent back-to-back same artist
+    // Start with the last song in queue or last played song
+    let lastArtist: string | null = null;
+    if (currentQueue.length > 0) {
+      lastArtist = currentQueue[currentQueue.length - 1].artist?.toLowerCase() || null;
+    } else {
+      // Check recently played if queue is empty
+      const recentlyPlayed = await storage.getPlayHistory(venue.id, 1);
+      if (recentlyPlayed.length > 0) {
+        lastArtist = recentlyPlayed[0].artist?.toLowerCase() || null;
+      }
+    }
+    
     while (addedSongs.length < songsToAdd && availableCandidates.length > 0) {
       // Weighted random selection from available candidates
       const totalWeight = availableCandidates.reduce((sum, c) => sum + c.weight, 0);
@@ -1132,7 +1145,17 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
       if (wasPlayedRecently) continue;
       
       const attrs = selected.track.attributes;
+      const trackArtist = attrs.artistName?.toLowerCase() || "";
+      
+      // Skip if same artist as last added song (prevent back-to-back)
+      if (lastArtist && trackArtist === lastArtist) {
+        // Put it back at the end so it might be selected later
+        availableCandidates.push(selected);
+        continue;
+      }
+      
       usedTrackIds.add(selected.track.id);
+      lastArtist = trackArtist; // Update last artist for next iteration
 
       // Create a request for the song
       const request = await storage.createRequest({
