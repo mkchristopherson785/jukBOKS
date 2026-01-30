@@ -14,12 +14,9 @@ function isWithinSchedule(venue: any): { isActive: boolean; nextStart?: string; 
   const dayMap: { [key: number]: string } = {
     0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat"
   };
+  const dayOrder = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
   const today = dayMap[now.getDay()];
   const activeDays = (venue.kioskScheduleDays as string[]) || ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
-
-  if (!activeDays.includes(today)) {
-    return { isActive: false, nextStart: "tomorrow" };
-  }
 
   const startTime = venue.kioskStartTime || "12:00";
   const endTime = venue.kioskEndTime || "21:00";
@@ -31,15 +28,41 @@ function isWithinSchedule(venue: any): { isActive: boolean; nextStart?: string; 
   const startMinutes = startHour * 60 + startMin;
   const endMinutes = endHour * 60 + endMin;
 
-  if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
-    return { isActive: true, nextEnd: endTime };
+  const isOvernightSchedule = endMinutes <= startMinutes;
+
+  if (activeDays.includes(today)) {
+    if (isOvernightSchedule) {
+      if (currentMinutes >= startMinutes || currentMinutes < endMinutes) {
+        return { isActive: true, nextEnd: endTime };
+      }
+    } else {
+      if (currentMinutes >= startMinutes && currentMinutes < endMinutes) {
+        return { isActive: true, nextEnd: endTime };
+      }
+    }
   }
 
-  if (currentMinutes < startMinutes) {
+  if (isOvernightSchedule && currentMinutes < endMinutes) {
+    const yesterday = dayMap[(now.getDay() + 6) % 7];
+    if (activeDays.includes(yesterday)) {
+      return { isActive: true, nextEnd: endTime };
+    }
+  }
+
+  if (activeDays.includes(today) && currentMinutes < startMinutes) {
     return { isActive: false, nextStart: startTime };
   }
 
-  return { isActive: false, nextStart: "tomorrow" };
+  for (let i = 1; i <= 7; i++) {
+    const nextDayIndex = (now.getDay() + i) % 7;
+    const nextDay = dayOrder[nextDayIndex];
+    if (activeDays.includes(nextDay)) {
+      const dayName = nextDay.charAt(0).toUpperCase() + nextDay.slice(1);
+      return { isActive: false, nextStart: `${dayName} ${startTime}` };
+    }
+  }
+
+  return { isActive: false, nextStart: "No scheduled days" };
 }
 
 const API_BASE = "";
@@ -60,6 +83,7 @@ export default function KioskPage() {
   const [skipHandler, setSkipHandler] = useState<(() => void) | null>(null);
   const [scheduleStatus, setScheduleStatus] = useState<{ isActive: boolean; nextStart?: string; nextEnd?: string }>({ isActive: true });
   const [isSchedulePaused, setIsSchedulePaused] = useState(false);
+  const [manualOverride, setManualOverride] = useState(false);
 
   const { data: venue } = useQuery({
     queryKey: ["venue", code],
@@ -74,19 +98,23 @@ export default function KioskPage() {
       const status = isWithinSchedule(venue);
       setScheduleStatus(status);
 
-      if (venue.kioskScheduleEnabled) {
+      if (venue.kioskScheduleEnabled && !manualOverride) {
         if (status.isActive && !isStarted && !isSchedulePaused) {
           setIsStarted(true);
         } else if (!status.isActive && isStarted) {
           setIsSchedulePaused(true);
         }
       }
+
+      if (status.isActive && manualOverride) {
+        setManualOverride(false);
+      }
     };
 
     checkSchedule();
     const interval = setInterval(checkSchedule, 30000);
     return () => clearInterval(interval);
-  }, [venue, isStarted, isSchedulePaused]);
+  }, [venue, isStarted, isSchedulePaused, manualOverride]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -196,9 +224,12 @@ export default function KioskPage() {
   const [autoPlayAttempts, setAutoPlayAttempts] = useState(0);
   const MAX_AUTO_PLAY_ATTEMPTS = 3;
   
+  const canAutoPlay = !isSchedulePaused && (scheduleStatus.isActive || manualOverride);
+
   // Pre-populate queue with backup songs when kiosk page first loads
   useEffect(() => {
     if (!code || !queue || autoPlayAttempts >= MAX_AUTO_PLAY_ATTEMPTS) return;
+    if (!canAutoPlay) return;
     
     const playableItems = queue.items?.filter((item: any) => 
       (item.status === "approved" || item.status === "pending") && 
@@ -210,10 +241,10 @@ export default function KioskPage() {
       setAutoPlayAttempts(prev => prev + 1);
       triggerAutoPlay();
     }
-  }, [code, queue, triggerAutoPlay, autoPlayAttempts, isAutoPlaying]);
+  }, [code, queue, triggerAutoPlay, autoPlayAttempts, isAutoPlaying, canAutoPlay]);
 
   const playNextSong = useCallback(() => {
-    if (isTransitioning || !queue?.items) return;
+    if (isTransitioning || !queue?.items || !canAutoPlay) return;
     
     const playableItems = queue.items.filter((item: any) => 
       (item.status === "approved" || item.status === "pending") && 
@@ -230,7 +261,7 @@ export default function KioskPage() {
       // Queue is empty, try to get a song from backup playlists
       triggerAutoPlay();
     }
-  }, [queue?.items, isTransitioning, playNextMutation, triggerAutoPlay]);
+  }, [queue?.items, isTransitioning, playNextMutation, triggerAutoPlay, canAutoPlay]);
 
   useEffect(() => {
     if (!isStarted) return;
@@ -396,6 +427,7 @@ export default function KioskPage() {
           </div>
           <button
             onClick={() => {
+              setManualOverride(true);
               setIsSchedulePaused(false);
               setIsStarted(true);
             }}

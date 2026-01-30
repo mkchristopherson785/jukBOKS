@@ -9,7 +9,7 @@ Jukboks is a standalone SaaS platform that enables businesses (bars, restaurants
 - **iOS App**: Native iOS app via Capacitor for App Store distribution
 - **Unified Queue**: Mix of user requests and auto-play songs from backup playlists
 - **QR Code Party Access**: Guests scan a QR code to join and request songs without accounts
-- **Kiosk Display Mode**: TV/display-friendly "Now Playing" screen
+- **Kiosk Display Mode**: TV/display-friendly "Now Playing" screen with scheduled playback (auto-start/stop at configured times)
 - **Listen Along**: Remote users with Apple Music can sync playback in real-time
 - **Per-Venue Settings**: Explicit content filtering, daily request limits (1-10 or unlimited), auto-approve
 - **Upvote/Downvote System**: Guests can thumbs up or thumbs down songs in the queue
