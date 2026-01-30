@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, Settings, LogOut, Plus, Trash2, ListMusic, Volume2, Upload, Speaker, Shield, ArrowLeft, Search, User, Clock } from "lucide-react";
-import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, updateBackupPlaylistWeight, fetchAnnouncementGroups, createAnnouncementGroup, updateAnnouncementGroup, deleteAnnouncementGroup, addAnnouncementToGroup, deleteAnnouncement, updateAnnouncement, checkSuperAdmin, searchPlaylists, addBackupPlaylistById, type AnnouncementGroup, type Announcement } from "../lib/api";
+import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, updateBackupPlaylistWeight, fetchAnnouncementGroups, createAnnouncementGroup, updateAnnouncementGroup, deleteAnnouncementGroup, addAnnouncementToGroup, deleteAnnouncement, updateAnnouncement, checkSuperAdmin, searchPlaylists, addBackupPlaylistById, fetchKioskStatus, type AnnouncementGroup, type Announcement } from "../lib/api";
 import { useUpload } from "../hooks/use-upload";
 import { useAuth } from "../hooks/use-auth";
 import { useMusicKit } from "../hooks/useMusicKit";
@@ -103,6 +103,13 @@ export default function SettingsPage() {
     queryKey: ["venue", selectedVenueCode],
     queryFn: () => fetchVenue(selectedVenueCode!),
     enabled: !!selectedVenueCode,
+  });
+
+  const { data: kioskStatus } = useQuery({
+    queryKey: ["kiosk-status", selectedVenueCode],
+    queryFn: () => fetchKioskStatus(selectedVenueCode!),
+    enabled: !!selectedVenueCode,
+    refetchInterval: 30000,
   });
 
   const { data: backupPlaylists = [] } = useQuery({
@@ -505,6 +512,40 @@ export default function SettingsPage() {
                           );
                         })}
                       </div>
+                    </div>
+                    <div>
+                      <label className="text-white text-sm mb-1 block">Alert Email (optional)</label>
+                      <input
+                        type="email"
+                        value={selectedVenue.kioskAlertEmail || ""}
+                        onChange={(e) => updateVenueMutation.mutate({ kioskAlertEmail: e.target.value || null })}
+                        placeholder="email@example.com"
+                        className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                      />
+                      <p className="text-gray-500 text-xs mt-1">Get notified if kiosk goes offline during scheduled hours</p>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-white/5 rounded-lg">
+                      <div className={`w-3 h-3 rounded-full ${kioskStatus?.isOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
+                      <div className="flex-1">
+                        <p className="text-white text-sm font-medium">
+                          Kiosk Status: {kioskStatus?.isOnline ? 'Online' : 'Offline'}
+                        </p>
+                        {kioskStatus?.lastHeartbeat && (
+                          <p className="text-gray-400 text-xs">
+                            Last seen: {new Date(kioskStatus.lastHeartbeat).toLocaleTimeString()}
+                          </p>
+                        )}
+                      </div>
+                      {selectedVenueCode && (
+                        <a
+                          href={`/kiosk/${selectedVenueCode}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-indigo-400 hover:text-indigo-300 text-xs"
+                        >
+                          Open Kiosk
+                        </a>
+                      )}
                     </div>
                   </>
                 )}

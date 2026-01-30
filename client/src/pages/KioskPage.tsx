@@ -1,7 +1,7 @@
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, ThumbsUp, Play, User, Radio, Volume2, Maximize, Minimize, Clock, Pause } from "lucide-react";
-import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnouncement, markAnnouncementPlayed, markSongFinished, fetchSonosStatus } from "../lib/api";
+import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnouncement, markAnnouncementPlayed, markSongFinished, fetchSonosStatus, sendKioskHeartbeat } from "../lib/api";
 import { MusicKitPlayer } from "../components/MusicKitPlayer";
 import { useState, useEffect, useCallback, useMemo } from "react";
 
@@ -129,6 +129,23 @@ export default function KioskPage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [togglePlayHandler]);
+
+  // Send heartbeat every 30 seconds when kiosk is running
+  useEffect(() => {
+    if (!code || !isStarted || isSchedulePaused) return;
+
+    const sendHeartbeat = async () => {
+      try {
+        await sendKioskHeartbeat(code);
+      } catch (error) {
+        console.error("Failed to send kiosk heartbeat:", error);
+      }
+    };
+
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 30000);
+    return () => clearInterval(interval);
+  }, [code, isStarted, isSchedulePaused]);
 
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {

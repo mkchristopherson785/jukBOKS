@@ -71,6 +71,8 @@ export const venues = pgTable("venues", {
   currentlyPlayingDuration: integer("currently_playing_duration"),
   kioskLockId: text("kiosk_lock_id"),
   kioskLockHeartbeat: timestamp("kiosk_lock_heartbeat"),
+  kioskAlertEmail: text("kiosk_alert_email"),
+  kioskLastAlertSentAt: timestamp("kiosk_last_alert_sent_at"),
   recentlyPlayedIds: jsonb("recently_played_ids").default([]),
   announcementFrequencyType: text("announcement_frequency_type"),
   announcementFrequency: integer("announcement_frequency").default(5),

@@ -18,6 +18,21 @@ export async function fetchNowPlaying(code: string) {
   return res.json();
 }
 
+export async function sendKioskHeartbeat(code: string) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${code}/kiosk-heartbeat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (!res.ok) throw new Error("Failed to send heartbeat");
+  return res.json();
+}
+
+export async function fetchKioskStatus(code: string) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${code}/kiosk-status`);
+  if (!res.ok) throw new Error("Failed to fetch kiosk status");
+  return res.json();
+}
+
 export async function skipSong(venueCode: string, requestId: number) {
   const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/played/${requestId}`, {
     method: "POST",
@@ -146,6 +161,7 @@ export async function updateVenue(venueId: number, data: {
   kioskScheduleDays?: string[];
   kioskStartTime?: string;
   kioskEndTime?: string;
+  kioskAlertEmail?: string;
 }) {
   const res = await fetch(`${API_BASE}/api/me/venues/${venueId}`, {
     method: "PATCH",

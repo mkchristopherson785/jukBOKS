@@ -412,6 +412,50 @@ router.get("/api/v1/venues/:code/now-playing", async (req: Request, res: Respons
   }
 });
 
+// Kiosk heartbeat - called periodically by kiosk page to indicate it's running
+router.post("/api/v1/venues/:code/kiosk-heartbeat", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    await storage.updateVenue(venue.id, {
+      kioskLockHeartbeat: new Date(),
+    });
+
+    res.json({ success: true, timestamp: new Date().toISOString() });
+  } catch (error) {
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Get kiosk status - check if kiosk is online
+router.get("/api/v1/venues/:code/kiosk-status", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const heartbeat = venue.kioskLockHeartbeat;
+    const now = new Date();
+    const isOnline = heartbeat && (now.getTime() - heartbeat.getTime()) < 60000; // Online if heartbeat within last 60 seconds
+
+    res.json({
+      isOnline,
+      lastHeartbeat: heartbeat?.toISOString() || null,
+      kioskScheduleEnabled: venue.kioskScheduleEnabled,
+      kioskStartTime: venue.kioskStartTime,
+      kioskEndTime: venue.kioskEndTime,
+      kioskScheduleDays: venue.kioskScheduleDays,
+      kioskAlertEmail: venue.kioskAlertEmail,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
 // Live Listeners Endpoints
 // Register/heartbeat as a listener
 router.post("/api/v1/venues/:code/listeners", async (req: Request, res: Response) => {
