@@ -6,7 +6,7 @@ Jukboks is a standalone SaaS platform that enables businesses (bars, restaurants
 ## Key Features
 - **Apple Music Integration**: Full MusicKit JS integration for song search and playback
 - **Sonos Integration**: Control Sonos speakers for venue playback via OAuth 2.0 (Coming Soon - requires SMAPI)
-- **iOS App**: Native iOS app via Capacitor for App Store distribution
+- **iOS App**: Native iOS app via Capacitor with dual-mode (Host/Guest) and bottom tab navigation
 - **Unified Queue**: Mix of user requests and auto-play songs from backup playlists
 - **QR Code Party Access**: Guests scan a QR code to join and request songs without accounts
 - **Kiosk Display Mode**: TV/display-friendly "Now Playing" screen with scheduled playback (auto-start/stop at configured times)
@@ -52,9 +52,12 @@ jukboks/
 │   ├── src/
 │   │   ├── components/  # Reusable UI components
 │   │   ├── pages/       # Page components
+│   │   │   └── mobile/  # Mobile app pages (MobileApp, GuestParty, HostApp, etc.)
 │   │   ├── hooks/       # Custom React hooks
 │   │   └── lib/         # Utilities
 │   └── index.html    # Entry HTML
+├── ios/              # Capacitor iOS project
+│   └── App/          # Xcode project
 ├── shared/           # Shared types and schemas
 │   └── schema.ts     # Database schema + Zod validators
 ├── docs/             # Documentation
@@ -142,6 +145,49 @@ See `docs/INTEGRATION_API.md` for full API documentation.
 - `/party/:code` - Guest party interface for requesting songs
 - `/kiosk/:code` - Full-screen display for venues
 - `/admin` - Admin dashboard for venue management
+
+## Mobile App (iOS via Capacitor)
+The app includes a mobile-optimized experience with dual-mode navigation:
+
+**Guest Mode:**
+- Enter venue code to join a party
+- Now Playing, Search, and Queue tabs
+- Vote on songs, request songs, Listen Along
+- Bottom tab navigation
+
+**Host Mode:**
+- Sign in to manage venues
+- Dashboard, Queue, and Settings tabs
+- Quick venue settings toggles
+- Kiosk status monitoring
+
+**Architecture:**
+- `client/src/pages/mobile/MobileApp.tsx` - Main mobile router with role selection
+- `client/src/pages/mobile/MobileWelcome.tsx` - Role selection screen
+- `client/src/pages/mobile/GuestJoin.tsx` - Venue code entry
+- `client/src/pages/mobile/GuestParty.tsx` - Full guest experience with tabs
+- `client/src/pages/mobile/HostApp.tsx` - Full host experience with tabs
+- `client/src/hooks/useCapacitor.ts` - Capacitor/mobile detection
+- `client/src/hooks/useMobileRole.ts` - Role persistence
+- `/mobile` route accessible on desktop for testing
+
+**Capacitor Config:** `capacitor.config.ts`
+- App ID: `com.jukboks.app`
+- Web Dir: `dist/public`
+
+## Kiosk Monitoring
+- **Heartbeat**: Kiosk sends heartbeat every 30 seconds with device ID, name, and playback status
+- **Lock System**: Only one device can control playback per venue (lock expires after 90 seconds)
+- **Status Display**: Settings shows kiosk status (Playing/Paused/Ready/Offline) with device name
+- **Per-Day Scheduling**: Different start/end times for each day of the week
+- **Alert Email**: Notification field for offline kiosk detection during scheduled hours
+
+**Database Fields (venues table):**
+- `kioskScheduleEnabled`, `kioskScheduleDays`, `kioskStartTime`, `kioskEndTime` - Schedule config
+- `kioskDaySchedules` - Per-day custom times (JSON object)
+- `kioskLockId`, `kioskLockHeartbeat` - Device lock tracking
+- `kioskPlaybackStatus`, `kioskDeviceName` - Current kiosk state
+- `kioskAlertEmail`, `kioskLastAlertSentAt` - Alert notifications
 
 ## Running the App
 ```bash

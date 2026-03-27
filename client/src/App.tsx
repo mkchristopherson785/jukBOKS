@@ -1,5 +1,6 @@
 import { Route, Switch } from "wouter";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { useIsMobile, isCapacitor } from "./hooks/useCapacitor";
 import HomePage from "./pages/HomePage";
 import PartyPage from "./pages/PartyPage";
 import KioskPage from "./pages/KioskPage";
@@ -10,12 +11,33 @@ import TeamPage from "./pages/TeamPage";
 import BrandingPage from "./pages/BrandingPage";
 import SettingsPage from "./pages/SettingsPage";
 import SuperAdminPage from "./pages/SuperAdminPage";
+import MobileApp from "./pages/mobile/MobileApp";
 
 function App() {
+  const isMobile = useIsMobile();
+  const isNative = isCapacitor();
+
+  if (isNative) {
+    return (
+      <ErrorBoundary>
+        <Switch>
+          <Route path="/party/:code" component={PartyPage} />
+          <Route path="/kiosk/:code" component={KioskPage} />
+          <Route>
+            <MobileApp />
+          </Route>
+        </Switch>
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <Switch>
-        <Route path="/" component={HomePage} />
+        <Route path="/">
+          {isMobile ? <MobileApp /> : <HomePage />}
+        </Route>
+        <Route path="/mobile" component={MobileApp} />
         <Route path="/party/:code" component={PartyPage} />
         <Route path="/kiosk/:code" component={KioskPage} />
         <Route path="/admin" component={AdminPage} />
