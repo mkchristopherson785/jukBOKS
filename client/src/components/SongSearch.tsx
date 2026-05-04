@@ -26,9 +26,13 @@ interface SongSearchProps {
   onSelect: (track: Track) => void;
   allowExplicit?: boolean;
   blockHolidayMusic?: boolean;
+  queueTrackIds?: Set<string>;
+  isSubmitting?: boolean;
+  submitSuccess?: boolean;
+  venueCode?: string;
 }
 
-export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic = false }: SongSearchProps) {
+export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic = false, queueTrackIds }: SongSearchProps) {
   const [query, setQuery] = useState("");
   const { searchTracks, results, isSearching, clearResults, loadMore, hasMore, isLoadingMore } = useAppleMusic();
 
@@ -42,6 +46,7 @@ export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic 
   const handleSelect = (track: Track) => {
     if (!allowExplicit && track.isExplicit) return;
     if (blockHolidayMusic && isHolidaySong(track)) return;
+    if (queueTrackIds?.has(track.id)) return;
     onSelect(track);
     setQuery("");
     clearResults();
@@ -51,6 +56,10 @@ export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic 
     if (!allowExplicit && track.isExplicit) return true;
     if (blockHolidayMusic && isHolidaySong(track)) return true;
     return false;
+  };
+
+  const isInQueue = (track: Track) => {
+    return queueTrackIds?.has(track.id) || false;
   };
 
   return (
@@ -91,10 +100,10 @@ export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic 
                   <button
                     key={track.id}
                     onClick={() => handleSelect(track)}
-                    disabled={isTrackBlocked(track)}
+                    disabled={isTrackBlocked(track) || isInQueue(track)}
                     className={cn(
                       "w-full flex items-center gap-4 p-4 hover:bg-white/10 transition-colors text-left border-b border-white/10",
-                      isTrackBlocked(track) && "opacity-50 cursor-not-allowed"
+                      (isTrackBlocked(track) || isInQueue(track)) && "opacity-50 cursor-not-allowed"
                     )}
                   >
                     {track.albumCover ? (
@@ -113,6 +122,9 @@ export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic 
                         <p className="text-white font-medium truncate">{track.title}</p>
                         {track.isExplicit && (
                           <span className="px-1.5 py-0.5 text-xs bg-gray-700 text-gray-300 rounded">E</span>
+                        )}
+                        {isInQueue(track) && (
+                          <span className="px-2 py-0.5 text-xs bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30 whitespace-nowrap">In Queue</span>
                         )}
                       </div>
                       <p className="text-gray-400 text-sm truncate">{track.artist}</p>

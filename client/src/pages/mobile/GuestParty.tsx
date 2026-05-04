@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, Search, ListMusic, Radio, ThumbsUp, ThumbsDown, ArrowLeft, Headphones } from "lucide-react";
 import { fetchParty, joinParty, submitRequest, submitVote, registerListener, unregisterListener } from "../../lib/api";
 import { SongSearch } from "../../components/SongSearch";
+import { ConnectionStatus } from "../../components/ConnectionStatus";
 import { useMusicKit } from "../../hooks/useMusicKit";
 import type { Track } from "../../hooks/useAppleMusic";
 
@@ -34,7 +35,7 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
     }
   }, [venueCode]);
 
-  const { data: party } = useQuery({
+  const { data: party, isError: partyError, isLoading: partyLoading } = useQuery({
     queryKey: ["party", venueCode],
     queryFn: () => fetchParty(venueCode),
     enabled: !!venueCode && !showJoinForm,
@@ -86,11 +87,13 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
     mutationFn: (track: Track) =>
       submitRequest(venueCode, {
         trackId: track.id,
-        title: track.name,
-        artist: track.artistName,
-        albumCover: track.artworkUrl100,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        albumCover: track.albumCover,
+        duration: track.duration,
+        isExplicit: track.isExplicit,
         previewUrl: track.previewUrl,
-        duration: track.durationInMillis ? Math.round(track.durationInMillis / 1000) : undefined,
       }, guestToken || undefined),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["party", venueCode] });
@@ -166,7 +169,8 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
 
   return (
     <div className="flex flex-col h-screen bg-transparent">
-      {nowPlaying && (
+      <ConnectionStatus isError={partyError} isLoading={partyLoading} />
+      {nowPlaying && activeTab !== "playing" && (
         <div className="p-4 bg-black/30 backdrop-blur-lg border-b border-white/10">
           <div className="flex items-center gap-3">
             {nowPlaying.albumCover && (
@@ -177,66 +181,118 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
               <p className="text-white font-bold truncate">{nowPlaying.title}</p>
               <p className="text-gray-400 text-sm truncate">{nowPlaying.artist}</p>
             </div>
-            <button
-              onClick={handleListenAlong}
-              className={`p-2.5 rounded-full transition-colors ${
-                isListening
-                  ? "bg-indigo-600 text-white"
-                  : "bg-white/10 text-gray-400 hover:text-white"
-              }`}
-            >
-              <Headphones className="w-5 h-5" />
-            </button>
+            {isListening && (
+              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+            )}
           </div>
         </div>
       )}
 
       <div className="flex-1 overflow-y-auto p-4 pb-24">
         {activeTab === "playing" && (
-          <div className="space-y-3">
-            <h2 className="text-lg font-bold text-white mb-3">Up Next</h2>
-            {queue.length === 0 ? (
-              <div className="text-center py-12">
-                <Music2 className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                <p className="text-gray-400">Queue is empty</p>
-                <p className="text-gray-500 text-sm">Be the first to request a song!</p>
+          <div>
+            {nowPlaying ? (
+              <div className="flex flex-col items-center mb-6">
+                <div className="relative mb-4">
+                  {nowPlaying.albumCover ? (
+                    <>
+                      <div className="absolute inset-0 bg-indigo-500/20 rounded-2xl blur-2xl" />
+                      <img
+                        src={nowPlaying.albumCover}
+                        alt={nowPlaying.title}
+                        className="relative w-56 h-56 rounded-2xl object-cover shadow-2xl"
+                      />
+                    </>
+                  ) : (
+                    <div className="w-56 h-56 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center shadow-2xl">
+                      <Music2 className="w-20 h-20 text-white/50" />
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-indigo-400 font-medium mb-1">NOW PLAYING</p>
+                <h2 className="text-xl font-bold text-white text-center px-4">{nowPlaying.title}</h2>
+                <p className="text-gray-400 text-center">{nowPlaying.artist}</p>
+                <button
+                  onClick={handleListenAlong}
+                  className={`mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${
+                    isListening
+                      ? "bg-red-500/20 text-red-400 border border-red-500/40"
+                      : "bg-gradient-to-r from-indigo-600 to-purple-600 text-white"
+                  }`}
+                >
+                  <Headphones className="w-4 h-4" />
+                  {isListening ? "Stop Listening" : "Listen Along"}
+                </button>
+                {isListening && (
+                  <p className="text-xs text-green-400 flex items-center gap-1 mt-2">
+                    <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                    Synced with venue
+                  </p>
+                )}
               </div>
             ) : (
-              queue.map((song: any) => {
-                const userVote = userVotes.get(song.id);
-                return (
-                  <div key={song.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
-                    {song.albumCover && (
-                      <img src={song.albumCover} alt="" className="w-12 h-12 rounded-lg" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-white font-medium truncate text-sm">{song.title}</p>
-                      <p className="text-gray-400 text-xs truncate">{song.artist}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => voteMutation.mutate({ requestId: song.id, voteType: "up" })}
-                        className={`p-2 rounded-lg transition-colors ${
-                          userVote === "up" ? "bg-green-600/20 text-green-400" : "text-gray-500 hover:text-green-400"
-                        }`}
-                      >
-                        <ThumbsUp className="w-4 h-4" />
-                      </button>
-                      <span className="text-white text-sm font-medium min-w-[20px] text-center">
-                        {(song.upvotes || 0) - (song.downvotes || 0)}
-                      </span>
-                      <button
-                        onClick={() => voteMutation.mutate({ requestId: song.id, voteType: "down" })}
-                        className={`p-2 rounded-lg transition-colors ${
-                          userVote === "down" ? "bg-red-600/20 text-red-400" : "text-gray-500 hover:text-red-400"
-                        }`}
-                      >
-                        <ThumbsDown className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
+              <div className="flex flex-col items-center py-12">
+                <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center mb-4">
+                  <Music2 className="w-12 h-12 text-gray-500" />
+                </div>
+                <p className="text-gray-400 font-medium">Nothing playing</p>
+                <p className="text-gray-500 text-sm mt-1">Waiting for a song...</p>
+              </div>
+            )}
+
+            {queue.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Up Next</h3>
+                <div className="space-y-2">
+                  {queue.slice(0, 5).map((song: any) => {
+                    const userVote = userVotes.get(song.id);
+                    return (
+                      <div key={song.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
+                        {song.albumCover ? (
+                          <img src={song.albumCover} alt="" className="w-10 h-10 rounded-lg" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                            <Music2 className="w-5 h-5 text-gray-500" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-medium truncate text-sm">{song.title}</p>
+                          <p className="text-gray-400 text-xs truncate">{song.artist}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => voteMutation.mutate({ requestId: song.id, voteType: "up" })}
+                            className={`p-2 rounded-lg transition-colors ${
+                              userVote === "up" ? "bg-green-600/20 text-green-400" : "text-gray-500 hover:text-green-400"
+                            }`}
+                          >
+                            <ThumbsUp className="w-4 h-4" />
+                          </button>
+                          <span className="text-white text-xs font-medium min-w-[16px] text-center">
+                            {(song.upvotes || 0) - (song.downvotes || 0)}
+                          </span>
+                          <button
+                            onClick={() => voteMutation.mutate({ requestId: song.id, voteType: "down" })}
+                            className={`p-2 rounded-lg transition-colors ${
+                              userVote === "down" ? "bg-red-600/20 text-red-400" : "text-gray-500 hover:text-red-400"
+                            }`}
+                          >
+                            <ThumbsDown className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {queue.length > 5 && (
+                    <button
+                      onClick={() => setActiveTab("queue")}
+                      className="w-full py-2 text-center text-indigo-400 text-sm font-medium"
+                    >
+                      View all {queue.length} songs in queue
+                    </button>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -246,9 +302,12 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
             <h2 className="text-lg font-bold text-white mb-3">Request a Song</h2>
             <SongSearch
               onSelect={(track) => requestMutation.mutate(track)}
-              isSubmitting={requestMutation.isPending}
-              submitSuccess={requestMutation.isSuccess}
-              venueCode={venueCode}
+              allowExplicit={party?.venue?.allowExplicit || false}
+              blockHolidayMusic={party?.venue?.blockHolidayMusic || false}
+              queueTrackIds={new Set([
+                ...queue.map((item: any) => item.trackId),
+                ...(nowPlaying?.trackId ? [nowPlaying.trackId] : []),
+              ])}
             />
             {requestError && (
               <div className="mt-3 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-sm">

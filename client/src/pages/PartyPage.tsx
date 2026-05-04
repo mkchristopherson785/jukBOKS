@@ -6,6 +6,7 @@ import { fetchParty, joinParty, submitRequest, submitVote, registerListener, unr
 import { SongSearch } from "../components/SongSearch";
 import { QueueList } from "../components/QueueList";
 import { NowPlaying } from "../components/NowPlaying";
+import { ConnectionStatus } from "../components/ConnectionStatus";
 import { useMusicKit } from "../hooks/useMusicKit";
 import type { Track } from "../hooks/useAppleMusic";
 
@@ -228,6 +229,7 @@ export default function PartyPage() {
 
   return (
     <div className="min-h-screen pb-8 bg-transparent">
+      <ConnectionStatus isError={!!error} isLoading={isLoading} />
       <header className="border-b border-white/10 backdrop-blur-lg bg-black/20 sticky top-0 z-40">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -299,6 +301,10 @@ export default function PartyPage() {
             onSelect={(track) => requestMutation.mutate(track)}
             allowExplicit={party.venue?.allowExplicit || false}
             blockHolidayMusic={party.venue?.blockHolidayMusic || false}
+            queueTrackIds={new Set([
+              ...(party.queue || []).map((item: any) => item.trackId),
+              ...(party.nowPlaying?.trackId ? [party.nowPlaying.trackId] : []),
+            ])}
           />
           {requestError && (
             <div className="mt-3 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-sm">
