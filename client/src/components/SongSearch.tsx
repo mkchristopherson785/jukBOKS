@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Search, X, Music, AlertCircle, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Search, X, Music, AlertCircle, ChevronDown, Play, Pause } from "lucide-react";
 import { useAppleMusic, type Track } from "../hooks/useAppleMusic";
 import { cn } from "../lib/utils";
 
@@ -35,6 +35,64 @@ interface SongSearchProps {
 export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic = false, queueTrackIds }: SongSearchProps) {
   const [query, setQuery] = useState("");
   const { searchTracks, results, isSearching, clearResults, loadMore, hasMore, isLoadingMore } = useAppleMusic();
+  const [previewingTrackId, setPreviewingTrackId] = useState<string | null>(null);
+  const [previewProgress, setPreviewProgress] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval>>();
+
+  const stopPreview = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+      audioRef.current = null;
+    }
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = undefined;
+    }
+    setPreviewingTrackId(null);
+    setPreviewProgress(0);
+  }, []);
+
+  const togglePreview = useCallback((track: Track, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (previewingTrackId === track.id) {
+      stopPreview();
+      return;
+    }
+
+    stopPreview();
+
+    if (!track.previewUrl) return;
+
+    const audio = new Audio(track.previewUrl);
+    audioRef.current = audio;
+    setPreviewingTrackId(track.id);
+    setPreviewProgress(0);
+
+    audio.play().catch(() => {
+      stopPreview();
+    });
+
+    progressIntervalRef.current = setInterval(() => {
+      if (audio.duration && audio.currentTime) {
+        setPreviewProgress((audio.currentTime / audio.duration) * 100);
+      }
+    }, 100);
+
+    audio.onended = () => {
+      stopPreview();
+    };
+  }, [previewingTrackId, stopPreview]);
+
+  useEffect(() => {
+    return () => stopPreview();
+  }, [stopPreview]);
+
+  useEffect(() => {
+    stopPreview();
+  }, [query, stopPreview]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -47,6 +105,7 @@ export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic 
     if (!allowExplicit && track.isExplicit) return;
     if (blockHolidayMusic && isHolidaySong(track)) return;
     if (queueTrackIds?.has(track.id)) return;
+    stopPreview();
     onSelect(track);
     setQuery("");
     clearResults();
@@ -76,6 +135,7 @@ export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic 
         {query && (
           <button
             onClick={() => {
+              stopPreview();
               setQuery("");
               clearResults();
             }}
@@ -97,26 +157,60 @@ export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic 
             <>
               <div className="flex-1 overflow-y-auto">
                 {results.map((track) => (
-                  <button
+                  <div
                     key={track.id}
                     onClick={() => handleSelect(track)}
-                    disabled={isTrackBlocked(track) || isInQueue(track)}
+                    role="button"
+                    tabIndex={isTrackBlocked(track) || isInQueue(track) ? -1 : 0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(track); } }}
                     className={cn(
-                      "w-full flex items-center gap-4 p-4 hover:bg-white/10 transition-colors text-left border-b border-white/10",
-                      (isTrackBlocked(track) || isInQueue(track)) && "opacity-50 cursor-not-allowed"
+                      "w-full flex items-center gap-4 p-4 hover:bg-white/10 transition-colors text-left border-b border-white/10 cursor-pointer",
+                      (isTrackBlocked(track) || isInQueue(track)) && "opacity-50 cursor-not-allowed pointer-events-none"
                     )}
                   >
-                    {track.albumCover ? (
-                      <img
-                        src={track.albumCover}
-                        alt={track.album}
-                        className="w-14 h-14 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <div className="w-14 h-14 rounded-lg bg-gray-700 flex items-center justify-center">
-                        <Music className="w-6 h-6 text-gray-500" />
-                      </div>
-                    )}
+                    <div className="relative w-14 h-14 flex-shrink-0 group/art">
+                      {track.albumCover ? (
+                        <img
+                          src={track.albumCover}
+                          alt={track.album}
+                          className="w-14 h-14 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-lg bg-gray-700 flex items-center justify-center">
+                          <Music className="w-6 h-6 text-gray-500" />
+                        </div>
+                      )}
+                      {track.previewUrl && !isTrackBlocked(track) && !isInQueue(track) && (
+                        <button
+                          type="button"
+                          onClick={(e) => togglePreview(track, e)}
+                          aria-label={previewingTrackId === track.id ? `Stop preview of ${track.title}` : `Preview ${track.title}`}
+                          className={cn(
+                            "absolute inset-0 rounded-lg flex items-center justify-center transition-opacity",
+                            previewingTrackId === track.id
+                              ? "bg-black/60 opacity-100"
+                              : "bg-black/50 opacity-0 group-hover/art:opacity-100 focus:opacity-100"
+                          )}
+                        >
+                          {previewingTrackId === track.id ? (
+                            <>
+                              <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 56 56">
+                                <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="2" />
+                                <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(129,140,248,0.9)" strokeWidth="2"
+                                  strokeDasharray={`${2 * Math.PI * 24}`}
+                                  strokeDashoffset={`${2 * Math.PI * 24 * (1 - previewProgress / 100)}`}
+                                  strokeLinecap="round"
+                                  className="transition-all duration-100"
+                                />
+                              </svg>
+                              <Pause className="w-5 h-5 text-white relative z-10" />
+                            </>
+                          ) : (
+                            <Play className="w-5 h-5 text-white fill-white" />
+                          )}
+                        </button>
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-white font-medium truncate">{track.title}</p>
@@ -132,7 +226,7 @@ export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic 
                     {isTrackBlocked(track) && (
                       <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />
                     )}
-                  </button>
+                  </div>
                 ))}
               </div>
               {hasMore && (

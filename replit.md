@@ -12,6 +12,7 @@ Jukboks is a standalone SaaS platform that enables businesses (bars, restaurants
 - **Kiosk Display Mode**: TV/display-friendly "Now Playing" screen with scheduled playback, animated song transitions, album art glow, and live listener count
 - **Listen Along**: Remote users with Apple Music can sync playback in real-time
 - **Venue Branding**: Organization primary color applied to party page buttons and accents via CSS custom properties
+- **Song Preview Playback**: Guests can tap album art in search results to hear a 30-second iTunes preview before requesting
 - **Duplicate Request Prevention**: Search results show "In Queue" badge for songs already queued, preventing duplicate requests
 - **Connection Status Indicator**: Offline/reconnecting banner on party pages when server connection drops
 - **Mobile Host Quick Actions**: Skip song, clear queue (with confirmation), and live listener count on host dashboard
