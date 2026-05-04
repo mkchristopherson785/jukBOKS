@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { X, Music, Disc, Calendar, Clock, ExternalLink, Play, Pause, Loader2, AlertCircle } from "lucide-react";
-import { fetchTrackDetails, type TrackDetails } from "../lib/api";
+import { X, Music, Disc, Calendar, Clock, ExternalLink, Play, Pause, Loader2, AlertCircle, Sparkles, ChevronLeft } from "lucide-react";
+import { fetchTrackDetails, fetchSimilarTracks, type TrackDetails, type TrackSummary } from "../lib/api";
 
 interface SongDetailsDialogProps {
   trackId: string | null;
@@ -40,8 +40,14 @@ export function SongDetailsDialog({ trackId, fallback, onClose }: SongDetailsDia
   const [error, setError] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [previewProgress, setPreviewProgress] = useState(0);
+  const [similar, setSimilar] = useState<TrackSummary[]>([]);
+  const [similarLoading, setSimilarLoading] = useState(false);
+  const [activeTrackId, setActiveTrackId] = useState<string | null>(null);
+  const [activeFallback, setActiveFallback] = useState<SongDetailsDialogProps["fallback"]>(undefined);
+  const [history, setHistory] = useState<Array<{ id: string; fallback: SongDetailsDialogProps["fallback"] }>>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const stopPreview = useCallback(() => {
     if (audioRef.current) {
@@ -57,13 +63,30 @@ export function SongDetailsDialog({ trackId, fallback, onClose }: SongDetailsDia
     setPreviewProgress(0);
   }, []);
 
+  // Sync prop -> active when the dialog (re)opens with a new trackId from outside.
   useEffect(() => {
-    if (!trackId) return;
+    if (trackId) {
+      setActiveTrackId(trackId);
+      setActiveFallback(fallback);
+      setHistory([]);
+    } else {
+      setActiveTrackId(null);
+      setActiveFallback(undefined);
+      setHistory([]);
+    }
+    // We intentionally don't depend on `fallback` to avoid re-resetting on every parent re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trackId]);
+
+  useEffect(() => {
+    if (!activeTrackId) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
     setDetails(null);
-    fetchTrackDetails(trackId)
+    setSimilar([]);
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    fetchTrackDetails(activeTrackId)
       .then((data) => {
         if (!cancelled) setDetails(data);
       })
@@ -73,10 +96,23 @@ export function SongDetailsDialog({ trackId, fallback, onClose }: SongDetailsDia
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
+    setSimilarLoading(true);
+    fetchSimilarTracks(activeTrackId, 8)
+      .then((items) => {
+        if (!cancelled) setSimilar(items);
+      })
+      .catch(() => {
+        if (!cancelled) setSimilar([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSimilarLoading(false);
+      });
+
     return () => {
       cancelled = true;
     };
-  }, [trackId]);
+  }, [activeTrackId]);
 
   useEffect(() => {
     return () => stopPreview();
@@ -98,14 +134,39 @@ export function SongDetailsDialog({ trackId, fallback, onClose }: SongDetailsDia
     };
   }, [trackId, onClose, stopPreview]);
 
-  if (!trackId) return null;
+  if (!trackId || !activeTrackId) return null;
 
-  const displayTitle = details?.title || fallback?.title || "Unknown Track";
-  const displayArtist = details?.artist || fallback?.artist || "Unknown Artist";
-  const displayAlbum = details?.album || fallback?.album;
-  const displayCover = details?.albumCover || fallback?.albumCover;
-  const displayExplicit = details?.isExplicit ?? fallback?.isExplicit ?? false;
-  const previewUrl = details?.previewUrl || fallback?.previewUrl;
+  const displayTitle = details?.title || activeFallback?.title || "Unknown Track";
+  const displayArtist = details?.artist || activeFallback?.artist || "Unknown Artist";
+  const displayAlbum = details?.album || activeFallback?.album;
+  const displayCover = details?.albumCover || activeFallback?.albumCover;
+  const displayExplicit = details?.isExplicit ?? activeFallback?.isExplicit ?? false;
+  const previewUrl = details?.previewUrl || activeFallback?.previewUrl;
+
+  const drillIntoSimilar = (track: TrackSummary) => {
+    stopPreview();
+    setHistory((h) => [...h, { id: activeTrackId, fallback: activeFallback }]);
+    setActiveFallback({
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      albumCover: track.albumCover,
+      isExplicit: track.isExplicit,
+      previewUrl: track.previewUrl,
+    });
+    setActiveTrackId(track.trackId);
+  };
+
+  const goBack = () => {
+    stopPreview();
+    setHistory((h) => {
+      if (h.length === 0) return h;
+      const prev = h[h.length - 1];
+      setActiveFallback(prev.fallback);
+      setActiveTrackId(prev.id);
+      return h.slice(0, -1);
+    });
+  };
 
   const togglePreview = () => {
     if (previewing) {
@@ -141,6 +202,7 @@ export function SongDetailsDialog({ trackId, fallback, onClose }: SongDetailsDia
       data-testid="song-details-overlay"
     >
       <div
+        ref={scrollRef}
         className="relative w-full max-w-md max-h-[90vh] overflow-y-auto bg-gradient-to-b from-gray-900 to-gray-950 border border-white/10 rounded-2xl shadow-2xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
@@ -148,6 +210,17 @@ export function SongDetailsDialog({ trackId, fallback, onClose }: SongDetailsDia
         aria-labelledby="song-details-title"
         data-testid="song-details-dialog"
       >
+        {history.length > 0 && (
+          <button
+            onClick={goBack}
+            className="absolute top-3 left-3 z-10 px-3 py-2 rounded-full bg-black/40 hover:bg-black/60 text-gray-300 hover:text-white transition-colors flex items-center gap-1 text-xs font-medium"
+            aria-label="Back to previous song"
+            data-testid="button-back-song-details"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Back
+          </button>
+        )}
         <button
           onClick={handleClose}
           className="absolute top-3 right-3 z-10 p-2 rounded-full bg-black/40 hover:bg-black/60 text-gray-300 hover:text-white transition-colors"
@@ -306,6 +379,60 @@ export function SongDetailsDialog({ trackId, fallback, onClose }: SongDetailsDia
               View on Apple Music
             </a>
           )}
+
+          <div className="pt-3 border-t border-white/5">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              <h3 className="text-sm font-semibold text-white">You might also like</h3>
+            </div>
+            {similarLoading ? (
+              <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Finding similar songs...
+              </div>
+            ) : similar.length === 0 ? (
+              <p className="text-xs text-gray-500 py-2">No similar songs found.</p>
+            ) : (
+              <ul className="space-y-1.5" data-testid="list-similar-songs">
+                {similar.map((track) => (
+                  <li key={track.trackId}>
+                    <button
+                      type="button"
+                      onClick={() => drillIntoSimilar(track)}
+                      className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 active:bg-white/10 transition-colors text-left"
+                      data-testid={`button-similar-${track.trackId}`}
+                    >
+                      {track.albumCover ? (
+                        <img
+                          src={track.albumCover}
+                          alt={track.album || track.title}
+                          className="w-10 h-10 rounded object-cover flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center flex-shrink-0">
+                          <Music className="w-5 h-5 text-gray-500" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm text-white truncate">{track.title}</p>
+                          {track.isExplicit && (
+                            <span className="inline-flex items-center justify-center w-3.5 h-3.5 bg-gray-700 text-[8px] font-bold rounded text-gray-300 flex-shrink-0">
+                              E
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400 truncate">
+                          {track.album || track.artist}
+                          {track.releaseYear ? ` · ${track.releaseYear}` : ""}
+                        </p>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           {details?.trackId && (
             <div className="pt-2 border-t border-white/5">

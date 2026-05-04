@@ -724,6 +724,7 @@ export interface TrackDetails {
   trackId: string;
   title: string;
   artist: string;
+  artistId?: number;
   album: string;
   albumCover: string;
   albumCoverLarge: string;
@@ -742,7 +743,32 @@ export interface TrackDetails {
   isStreamable?: boolean;
 }
 
+export interface TrackSummary {
+  trackId: string;
+  title: string;
+  artist: string;
+  album: string;
+  albumCover: string;
+  duration: number;
+  isExplicit: boolean;
+  previewUrl?: string;
+  genre?: string;
+  releaseYear?: number;
+}
+
 const trackDetailsCache = new Map<string, TrackDetails>();
+const similarTracksCache = new Map<string, TrackSummary[]>();
+const CLIENT_TRACK_CACHE_MAX = 200;
+
+function rememberInBoundedMap<V>(map: Map<string, V>, key: string, value: V) {
+  map.delete(key);
+  map.set(key, value);
+  while (map.size > CLIENT_TRACK_CACHE_MAX) {
+    const oldest = map.keys().next().value;
+    if (oldest === undefined) break;
+    map.delete(oldest);
+  }
+}
 
 export async function fetchTrackDetails(trackId: string): Promise<TrackDetails> {
   if (!trackId) throw new Error("trackId required");
@@ -754,6 +780,22 @@ export async function fetchTrackDetails(trackId: string): Promise<TrackDetails> 
     throw new Error(body?.message || `Failed to load track (${res.status})`);
   }
   const data = (await res.json()) as TrackDetails;
-  trackDetailsCache.set(trackId, data);
+  rememberInBoundedMap(trackDetailsCache, trackId, data);
   return data;
+}
+
+export async function fetchSimilarTracks(trackId: string, limit = 8): Promise<TrackSummary[]> {
+  if (!trackId) throw new Error("trackId required");
+  const key = `${trackId}:${limit}`;
+  const cached = similarTracksCache.get(key);
+  if (cached) return cached;
+  const res = await fetch(`${API_BASE}/api/v1/tracks/${encodeURIComponent(trackId)}/similar?limit=${limit}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.message || `Failed to load similar tracks (${res.status})`);
+  }
+  const data = await res.json();
+  const items = (data.items || []) as TrackSummary[];
+  rememberInBoundedMap(similarTracksCache, key, items);
+  return items;
 }

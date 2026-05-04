@@ -150,6 +150,43 @@ Returns rich metadata for any Apple Music track ID — used by the in-app "View 
 - `400 INVALID_TRACK_ID` — non-numeric track id
 - `404 TRACK_NOT_FOUND` — Apple Music has no record for this id
 - `502 UPSTREAM_ERROR` — Apple lookup unavailable
+- `504 UPSTREAM_TIMEOUT` — Apple lookup timed out (>5s)
+
+### Get Similar Songs ("You Might Also Like")
+```
+GET /api/v1/tracks/:trackId/similar?limit=8
+```
+
+Returns up to `limit` (1–25, default 8) songs related to the given track. Currently powered by "more songs by the same artist" via Apple's iTunes Lookup API — Apple does not expose a public "related songs" endpoint without user-token auth, so artist-based suggestions are the closest equivalent. Cached server-side for 24 hours.
+
+**Response:**
+```json
+{
+  "trackId": "1193701392",
+  "items": [
+    {
+      "trackId": "1440857781",
+      "title": "Perfect",
+      "artist": "Ed Sheeran",
+      "album": "÷ (Deluxe)",
+      "albumCover": "https://.../300x300.jpg",
+      "duration": 263400,
+      "isExplicit": false,
+      "previewUrl": "https://.../preview.m4a",
+      "genre": "Pop",
+      "releaseYear": 2017
+    }
+  ]
+}
+```
+
+Each item is a "track summary" — the same shape that other listings use (no rich `releaseDate`, `trackNumber`, etc.). Pass `item.trackId` back into `GET /api/v1/tracks/:trackId` to drill into full details, or directly into `POST /api/v1/venues/:code/request` to queue it.
+
+**Errors:**
+- `400 INVALID_TRACK_ID` — non-numeric track id
+- `404 TRACK_NOT_FOUND` — source track not in Apple Music
+- `404 ARTIST_NOT_FOUND` — track has no artist record (rare)
+- `502 UPSTREAM_ERROR` / `504 UPSTREAM_TIMEOUT` — Apple lookup failed
 
 ---
 

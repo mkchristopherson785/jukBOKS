@@ -146,6 +146,7 @@ function normalizeITunesTrack(item: any) {
     trackId: item.trackId.toString(),
     title: item.trackName || "",
     artist: item.artistName || "",
+    artistId: item.artistId,
     album: item.collectionName || "",
     albumCover,
     albumCoverLarge,
@@ -163,6 +164,43 @@ function normalizeITunesTrack(item: any) {
     country: item.country,
     isStreamable: item.isStreamable,
   };
+}
+
+function normalizeITunesTrackSummary(item: any) {
+  if (!item || !item.trackId) return null;
+  const artwork100: string | undefined = item.artworkUrl100;
+  return {
+    trackId: item.trackId.toString(),
+    title: item.trackName || "",
+    artist: item.artistName || "",
+    album: item.collectionName || "",
+    albumCover: artwork100 ? artwork100.replace("100x100", "300x300") : "",
+    duration: item.trackTimeMillis || 0,
+    isExplicit: item.trackExplicitness === "explicit",
+    previewUrl: item.previewUrl,
+    genre: item.primaryGenreName,
+    releaseYear: item.releaseDate ? new Date(item.releaseDate).getFullYear() : undefined,
+  };
+}
+
+const similarTracksCache = new Map<string, { data: any[]; expiresAt: number }>();
+const SIMILAR_TRACKS_TTL_MS = 24 * 60 * 60 * 1000;
+const SIMILAR_TRACKS_MAX_ENTRIES = 5000;
+
+function rememberSimilarTracks(key: string, data: any[]) {
+  const now = Date.now();
+  if (similarTracksCache.size >= SIMILAR_TRACKS_MAX_ENTRIES) {
+    for (const [k, v] of similarTracksCache) {
+      if (v.expiresAt <= now) similarTracksCache.delete(k);
+    }
+    while (similarTracksCache.size >= SIMILAR_TRACKS_MAX_ENTRIES) {
+      const oldest = similarTracksCache.keys().next().value;
+      if (oldest === undefined) break;
+      similarTracksCache.delete(oldest);
+    }
+  }
+  similarTracksCache.delete(key);
+  similarTracksCache.set(key, { data, expiresAt: now + SIMILAR_TRACKS_TTL_MS });
 }
 
 router.get("/api/v1/tracks/:trackId", async (req: Request, res: Response) => {
@@ -202,6 +240,94 @@ router.get("/api/v1/tracks/:trackId", async (req: Request, res: Response) => {
     }
     console.error("Track lookup error:", error);
     res.status(500).json({ error: "SERVER_ERROR", message: "Failed to look up track" });
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
+// Similar songs — returns more songs by the same artist for now (Apple Music
+// doesn't offer a public "related songs" endpoint without user-token auth).
+// Cached server-side for 24h. Public endpoint, mirrors /tracks/:trackId.
+router.get("/api/v1/tracks/:trackId/similar", async (req: Request, res: Response) => {
+  const trackId = String(req.params.trackId || "").trim();
+  if (!trackId || !/^\d+$/.test(trackId)) {
+    return res.status(400).json({ error: "INVALID_TRACK_ID", message: "Track ID must be a numeric Apple Music ID" });
+  }
+  const limit = Math.max(1, Math.min(parseInt(String(req.query.limit || "8"), 10) || 8, 25));
+  const cacheKey = `${trackId}:${limit}`;
+  const now = Date.now();
+  const cached = similarTracksCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return res.json({ trackId, items: cached.data });
+  }
+
+  // Look up the source track to find its artistId (use cache when possible).
+  const cachedTrack = trackDetailsServerCache.get(trackId);
+  let sourceTrack: any = cachedTrack && cachedTrack.expiresAt > now ? cachedTrack.data : null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TRACK_DETAILS_UPSTREAM_TIMEOUT_MS);
+  try {
+    if (!sourceTrack) {
+      const trackResp = await fetch(
+        `https://itunes.apple.com/lookup?id=${encodeURIComponent(trackId)}&entity=song`,
+        { signal: controller.signal },
+      );
+      if (!trackResp.ok) {
+        return res.status(502).json({ error: "UPSTREAM_ERROR", message: "Apple Music lookup failed" });
+      }
+      const trackData: any = await trackResp.json();
+      const songResult = (trackData.results || []).find((r: any) => r.kind === "song" || r.wrapperType === "track");
+      if (!songResult) {
+        return res.status(404).json({ error: "TRACK_NOT_FOUND", message: "Track not found in Apple Music" });
+      }
+      sourceTrack = normalizeITunesTrack(songResult);
+      if (sourceTrack) rememberTrackDetails(trackId, sourceTrack);
+    }
+
+    const artistId = sourceTrack?.artistId;
+    if (!artistId) {
+      return res.status(404).json({ error: "ARTIST_NOT_FOUND", message: "No artist information available for this track" });
+    }
+
+    // Pull up to ~50 of the artist's songs from iTunes, then trim/dedupe.
+    const upstreamLimit = Math.min(50, limit * 4 + 5);
+    const artistResp = await fetch(
+      `https://itunes.apple.com/lookup?id=${encodeURIComponent(String(artistId))}&entity=song&limit=${upstreamLimit}`,
+      { signal: controller.signal },
+    );
+    if (!artistResp.ok) {
+      return res.status(502).json({ error: "UPSTREAM_ERROR", message: "Apple Music artist lookup failed" });
+    }
+    const artistData: any = await artistResp.json();
+    const songs = (artistData.results || [])
+      .filter((r: any) => (r.kind === "song" || r.wrapperType === "track") && r.trackId && r.trackId.toString() !== trackId);
+
+    // Dedupe by trackId AND by normalized title (avoids the same song from
+    // multiple album editions, e.g. "Album" vs "Album (Deluxe Edition)").
+    const seenIds = new Set<string>();
+    const seenTitles = new Set<string>();
+    const items: any[] = [];
+    for (const song of songs) {
+      const id = song.trackId.toString();
+      if (seenIds.has(id)) continue;
+      const titleKey = (song.trackName || "").toLowerCase().trim().replace(/\s*\([^)]*\)\s*$/g, "");
+      if (titleKey && seenTitles.has(titleKey)) continue;
+      seenIds.add(id);
+      if (titleKey) seenTitles.add(titleKey);
+      const normalized = normalizeITunesTrackSummary(song);
+      if (normalized) items.push(normalized);
+      if (items.length >= limit) break;
+    }
+
+    rememberSimilarTracks(cacheKey, items);
+    res.json({ trackId, items });
+  } catch (error: any) {
+    if (error?.name === "AbortError") {
+      return res.status(504).json({ error: "UPSTREAM_TIMEOUT", message: "Apple Music lookup timed out" });
+    }
+    console.error("Similar tracks error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Failed to look up similar tracks" });
   } finally {
     clearTimeout(timeout);
   }
