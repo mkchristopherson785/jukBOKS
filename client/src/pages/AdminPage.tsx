@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Music2, LogOut, MapPin, Users, Palette, Settings, Shield, ListMusic } from "lucide-react";
+import { Music2, LogOut, MapPin, Users, Palette, Settings, Shield, ListMusic, BarChart3 } from "lucide-react";
 import { fetchMyVenues, fetchTeam, checkSuperAdmin } from "../lib/api";
 import { useAuth } from "../hooks/use-auth";
 
@@ -72,6 +72,12 @@ export default function AdminPage() {
       title: "Branding",
       description: "Customize your organization name, logo, and colors",
     }] : []),
+    {
+      href: "/admin/analytics",
+      icon: BarChart3,
+      title: "Analytics",
+      description: "View play stats, top songs, popular artists, and peak hours",
+    },
     {
       href: "/admin/settings",
       icon: Settings,

@@ -638,6 +638,14 @@ export async function superAdminDeleteOrganization(orgId: number) {
   return res.json();
 }
 
+export async function fetchVenueAnalytics(venueId: number, days: number = 30) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/analytics?days=${days}`, {
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to fetch analytics");
+  return res.json();
+}
+
 export async function superAdminGetVenueGuests(venueId: number) {
   const res = await fetch(`${API_BASE}/api/super-admin/venues/${venueId}/guests`, {
     credentials: "include",

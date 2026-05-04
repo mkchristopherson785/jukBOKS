@@ -583,6 +583,84 @@ export class DatabaseStorage implements IStorage {
   async getPlayHistory(venueId: number, limit: number = 50): Promise<Request[]> {
     return db.select().from(requests).where(and(eq(requests.venueId, venueId), eq(requests.status, "played"))).orderBy(desc(requests.playedAt)).limit(limit);
   }
+
+  async getVenueAnalytics(venueId: number, days: number = 30): Promise<{
+    totalPlayed: number;
+    totalRequests: number;
+    uniqueGuests: number;
+    topSongs: { trackId: string; title: string; artist: string; albumCover: string | null; count: number }[];
+    topArtists: { artist: string; count: number }[];
+    peakHours: { hour: number; count: number }[];
+    dailyPlays: { date: string; count: number }[];
+  }> {
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    const [totalPlayedResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(requests)
+      .where(and(eq(requests.venueId, venueId), eq(requests.status, "played"), gte(requests.playedAt, since)));
+    const totalPlayed = totalPlayedResult?.count || 0;
+
+    const [totalRequestsResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(requests)
+      .where(and(eq(requests.venueId, venueId), eq(requests.isAutoPlay, false), gte(requests.requestedAt, since)));
+    const totalRequests = totalRequestsResult?.count || 0;
+
+    const [uniqueGuestsResult] = await db
+      .select({ count: sql<number>`count(distinct ${requests.requestedByGuestId})::int` })
+      .from(requests)
+      .where(and(eq(requests.venueId, venueId), gte(requests.requestedAt, since)));
+    const uniqueGuests = uniqueGuestsResult?.count || 0;
+
+    const topSongs = await db
+      .select({
+        trackId: requests.trackId,
+        title: requests.title,
+        artist: requests.artist,
+        albumCover: requests.albumCover,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(requests)
+      .where(and(eq(requests.venueId, venueId), eq(requests.status, "played"), gte(requests.playedAt, since)))
+      .groupBy(requests.trackId, requests.title, requests.artist, requests.albumCover)
+      .orderBy(sql`count(*) DESC`)
+      .limit(10);
+
+    const topArtists = await db
+      .select({
+        artist: requests.artist,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(requests)
+      .where(and(eq(requests.venueId, venueId), eq(requests.status, "played"), gte(requests.playedAt, since)))
+      .groupBy(requests.artist)
+      .orderBy(sql`count(*) DESC`)
+      .limit(10);
+
+    const peakHours = await db
+      .select({
+        hour: sql<number>`extract(hour from ${requests.playedAt})::int`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(requests)
+      .where(and(eq(requests.venueId, venueId), eq(requests.status, "played"), gte(requests.playedAt, since)))
+      .groupBy(sql`extract(hour from ${requests.playedAt})`)
+      .orderBy(sql`extract(hour from ${requests.playedAt})`);
+
+    const dailyPlays = await db
+      .select({
+        date: sql<string>`to_char(${requests.playedAt}, 'YYYY-MM-DD')`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(requests)
+      .where(and(eq(requests.venueId, venueId), eq(requests.status, "played"), gte(requests.playedAt, since)))
+      .groupBy(sql`to_char(${requests.playedAt}, 'YYYY-MM-DD')`)
+      .orderBy(sql`to_char(${requests.playedAt}, 'YYYY-MM-DD')`);
+
+    return { totalPlayed, totalRequests, uniqueGuests, topSongs, topArtists, peakHours, dailyPlays };
+  }
 }
 
 export const storage = new DatabaseStorage();

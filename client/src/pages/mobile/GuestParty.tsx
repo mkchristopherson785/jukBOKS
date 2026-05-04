@@ -5,6 +5,7 @@ import { fetchParty, joinParty, submitRequest, submitVote, registerListener, unr
 import { SongSearch } from "../../components/SongSearch";
 import { ConnectionStatus } from "../../components/ConnectionStatus";
 import { useMusicKit } from "../../hooks/useMusicKit";
+import { useGuestFavorites } from "../../hooks/useGuestFavorites";
 import type { Track } from "../../hooks/useAppleMusic";
 
 type GuestTab = "playing" | "search" | "queue";
@@ -24,6 +25,7 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
   const [userVotes, setUserVotes] = useState<Map<number, "up" | "down">>(new Map());
   const [isListening, setIsListening] = useState(false);
   const [listeningTrackId, setListeningTrackId] = useState<string | null>(null);
+  const { favorites, addFavorite } = useGuestFavorites(venueCode);
   
   const { isAuthorized, isPlaying, authorize, playSong, stop } = useMusicKit();
 
@@ -102,10 +104,11 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
         isExplicit: track.isExplicit,
         previewUrl: track.previewUrl,
       }, guestToken || undefined),
-    onSuccess: () => {
+    onSuccess: (_data: any, track: Track) => {
       queryClient.invalidateQueries({ queryKey: ["party", venueCode] });
       setActiveTab("queue");
       setRequestError(null);
+      addFavorite(track);
     },
     onError: (error: Error) => {
       setRequestError(error.message || "Failed to add song. Please try again.");
@@ -174,6 +177,10 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
   const partyQueue = party?.queue;
   const queue = Array.isArray(partyQueue) ? partyQueue : (partyQueue?.items || []);
   const brandColor = party?.branding?.primaryColor || "#6366f1";
+  const queueTrackIds = new Set([
+    ...queue.map((item: any) => item.trackId),
+    ...(nowPlaying?.trackId ? [nowPlaying.trackId] : []),
+  ]);
 
   return (
     <div className="flex flex-col h-screen bg-transparent" style={{ "--brand-color": brandColor } as React.CSSProperties}>
@@ -317,14 +324,58 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
               onSelect={(track) => requestMutation.mutate(track)}
               allowExplicit={party?.venue?.allowExplicit || false}
               blockHolidayMusic={party?.venue?.blockHolidayMusic || false}
-              queueTrackIds={new Set([
-                ...queue.map((item: any) => item.trackId),
-                ...(nowPlaying?.trackId ? [nowPlaying.trackId] : []),
-              ])}
+              queueTrackIds={queueTrackIds}
             />
             {requestError && (
               <div className="mt-3 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-sm">
                 {requestError}
+              </div>
+            )}
+
+            {favorites.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Your Favorites</h3>
+                <div className="space-y-2">
+                  {favorites.slice(0, 8).map((song) => {
+                    const inQueue = queueTrackIds.has(song.trackId);
+                    return (
+                      <div key={song.trackId} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
+                        {song.albumCover ? (
+                          <img src={song.albumCover} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                            <Music2 className="w-5 h-5 text-gray-500" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-medium truncate text-sm">{song.title}</p>
+                          <p className="text-gray-400 text-xs truncate">{song.artist}</p>
+                        </div>
+                        {inQueue ? (
+                          <span className="text-xs text-indigo-400 font-medium px-2 py-1 bg-indigo-500/10 rounded-lg">In Queue</span>
+                        ) : (
+                          <button
+                            onClick={() => requestMutation.mutate({
+                              id: song.trackId,
+                              title: song.title,
+                              artist: song.artist,
+                              album: song.album,
+                              albumCover: song.albumCover,
+                              previewUrl: song.previewUrl,
+                              duration: song.duration,
+                              isExplicit: song.isExplicit,
+                            } as Track)}
+                            disabled={requestMutation.isPending}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors text-white hover:opacity-90"
+                            style={{ background: `linear-gradient(to right, var(--brand-color), color-mix(in srgb, var(--brand-color) 70%, #7c3aed))` }}
+                          >
+                            Request
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>

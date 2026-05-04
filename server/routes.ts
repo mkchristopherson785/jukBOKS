@@ -3176,4 +3176,34 @@ router.delete("/api/super-admin/venues/:venueId", isAuthenticated, async (req: a
   }
 });
 
+router.get("/api/me/venues/:id/analytics", isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const venueId = parseInt(req.params.id);
+    const venue = await storage.getVenue(venueId);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const org = await storage.getOrganization(venue.organizationId);
+    if (!org || org.ownerId !== userId) {
+      const members = await storage.getOrganizationMembers(org?.id || 0);
+      const isMember = members.some((m: any) => m.authUserId === userId);
+      if (!isMember) {
+        return res.status(403).json({ error: "FORBIDDEN", message: "Not authorized" });
+      }
+    }
+
+    const parsedDays = parseInt(req.query.days as string);
+    const days = Number.isFinite(parsedDays) && parsedDays >= 1 ? Math.min(parsedDays, 365) : 30;
+    const analytics = await storage.getVenueAnalytics(venueId, days);
+    res.json(analytics);
+  } catch (error) {
+    console.error("Get venue analytics error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
 export default router;

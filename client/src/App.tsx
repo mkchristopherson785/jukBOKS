@@ -11,6 +11,7 @@ import TeamPage from "./pages/TeamPage";
 import BrandingPage from "./pages/BrandingPage";
 import SettingsPage from "./pages/SettingsPage";
 import SuperAdminPage from "./pages/SuperAdminPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
 import MobileApp from "./pages/mobile/MobileApp";
 
 function App() {
@@ -46,6 +47,7 @@ function App() {
         <Route path="/admin/team" component={TeamPage} />
         <Route path="/admin/branding" component={BrandingPage} />
         <Route path="/admin/settings" component={SettingsPage} />
+        <Route path="/admin/analytics" component={AnalyticsPage} />
         <Route path="/super-admin" component={SuperAdminPage} />
         <Route>
           <div className="min-h-screen flex items-center justify-center text-white">

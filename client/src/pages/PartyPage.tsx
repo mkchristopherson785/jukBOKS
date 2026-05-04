@@ -13,6 +13,7 @@ import { QueueList } from "../components/QueueList";
 import { NowPlaying } from "../components/NowPlaying";
 import { ConnectionStatus } from "../components/ConnectionStatus";
 import { useMusicKit } from "../hooks/useMusicKit";
+import { useGuestFavorites } from "../hooks/useGuestFavorites";
 import type { Track } from "../hooks/useAppleMusic";
 
 export default function PartyPage() {
@@ -25,6 +26,7 @@ export default function PartyPage() {
   const [userVotes, setUserVotes] = useState<Map<number, "up" | "down">>(new Map());
   const [isListening, setIsListening] = useState(false);
   const [listeningTrackId, setListeningTrackId] = useState<string | null>(null);
+  const { favorites, addFavorite } = useGuestFavorites(code);
   
   const { 
     isConfigured, 
@@ -154,9 +156,10 @@ export default function PartyPage() {
         },
         guestToken || undefined
       ),
-    onSuccess: () => {
+    onSuccess: (_data: any, track: Track) => {
       queryClient.invalidateQueries({ queryKey: ["party", code] });
       setRequestError(null);
+      addFavorite(track);
     },
     onError: (error: Error) => {
       setRequestError(error.message || "Failed to add song. Please try again.");
@@ -240,6 +243,10 @@ export default function PartyPage() {
   }
 
   const brandColor = party?.branding?.primaryColor || "#6366f1";
+  const queueTrackIds = new Set([
+    ...(party.queue || []).map((item: any) => item.trackId),
+    ...(party.nowPlaying?.trackId ? [party.nowPlaying.trackId] : []),
+  ]);
 
   return (
     <div className="min-h-screen pb-8 bg-transparent" style={{ "--brand-color": brandColor, "--brand-color-rgb": hexToRgb(brandColor) } as React.CSSProperties}>
@@ -316,10 +323,7 @@ export default function PartyPage() {
             onSelect={(track) => requestMutation.mutate(track)}
             allowExplicit={party.venue?.allowExplicit || false}
             blockHolidayMusic={party.venue?.blockHolidayMusic || false}
-            queueTrackIds={new Set([
-              ...(party.queue || []).map((item: any) => item.trackId),
-              ...(party.nowPlaying?.trackId ? [party.nowPlaying.trackId] : []),
-            ])}
+            queueTrackIds={queueTrackIds}
           />
           {requestError && (
             <div className="mt-3 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-sm">
@@ -327,6 +331,53 @@ export default function PartyPage() {
             </div>
           )}
         </div>
+
+        {favorites.length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-white mb-4">Your Favorites</h2>
+            <div className="space-y-2">
+              {favorites.slice(0, 8).map((song) => {
+                const inQueue = queueTrackIds.has(song.trackId);
+                return (
+                  <div key={song.trackId} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/10">
+                    {song.albumCover ? (
+                      <img src={song.albumCover} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                        <Music2 className="w-5 h-5 text-gray-500" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium truncate text-sm">{song.title}</p>
+                      <p className="text-gray-400 text-xs truncate">{song.artist}</p>
+                    </div>
+                    {inQueue ? (
+                      <span className="text-xs text-indigo-400 font-medium px-2 py-1 bg-indigo-500/10 rounded-lg">In Queue</span>
+                    ) : (
+                      <button
+                        onClick={() => requestMutation.mutate({
+                          id: song.trackId,
+                          title: song.title,
+                          artist: song.artist,
+                          album: song.album,
+                          albumCover: song.albumCover,
+                          previewUrl: song.previewUrl,
+                          duration: song.duration,
+                          isExplicit: song.isExplicit,
+                        } as Track)}
+                        disabled={requestMutation.isPending}
+                        className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors text-white hover:opacity-90"
+                        style={{ background: `linear-gradient(to right, var(--brand-color), color-mix(in srgb, var(--brand-color) 70%, #7c3aed))` }}
+                      >
+                        Request
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div>
           <h2 className="text-lg font-semibold text-white mb-4">Up Next</h2>
