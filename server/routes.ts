@@ -1364,6 +1364,51 @@ router.post("/api/v1/venues/:code/announce", async (req: Request, res: Response)
   }
 });
 
+router.post("/api/me/venues/:code/test-announce", isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const org = await storage.getOrganization(venue.organizationId);
+    if (!org || org.ownerId !== userId) {
+      const members = await storage.getOrganizationMembers(org?.id || 0);
+      const isMember = members.some((m: any) => m.authUserId === userId);
+      if (!isMember) {
+        return res.status(403).json({ error: "FORBIDDEN", message: "Not authorized for this venue" });
+      }
+    }
+
+    const { message, audioUrl } = req.body || {};
+    const finalMessage = (message && typeof message === "string" && message.trim())
+      ? message.trim().slice(0, 500)
+      : "This is a test announcement from Jukboks. If you can hear this, your kiosk is connected and ready to receive urgent alerts.";
+
+    if (audioUrl && (typeof audioUrl !== "string" || !audioUrl.startsWith("https://") || audioUrl.length > 2000)) {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "'audioUrl' must be an HTTPS URL (max 2000 chars)" });
+    }
+
+    await storage.updateVenue(venue.id, {
+      urgentAnnouncementText: audioUrl ? null : finalMessage,
+      urgentAnnouncementAudioUrl: audioUrl || null,
+      urgentAnnouncementTriggeredAt: new Date(),
+    });
+
+    res.json({
+      success: true,
+      message: "Test announcement triggered. It will play immediately on the kiosk (interrupting current song).",
+      preview: audioUrl ? `Audio URL: ${audioUrl}` : finalMessage,
+    });
+  } catch (error) {
+    console.error("Test announcement error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
 router.delete("/api/v1/venues/:code/announce", async (req: Request, res: Response) => {
   try {
     const apiKey = req.headers["x-jukboks-api-key"] as string;

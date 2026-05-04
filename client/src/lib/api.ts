@@ -653,6 +653,23 @@ export async function generateApiKey(): Promise<{ apiKey: string }> {
   return res.json();
 }
 
+export async function triggerTestAnnouncement(
+  venueCode: string,
+  payload: { message?: string; audioUrl?: string }
+): Promise<{ success: boolean; message: string; preview: string }> {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueCode}/test-announce`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: "Failed to send test announcement" }));
+    throw new Error(err.message || "Failed to send test announcement");
+  }
+  return res.json();
+}
+
 export async function fetchVenueAnalytics(venueId: number, days: number = 30) {
   const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/analytics?days=${days}`, {
     credentials: "include",

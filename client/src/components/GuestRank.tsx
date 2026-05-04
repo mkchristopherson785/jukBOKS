@@ -1,5 +1,5 @@
-import { getGuestRank, getNextRank } from "@shared/ranks";
-export { getGuestRank } from "@shared/ranks";
+import { getGuestRank, getNextRank } from "../../../shared/ranks";
+export { getGuestRank } from "../../../shared/ranks";
 
 function HatIcon({ hat, size = 14 }: { hat: string; size?: number }) {
   const s = size;

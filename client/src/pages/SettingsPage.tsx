@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Settings, LogOut, Plus, Trash2, ListMusic, Volume2, Upload, Speaker, Shield, ArrowLeft, Search, User, Clock, Key, Copy, RefreshCw, Check, Code } from "lucide-react";
-import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, updateBackupPlaylistWeight, fetchAnnouncementGroups, createAnnouncementGroup, updateAnnouncementGroup, deleteAnnouncementGroup, addAnnouncementToGroup, deleteAnnouncement, updateAnnouncement, checkSuperAdmin, searchPlaylists, addBackupPlaylistById, fetchKioskStatus, fetchApiKey, generateApiKey, type AnnouncementGroup, type Announcement } from "../lib/api";
+import { Music2, Settings, LogOut, Plus, Trash2, ListMusic, Volume2, Upload, Speaker, Shield, ArrowLeft, Search, User, Clock, Key, Copy, RefreshCw, Check, Code, AlertTriangle, Send } from "lucide-react";
+import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, updateBackupPlaylistWeight, fetchAnnouncementGroups, createAnnouncementGroup, updateAnnouncementGroup, deleteAnnouncementGroup, addAnnouncementToGroup, deleteAnnouncement, updateAnnouncement, checkSuperAdmin, searchPlaylists, addBackupPlaylistById, fetchKioskStatus, fetchApiKey, generateApiKey, triggerTestAnnouncement, type AnnouncementGroup, type Announcement } from "../lib/api";
 import { useUpload } from "../hooks/use-upload";
 import { useAuth } from "../hooks/use-auth";
 import { useMusicKit } from "../hooks/useMusicKit";
@@ -37,6 +37,21 @@ export default function SettingsPage() {
   const [newGroupPlayMode, setNewGroupPlayMode] = useState("sequential");
   const [apiKeyCopied, setApiKeyCopied] = useState(false);
   const [newlyGeneratedKey, setNewlyGeneratedKey] = useState<string | null>(null);
+  const [testAnnounceMessage, setTestAnnounceMessage] = useState("This is a test announcement from Jukboks. If you can hear this, your kiosk is ready for urgent alerts.");
+  const [testAnnounceResult, setTestAnnounceResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const testAnnounceMutation = useMutation({
+    mutationFn: ({ code, message }: { code: string; message: string }) =>
+      triggerTestAnnouncement(code, { message }),
+    onSuccess: (data) => {
+      setTestAnnounceResult({ ok: true, text: data.message });
+      setTimeout(() => setTestAnnounceResult(null), 8000);
+    },
+    onError: (err: Error) => {
+      setTestAnnounceResult({ ok: false, text: err.message });
+      setTimeout(() => setTestAnnounceResult(null), 8000);
+    },
+  });
 
   const { data: apiKeyData, refetch: refetchApiKey } = useQuery({
     queryKey: ["apiKey"],
@@ -944,6 +959,57 @@ export default function SettingsPage() {
                   <p className="font-mono text-gray-400">POST /api/v1/venues/:code/vote - Vote on song</p>
                   <p className="font-mono text-gray-400">POST /api/v1/venues/:code/announce - Trigger announcement</p>
                 </div>
+              </div>
+
+              <div className="mt-4 p-4 bg-amber-500/5 border border-amber-500/20 rounded-lg">
+                <h4 className="text-sm font-bold text-white mb-1 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  Test Urgent Announcement
+                </h4>
+                <p className="text-gray-400 text-xs mb-3">
+                  Sends a test alert to <span className="font-mono text-amber-300">{selectedVenueCode || "(no venue)"}</span>. The kiosk will interrupt the current song and read this message aloud (twice).
+                </p>
+                <textarea
+                  value={testAnnounceMessage}
+                  onChange={(e) => setTestAnnounceMessage(e.target.value.slice(0, 500))}
+                  rows={3}
+                  className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-amber-500/50 resize-none"
+                  placeholder="Enter announcement text..."
+                  data-testid="input-test-announcement"
+                />
+                <div className="flex items-center justify-between mt-2">
+                  <span className="text-[10px] text-gray-500">{testAnnounceMessage.length}/500</span>
+                  <button
+                    onClick={() => {
+                      if (!selectedVenueCode || !testAnnounceMessage.trim()) return;
+                      testAnnounceMutation.mutate({ code: selectedVenueCode, message: testAnnounceMessage });
+                    }}
+                    disabled={!selectedVenueCode || !testAnnounceMessage.trim() || testAnnounceMutation.isPending}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    data-testid="button-send-test-announcement"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    {testAnnounceMutation.isPending ? "Sending..." : "Send Test Alert"}
+                  </button>
+                </div>
+                {testAnnounceResult && (
+                  <div
+                    className={`mt-3 p-2.5 rounded-lg text-xs ${
+                      testAnnounceResult.ok
+                        ? "bg-green-500/10 border border-green-500/20 text-green-300"
+                        : "bg-red-500/10 border border-red-500/20 text-red-300"
+                    }`}
+                    data-testid="text-test-announcement-result"
+                  >
+                    {testAnnounceResult.text}
+                  </div>
+                )}
+                <p className="text-[10px] text-gray-500 mt-2">
+                  External integrations (e.g. weather services, LivHOA) trigger the same alert via:
+                </p>
+                <code className="block mt-1 text-[10px] text-amber-300/80 font-mono break-all">
+                  POST /api/v1/venues/{selectedVenueCode || ":code"}/announce
+                </code>
               </div>
             </div>
             </div>
