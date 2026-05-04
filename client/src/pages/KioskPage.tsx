@@ -144,10 +144,14 @@ export default function KioskPage() {
       setScheduleStatus(status);
 
       if (venue.kioskScheduleEnabled && !manualOverride) {
-        if (status.isActive && !isStarted && !isSchedulePaused) {
-          setIsStarted(true);
-        } else if (!status.isActive && isStarted) {
-          setIsSchedulePaused(true);
+        if (status.isActive) {
+          setIsStarted(prev => prev ? prev : true);
+          setIsSchedulePaused(false);
+        } else {
+          setIsStarted(prev => {
+            if (prev) setIsSchedulePaused(true);
+            return prev;
+          });
         }
       }
 
@@ -159,7 +163,7 @@ export default function KioskPage() {
     checkSchedule();
     const interval = setInterval(checkSchedule, 30000);
     return () => clearInterval(interval);
-  }, [venue, isStarted, isSchedulePaused, manualOverride]);
+  }, [venue, manualOverride]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

@@ -124,6 +124,17 @@ export default function HostApp({ onSwitchRole }: HostAppProps) {
       <div className="flex-1 overflow-y-auto p-4 pb-24">
         {activeTab === "venues" && selectedVenue && (
           <div className="space-y-4">
+            {kioskStatus?.offlineDuringSchedule && (
+              <div className="bg-red-500/20 border border-red-500/40 rounded-xl p-3 animate-pulse">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <p className="text-red-400 text-sm font-semibold">Kiosk Offline</p>
+                </div>
+                <p className="text-red-300/80 text-xs">
+                  Your kiosk should be running now but isn't responding. Check the device.
+                </p>
+              </div>
+            )}
             <div className="bg-white/5 rounded-xl p-4 border border-white/10">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-lg font-bold text-white">{selectedVenue.name}</h2>

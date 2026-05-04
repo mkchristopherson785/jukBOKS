@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import { SignJWT, importPKCS8 } from "jose";
 import { storage } from "./storage";
 import type { InsertRequest, InsertVote } from "../shared/schema";
+import { isVenueWithinSchedule } from "./schedule-utils";
 import { isAuthenticated } from "./replit_integrations/auth";
 
 const router = Router();
@@ -465,7 +466,10 @@ router.get("/api/v1/venues/:code/kiosk-status", async (req: Request, res: Respon
 
     const heartbeat = venue.kioskLockHeartbeat;
     const now = new Date();
-    const isOnline = heartbeat && (now.getTime() - heartbeat.getTime()) < 60000; // Online if heartbeat within last 60 seconds
+    const isOnline = heartbeat && (now.getTime() - heartbeat.getTime()) < 60000;
+
+    const withinSchedule = isVenueWithinSchedule(venue);
+    const offlineDuringSchedule = withinSchedule && !isOnline;
 
     res.json({
       isOnline,
@@ -476,7 +480,8 @@ router.get("/api/v1/venues/:code/kiosk-status", async (req: Request, res: Respon
       kioskStartTime: venue.kioskStartTime,
       kioskEndTime: venue.kioskEndTime,
       kioskScheduleDays: venue.kioskScheduleDays,
-      kioskAlertEmail: venue.kioskAlertEmail,
+      isWithinSchedule: withinSchedule,
+      offlineDuringSchedule,
     });
   } catch (error) {
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });

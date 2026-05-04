@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 import { setupAuth, registerAuthRoutes } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { startKioskMonitor } from "./kiosk-monitor";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.env.NODE_ENV === "production";
@@ -73,6 +74,7 @@ async function createServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Jukboks server running on http://0.0.0.0:${PORT}`);
+    startKioskMonitor();
   });
 }
 

@@ -537,7 +537,28 @@ export default function SettingsPage() {
                       />
                       <p className="text-gray-500 text-xs mt-1">Get notified if kiosk goes offline during scheduled hours</p>
                     </div>
-                    <div className="p-3 bg-white/5 rounded-lg">
+                    {kioskStatus?.offlineDuringSchedule && (
+                      <div className="p-3 bg-red-500/20 border border-red-500/40 rounded-lg animate-pulse">
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="w-2 h-2 rounded-full bg-red-500" />
+                          <p className="text-red-400 text-sm font-semibold">Kiosk Offline During Scheduled Hours</p>
+                        </div>
+                        <p className="text-red-300/80 text-xs">
+                          Your kiosk should be running right now but isn't responding. Check the device's power and internet connection.
+                        </p>
+                        {kioskStatus?.lastHeartbeat && (
+                          <p className="text-red-300/60 text-xs mt-1">
+                            Last seen: {new Date(kioskStatus.lastHeartbeat).toLocaleString()}
+                          </p>
+                        )}
+                        {selectedVenue.kioskAlertEmail && kioskStatus?.offlineDuringSchedule && (
+                          <p className="text-red-300/60 text-xs mt-0.5">
+                            Alert will be sent to {selectedVenue.kioskAlertEmail}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    <div className={`p-3 rounded-lg ${kioskStatus?.offlineDuringSchedule ? 'bg-red-500/10 border border-red-500/20' : 'bg-white/5'}`}>
                       <div className="flex items-center gap-3">
                         <div className={`w-3 h-3 rounded-full flex-shrink-0 ${
                           kioskStatus?.isOnline 
@@ -566,6 +587,11 @@ export default function SettingsPage() {
                           {kioskStatus?.lastHeartbeat && (
                             <p className="text-gray-500 text-xs">
                               Last seen: {new Date(kioskStatus.lastHeartbeat).toLocaleTimeString()}
+                            </p>
+                          )}
+                          {kioskStatus?.isWithinSchedule && !kioskStatus?.isOnline && (
+                            <p className="text-red-400 text-xs mt-0.5">
+                              Should be active now ({kioskStatus?.kioskStartTime} - {kioskStatus?.kioskEndTime})
                             </p>
                           )}
                         </div>
