@@ -1182,7 +1182,10 @@ router.get("/api/v1/party/:partyCode", async (req: Request, res: Response) => {
         title: venue.currentlyPlayingTitle,
         artist: venue.currentlyPlayingArtist,
         albumCover: venue.currentlyPlayingAlbumCover,
+        startedAt: venue.currentlyPlayingStartedAt?.toISOString() || null,
+        duration: venue.currentlyPlayingDuration ?? null,
       },
+      serverNow: new Date().toISOString(),
       guestRankings,
       queue: queue.map(item => ({
         id: item.id,

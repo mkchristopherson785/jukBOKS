@@ -28,6 +28,14 @@ The system is built with a multi-tenant architecture:
 -   **Kiosk Display Mode**: TV-friendly "Now Playing" screen with scheduled playback, animated transitions, and live listener count.
 -   **Venue Branding**: Custom CSS properties allow organizations to apply their primary color to party page elements.
 
+### Listen Along — Time Sync
+Guests on the party page can tap "Listen Along" to stream the venue's current song through their own Apple Music subscription. Playback now starts at the **venue's current playback position**, not from the start of the song. Implementation:
+- Server `/api/v1/party/:partyCode` returns `nowPlaying.startedAt` (ISO), `nowPlaying.duration` (ms), and a top-level `serverNow` (ISO) so the client can cancel out clock skew.
+- The party query stamps `__receivedAtMs` on each fetch.
+- `getVenuePositionMs()` = `(serverNow - startedAt) + (Date.now() - __receivedAtMs)`, clamped to song length.
+- `useMusicKit.playSong(trackId, { startPositionMs })` calls `seekToTime(startPositionMs / 1000)` after `play()` (only if > 1.5s).
+- A 15-second drift check compares `getCurrentPlaybackTimeMs()` against `getVenuePositionMs()` and re-seeks when drift > 2s.
+
 ### Core Features
 -   **Unified Queue**: Blends user requests with auto-play songs from backup playlists.
 -   **QR Code Access**: Guests join parties and request songs without account creation.

@@ -87,7 +87,7 @@ export function useMusicKit() {
     }
   }, []);
 
-  const playSong = useCallback(async (trackId: string) => {
+  const playSong = useCallback(async (trackId: string, options?: { startPositionMs?: number }) => {
     if (!musicKitRef.current) {
       console.error("MusicKit not configured");
       return false;
@@ -98,6 +98,16 @@ export function useMusicKit() {
         song: trackId,
       });
       await musicKitRef.current.play();
+      // Seek to the venue's current playback position so listen-along is
+      // synchronized to the second instead of restarting the song.
+      const startMs = options?.startPositionMs;
+      if (typeof startMs === "number" && startMs > 1500) {
+        try {
+          await musicKitRef.current.seekToTime(startMs / 1000);
+        } catch (seekErr) {
+          console.warn("seekToTime failed:", seekErr);
+        }
+      }
       setState(prev => ({ ...prev, currentTrackId: trackId, isPlaying: true, error: null }));
       return true;
     } catch (error: any) {
@@ -105,6 +115,23 @@ export function useMusicKit() {
       setState(prev => ({ ...prev, error: `Playback failed: ${error.message}` }));
       return false;
     }
+  }, []);
+
+  const seekToTime = useCallback(async (positionMs: number) => {
+    if (!musicKitRef.current) return false;
+    try {
+      await musicKitRef.current.seekToTime(Math.max(0, positionMs) / 1000);
+      return true;
+    } catch (error) {
+      console.warn("seekToTime failed:", error);
+      return false;
+    }
+  }, []);
+
+  const getCurrentPlaybackTimeMs = useCallback((): number | null => {
+    if (!musicKitRef.current) return null;
+    const t = musicKitRef.current.currentPlaybackTime;
+    return typeof t === "number" ? t * 1000 : null;
   }, []);
 
   const pause = useCallback(async () => {
@@ -175,5 +202,7 @@ export function useMusicKit() {
     stop,
     skipToNext,
     onPlaybackEnded,
+    seekToTime,
+    getCurrentPlaybackTimeMs,
   };
 }

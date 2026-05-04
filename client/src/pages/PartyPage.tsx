@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, Radio, Pause, AlertCircle } from "lucide-react";
@@ -38,6 +38,8 @@ export default function PartyPage() {
     authorize, 
     playSong, 
     stop,
+    seekToTime,
+    getCurrentPlaybackTimeMs,
     error: musicKitError 
   } = useMusicKit();
 
@@ -55,9 +57,42 @@ export default function PartyPage() {
 
   const { data: party, isLoading, error } = useQuery({
     queryKey: ["party", code],
-    queryFn: () => fetchParty(code!),
+    queryFn: async () => {
+      const data = await fetchParty(code!);
+      // Stamp the moment we received the response so we can compute drift
+      // accurately later without trusting only the polling interval.
+      return { ...data, __receivedAtMs: Date.now() };
+    },
     enabled: !!code && !showJoinForm,
     refetchInterval: 5000,
+  });
+
+  // Compute the venue's current playback position in ms by combining the
+  // server's `startedAt` timestamp with `serverNow` (so we cancel out client
+  // clock skew). Returns null when there's no active track or the song should
+  // already be over.
+  const getVenuePositionMs = useCallback((): number | null => {
+    if (!party?.nowPlaying?.startedAt || !party?.serverNow) return null;
+    const startedAtMs = new Date(party.nowPlaying.startedAt).getTime();
+    const serverNowMs = new Date(party.serverNow).getTime();
+    if (Number.isNaN(startedAtMs) || Number.isNaN(serverNowMs)) return null;
+    const serverElapsed = serverNowMs - startedAtMs;
+    const sincePartyFetched = Date.now() - (party.__receivedAtMs || Date.now());
+    const elapsed = serverElapsed + sincePartyFetched;
+    if (elapsed < 0) return 0;
+    const duration = party.nowPlaying.duration || 0;
+    if (duration && elapsed > duration) return null;
+    return Math.floor(elapsed);
+  }, [party]);
+
+  // Tracks our most recent intent so async play/seek calls that resolve after
+  // the user toggles off (or the venue advances) don't accidentally restart
+  // playback. Also tracks the time of the most recent seek so the 15s drift
+  // checker doesn't fight against a fresh seek.
+  const intentRef = useRef<{ trackId: string | null; listening: boolean; lastSeekAtMs: number }>({
+    trackId: null,
+    listening: false,
+    lastSeekAtMs: 0,
   });
 
   // Generate/retrieve a persistent listener ID
@@ -96,14 +131,46 @@ export default function PartyPage() {
       const currentTrackId = party.nowPlaying.trackId;
       if (currentTrackId !== listeningTrackId) {
         setListeningTrackId(currentTrackId);
-        playSong(currentTrackId);
+        const startPositionMs = getVenuePositionMs() ?? 0;
+        intentRef.current = { trackId: currentTrackId, listening: true, lastSeekAtMs: Date.now() };
+        const intentSnapshot = intentRef.current;
+        playSong(currentTrackId, { startPositionMs }).then(() => {
+          // If user toggled off or venue advanced before play resolved,
+          // immediately stop so we don't keep playing the wrong thing.
+          if (intentRef.current !== intentSnapshot) {
+            stop().catch(() => {});
+          }
+        });
       }
     }
-  }, [isListening, isAuthorized, party?.nowPlaying?.trackId, listeningTrackId, playSong]);
+  }, [isListening, isAuthorized, party?.nowPlaying?.trackId, listeningTrackId, playSong, stop, getVenuePositionMs]);
+
+  // Periodically correct drift while listening — if our local playback has
+  // drifted more than 2 seconds from the venue's expected position, reseek.
+  // We skip the check for 5s after any seek to avoid fighting our own corrections.
+  useEffect(() => {
+    if (!isListening || !isAuthorized) return;
+    const interval = setInterval(() => {
+      if (!party?.nowPlaying?.trackId || party.nowPlaying.trackId !== listeningTrackId) return;
+      if (intentRef.current.trackId !== party.nowPlaying.trackId) return;
+      if (Date.now() - intentRef.current.lastSeekAtMs < 5000) return;
+      const expectedMs = getVenuePositionMs();
+      const actualMs = getCurrentPlaybackTimeMs();
+      if (expectedMs == null || actualMs == null) return;
+      const drift = Math.abs(actualMs - expectedMs);
+      if (drift > 2000) {
+        intentRef.current.lastSeekAtMs = Date.now();
+        seekToTime(expectedMs);
+      }
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [isListening, isAuthorized, party?.nowPlaying?.trackId, listeningTrackId, getVenuePositionMs, getCurrentPlaybackTimeMs, seekToTime]);
 
   const handleListenLive = useCallback(async () => {
     if (isListening) {
-      // Stop listening
+      // Stop listening — invalidate any in-flight async play/seek so they
+      // don't resume playback after stop().
+      intentRef.current = { trackId: null, listening: false, lastSeekAtMs: 0 };
       stop();
       setIsListening(false);
       setListeningTrackId(null);
@@ -122,12 +189,20 @@ export default function PartyPage() {
 
     setIsListening(true);
     
-    // Start playing the current song
+    // Start playing the current song at the venue's current position
     if (party?.nowPlaying?.trackId) {
-      setListeningTrackId(party.nowPlaying.trackId);
-      playSong(party.nowPlaying.trackId);
+      const trackId = party.nowPlaying.trackId;
+      setListeningTrackId(trackId);
+      const startPositionMs = getVenuePositionMs() ?? 0;
+      intentRef.current = { trackId, listening: true, lastSeekAtMs: Date.now() };
+      const intentSnapshot = intentRef.current;
+      playSong(trackId, { startPositionMs }).then(() => {
+        if (intentRef.current !== intentSnapshot) {
+          stop().catch(() => {});
+        }
+      });
     }
-  }, [isListening, isConfigured, isAuthorized, configure, authorize, stop, playSong, party?.nowPlaying?.trackId]);
+  }, [isListening, isConfigured, isAuthorized, configure, authorize, stop, playSong, party?.nowPlaying?.trackId, getVenuePositionMs]);
 
   const [guestId, setGuestId] = useState<number | null>(() => {
     const saved = localStorage.getItem(`jukboks_guest_id_${code}`);
