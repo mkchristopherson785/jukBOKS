@@ -21,12 +21,13 @@ export default function PartyPage() {
   const queryClient = useQueryClient();
   const [guestToken, setGuestToken] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
+  const [savedGuestName, setSavedGuestName] = useState<string | undefined>(undefined);
   const [showJoinForm, setShowJoinForm] = useState(true);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [userVotes, setUserVotes] = useState<Map<number, "up" | "down">>(new Map());
   const [isListening, setIsListening] = useState(false);
   const [listeningTrackId, setListeningTrackId] = useState<string | null>(null);
-  const { favorites, addFavorite } = useGuestFavorites(code);
+  const { favorites, addFavorite, removeFavorite } = useGuestFavorites(code, savedGuestName);
   
   const { 
     isConfigured, 
@@ -41,9 +42,13 @@ export default function PartyPage() {
 
   useEffect(() => {
     const savedToken = localStorage.getItem(`jukboks_guest_${code}`);
+    const savedName = localStorage.getItem(`jukboks_guest_name_${code}`);
     if (savedToken) {
       setGuestToken(savedToken);
       setShowJoinForm(false);
+      if (savedName) {
+        setSavedGuestName(savedName);
+      }
     }
   }, [code]);
 
@@ -136,6 +141,7 @@ export default function PartyPage() {
       localStorage.setItem(`jukboks_guest_${code}`, data.sessionToken);
       localStorage.setItem(`jukboks_guest_name_${code}`, guestName);
       localStorage.setItem(`jukboks_guest_id_${code}`, String(data.guestId));
+      setSavedGuestName(guestName);
       setShowJoinForm(false);
     },
   });

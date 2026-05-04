@@ -41,7 +41,7 @@ The system is built with a multi-tenant architecture:
 -   **Integration API**: API key management UI in Settings, with authenticated endpoints for external platforms (LivHOA). Endpoints: search songs, list venues, play history, request songs, vote, trigger urgent announcements (TTS or audio URL). Keys are masked after generation (shown once, then hidden). Documented at `docs/INTEGRATION_API.md`.
 -   **Urgent Announcements**: External systems can trigger immediate announcements via `POST /api/v1/venues/:code/announce`. Supports text-to-speech (browser SpeechSynthesis API on kiosk) or pre-recorded audio URLs. Urgent announcements interrupt the current song immediately and play twice. Auto-clear after playback.
 -   **TV Display Mode**: A display-only version of the kiosk screen at `/kiosk/:code?display=true`. Shows now playing, queue, QR code, and album art without any audio playback. No device locking or heartbeats — multiple TVs can run simultaneously. Supports `layout=square` and other kiosk URL params.
--   **Guest Favorites**: localStorage-based per-venue favorites with quick re-request from party page.
+-   **Guest Favorites**: Cloud-synced per-venue favorites stored in the database, keyed by guest name + venue. Favorites persist across devices — guests see the same favorites on any phone/browser as long as they join with the same name. API: `GET/POST /api/v1/venues/:code/favorites`, `DELETE /api/v1/venues/:code/favorites/:trackId`.
 
 ## External Dependencies
 -   **Apple Music API**: Utilized for song search, 30-second previews (iTunes API), and full playback via MusicKit JS.

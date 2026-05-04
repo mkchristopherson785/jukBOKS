@@ -1,7 +1,7 @@
 import { eq, and, desc, sql, gte, asc, or } from "drizzle-orm";
 import { db } from "./db";
 import {
-  organizations, users, venues, requests, votes, partySessions, guests, backupPlaylists, organizationMembers, announcements, announcementGroups, bannedSongs,
+  organizations, users, venues, requests, votes, partySessions, guests, backupPlaylists, organizationMembers, announcements, announcementGroups, bannedSongs, guestFavorites,
   type Organization, type InsertOrganization,
   type User, type InsertUser,
   type Venue, type InsertVenue,
@@ -93,6 +93,10 @@ export interface IStorage {
   getBannedSongs(venueId: number): Promise<any[]>;
   isSongBanned(venueId: number, trackId: string): Promise<boolean>;
   getPlayHistory(venueId: number, limit?: number): Promise<any[]>;
+
+  getGuestFavorites(venueId: number, guestName: string): Promise<any[]>;
+  addGuestFavorite(venueId: number, guestName: string, data: { trackId: string; title: string; artist: string; album?: string; albumCover?: string; previewUrl?: string; duration?: number; isExplicit?: boolean }): Promise<any>;
+  removeGuestFavorite(venueId: number, guestName: string, trackId: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -660,6 +664,65 @@ export class DatabaseStorage implements IStorage {
       .orderBy(sql`to_char(${requests.playedAt}, 'YYYY-MM-DD')`);
 
     return { totalPlayed, totalRequests, uniqueGuests, topSongs, topArtists, peakHours, dailyPlays };
+  }
+
+  async getGuestFavorites(venueId: number, guestName: string): Promise<any[]> {
+    return db
+      .select()
+      .from(guestFavorites)
+      .where(and(
+        eq(guestFavorites.venueId, venueId),
+        eq(guestFavorites.guestName, guestName.toLowerCase().trim())
+      ))
+      .orderBy(desc(guestFavorites.createdAt))
+      .limit(50);
+  }
+
+  async addGuestFavorite(venueId: number, guestName: string, data: { trackId: string; title: string; artist: string; album?: string; albumCover?: string; previewUrl?: string; duration?: number; isExplicit?: boolean }): Promise<any> {
+    const normalizedName = guestName.toLowerCase().trim();
+    const existing = await db
+      .select()
+      .from(guestFavorites)
+      .where(and(
+        eq(guestFavorites.venueId, venueId),
+        eq(guestFavorites.guestName, normalizedName),
+        eq(guestFavorites.trackId, data.trackId)
+      ))
+      .limit(1);
+
+    if (existing.length > 0) {
+      const [updated] = await db
+        .update(guestFavorites)
+        .set({ createdAt: new Date() })
+        .where(eq(guestFavorites.id, existing[0].id))
+        .returning();
+      return updated;
+    }
+
+    const [fav] = await db.insert(guestFavorites).values({
+      venueId,
+      guestName: normalizedName,
+      trackId: data.trackId,
+      title: data.title,
+      artist: data.artist,
+      album: data.album || "",
+      albumCover: data.albumCover || "",
+      previewUrl: data.previewUrl,
+      duration: data.duration,
+      isExplicit: data.isExplicit || false,
+    }).returning();
+    return fav;
+  }
+
+  async removeGuestFavorite(venueId: number, guestName: string, trackId: string): Promise<boolean> {
+    const result = await db
+      .delete(guestFavorites)
+      .where(and(
+        eq(guestFavorites.venueId, venueId),
+        eq(guestFavorites.guestName, guestName.toLowerCase().trim()),
+        eq(guestFavorites.trackId, trackId)
+      ));
+    return true;
   }
 }
 

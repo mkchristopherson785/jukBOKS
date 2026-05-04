@@ -402,6 +402,26 @@ export const queueItemSchema = z.object({
   status: z.string(),
 });
 
+export const guestFavorites = pgTable("guest_favorites", {
+  id: serial("id").primaryKey(),
+  venueId: integer("venue_id").notNull().references(() => venues.id),
+  guestName: text("guest_name").notNull(),
+  trackId: text("track_id").notNull(),
+  title: text("title").notNull(),
+  artist: text("artist").notNull(),
+  album: text("album").default(""),
+  albumCover: text("album_cover").default(""),
+  previewUrl: text("preview_url"),
+  duration: integer("duration"),
+  isExplicit: boolean("is_explicit").default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  venueGuestIdx: index("guest_favorites_venue_guest_idx").on(table.venueId, table.guestName),
+  uniqueTrack: index("guest_favorites_unique_track_idx").on(table.venueId, table.guestName, table.trackId),
+}));
+
+export type GuestFavorite = typeof guestFavorites.$inferSelect;
+
 export type VenuePublic = z.infer<typeof venuePublicSchema>;
 export type NowPlaying = z.infer<typeof nowPlayingSchema>;
 export type QueueItem = z.infer<typeof queueItemSchema>;

@@ -1023,6 +1023,59 @@ router.post("/api/v1/party/:partyCode/join", async (req: Request, res: Response)
   }
 });
 
+router.get("/api/v1/venues/:code/favorites", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) return res.status(404).json({ error: "NOT_FOUND" });
+
+    const guestName = req.query.name as string;
+    if (!guestName || guestName.trim().length < 1) {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "Guest name is required" });
+    }
+
+    const favorites = await storage.getGuestFavorites(venue.id, guestName);
+    res.json({ favorites });
+  } catch (error) {
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+router.post("/api/v1/venues/:code/favorites", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) return res.status(404).json({ error: "NOT_FOUND" });
+
+    const { guestName, trackId, title, artist, album, albumCover, previewUrl, duration, isExplicit } = req.body;
+    if (!guestName || !trackId || !title || !artist) {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "guestName, trackId, title, and artist are required" });
+    }
+
+    const fav = await storage.addGuestFavorite(venue.id, guestName, {
+      trackId, title, artist, album, albumCover, previewUrl, duration, isExplicit,
+    });
+    res.json({ success: true, favorite: fav });
+  } catch (error) {
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+router.delete("/api/v1/venues/:code/favorites/:trackId", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) return res.status(404).json({ error: "NOT_FOUND" });
+
+    const guestName = req.query.name as string;
+    if (!guestName) {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "Guest name is required" });
+    }
+
+    await storage.removeGuestFavorite(venue.id, guestName, req.params.trackId);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 router.get("/api/v1/venues/:code/qrcode", async (req: Request, res: Response) => {
   try {
     const venue = await storage.getVenueByCode(req.params.code);

@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { fetchGuestFavorites, addGuestFavoriteApi, removeGuestFavoriteApi } from "../lib/api";
 
 interface FavoriteSong {
   trackId: string;
@@ -9,51 +10,58 @@ interface FavoriteSong {
   previewUrl?: string;
   duration?: number;
   isExplicit?: boolean;
-  lastRequestedAt: number;
 }
 
-function getStorageKey(venueCode?: string): string {
-  return venueCode ? `jukboks_favorites_${venueCode}` : "jukboks_favorites";
-}
-const MAX_FAVORITES = 50;
-
-function loadFavorites(key: string): FavoriteSong[] {
-  try {
-    const stored = localStorage.getItem(key);
-    if (!stored) return [];
-    return JSON.parse(stored);
-  } catch {
-    return [];
-  }
-}
-
-function saveFavorites(key: string, favorites: FavoriteSong[]) {
-  try {
-    localStorage.setItem(key, JSON.stringify(favorites));
-  } catch {}
-}
-
-export function useGuestFavorites(venueCode?: string) {
-  const storageKey = getStorageKey(venueCode);
-  const [favorites, setFavorites] = useState<FavoriteSong[]>(() => loadFavorites(storageKey));
+export function useGuestFavorites(venueCode?: string, guestName?: string) {
+  const [favorites, setFavorites] = useState<FavoriteSong[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const loadedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    saveFavorites(storageKey, favorites);
-  }, [storageKey, favorites]);
+    if (!venueCode || !guestName) {
+      setFavorites([]);
+      setIsLoaded(false);
+      loadedRef.current = null;
+      return;
+    }
 
-  const addFavorite = useCallback((song: {
-    id: string;
-    title: string;
-    artist: string;
-    album?: string;
-    albumCover?: string;
-    previewUrl?: string;
-    duration?: number;
-    isExplicit?: boolean;
-  }) => {
-    setFavorites(prev => {
-      const filtered = prev.filter(f => f.trackId !== song.id);
-      const updated: FavoriteSong = {
+    const key = `${venueCode}:${guestName.toLowerCase().trim()}`;
+    if (loadedRef.current === key) return;
+
+    loadedRef.current = key;
+    fetchGuestFavorites(venueCode, guestName)
+      .then((data) => {
+        setFavorites(
+          (data.favorites || []).map((f: any) => ({
+            trackId: f.trackId,
+            title: f.title,
+            artist: f.artist,
+            album: f.album || "",
+            albumCover: f.albumCover || "",
+            previewUrl: f.previewUrl,
+            duration: f.duration,
+            isExplicit: f.isExplicit,
+          }))
+        );
+        setIsLoaded(true);
+      })
+      .catch(() => {
+        setIsLoaded(true);
+      });
+  }, [venueCode, guestName]);
+
+  const addFavorite = useCallback(
+    (song: {
+      id: string;
+      title: string;
+      artist: string;
+      album?: string;
+      albumCover?: string;
+      previewUrl?: string;
+      duration?: number;
+      isExplicit?: boolean;
+    }) => {
+      const newFav: FavoriteSong = {
         trackId: song.id,
         title: song.title,
         artist: song.artist,
@@ -62,16 +70,40 @@ export function useGuestFavorites(venueCode?: string) {
         previewUrl: song.previewUrl,
         duration: song.duration,
         isExplicit: song.isExplicit,
-        lastRequestedAt: Date.now(),
       };
-      const newList = [updated, ...filtered].slice(0, MAX_FAVORITES);
-      return newList;
-    });
-  }, []);
 
-  const removeFavorite = useCallback((trackId: string) => {
-    setFavorites(prev => prev.filter(f => f.trackId !== trackId));
-  }, []);
+      setFavorites((prev) => {
+        const filtered = prev.filter((f) => f.trackId !== song.id);
+        return [newFav, ...filtered].slice(0, 50);
+      });
 
-  return { favorites, addFavorite, removeFavorite };
+      if (venueCode && guestName) {
+        addGuestFavoriteApi(venueCode, {
+          guestName,
+          trackId: song.id,
+          title: song.title,
+          artist: song.artist,
+          album: song.album,
+          albumCover: song.albumCover,
+          previewUrl: song.previewUrl,
+          duration: song.duration,
+          isExplicit: song.isExplicit,
+        }).catch(console.error);
+      }
+    },
+    [venueCode, guestName]
+  );
+
+  const removeFavorite = useCallback(
+    (trackId: string) => {
+      setFavorites((prev) => prev.filter((f) => f.trackId !== trackId));
+
+      if (venueCode && guestName) {
+        removeGuestFavoriteApi(venueCode, trackId, guestName).catch(console.error);
+      }
+    },
+    [venueCode, guestName]
+  );
+
+  return { favorites, addFavorite, removeFavorite, isLoaded };
 }

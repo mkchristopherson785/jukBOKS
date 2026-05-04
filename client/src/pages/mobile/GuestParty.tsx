@@ -20,20 +20,25 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
   const [activeTab, setActiveTab] = useState<GuestTab>("playing");
   const [guestToken, setGuestToken] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
+  const [savedGuestName, setSavedGuestName] = useState<string | undefined>(undefined);
   const [showJoinForm, setShowJoinForm] = useState(true);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [userVotes, setUserVotes] = useState<Map<number, "up" | "down">>(new Map());
   const [isListening, setIsListening] = useState(false);
   const [listeningTrackId, setListeningTrackId] = useState<string | null>(null);
-  const { favorites, addFavorite } = useGuestFavorites(venueCode);
+  const { favorites, addFavorite, removeFavorite } = useGuestFavorites(venueCode, savedGuestName);
   
   const { isAuthorized, isPlaying, authorize, playSong, stop } = useMusicKit();
 
   useEffect(() => {
     const savedToken = localStorage.getItem(`jukboks_guest_${venueCode}`);
+    const savedName = localStorage.getItem(`jukboks_guest_name_${venueCode}`);
     if (savedToken) {
       setGuestToken(savedToken);
       setShowJoinForm(false);
+      if (savedName) {
+        setSavedGuestName(savedName);
+      }
     }
   }, [venueCode]);
 
@@ -87,6 +92,7 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
         localStorage.setItem(`jukboks_guest_${venueCode}`, data.sessionToken);
         localStorage.setItem(`jukboks_guest_name_${venueCode}`, guestName);
         localStorage.setItem(`jukboks_guest_id_${venueCode}`, String(data.guestId));
+        setSavedGuestName(guestName);
         setShowJoinForm(false);
       }
     },

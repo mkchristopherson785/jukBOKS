@@ -661,6 +661,40 @@ export async function fetchVenueAnalytics(venueId: number, days: number = 30) {
   return res.json();
 }
 
+export async function fetchGuestFavorites(code: string, guestName: string) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${code}/favorites?name=${encodeURIComponent(guestName)}`);
+  if (!res.ok) throw new Error("Failed to fetch favorites");
+  return res.json();
+}
+
+export async function addGuestFavoriteApi(code: string, data: {
+  guestName: string;
+  trackId: string;
+  title: string;
+  artist: string;
+  album?: string;
+  albumCover?: string;
+  previewUrl?: string;
+  duration?: number;
+  isExplicit?: boolean;
+}) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${code}/favorites`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to add favorite");
+  return res.json();
+}
+
+export async function removeGuestFavoriteApi(code: string, trackId: string, guestName: string) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${code}/favorites/${encodeURIComponent(trackId)}?name=${encodeURIComponent(guestName)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) throw new Error("Failed to remove favorite");
+  return res.json();
+}
+
 export async function superAdminGetVenueGuests(venueId: number) {
   const res = await fetch(`${API_BASE}/api/super-admin/venues/${venueId}/guests`, {
     credentials: "include",
