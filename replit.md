@@ -39,7 +39,8 @@ The system is built with a multi-tenant architecture:
 -   **Venue Analytics**: Tracks key metrics like total songs played, unique guests, and peak hours.
 -   **Kiosk Monitoring**: Heartbeat system, device locking, scheduled playback, and offline alerts for Raspberry Pi kiosks.
 -   **Integration API**: API key management UI in Settings, with authenticated endpoints for external platforms (LivHOA). Endpoints: search songs, list venues, play history, request songs, vote, trigger urgent announcements (TTS or audio URL). Keys are masked after generation (shown once, then hidden). Documented at `docs/INTEGRATION_API.md`.
--   **Urgent Announcements**: External systems can trigger immediate announcements via `POST /api/v1/venues/:code/announce`. Supports text-to-speech (browser SpeechSynthesis API on kiosk) or pre-recorded audio URLs. Announcements play after the current song ends and auto-clear after playback.
+-   **Urgent Announcements**: External systems can trigger immediate announcements via `POST /api/v1/venues/:code/announce`. Supports text-to-speech (browser SpeechSynthesis API on kiosk) or pre-recorded audio URLs. Urgent announcements interrupt the current song immediately and play twice. Auto-clear after playback.
+-   **TV Display Mode**: A display-only version of the kiosk screen at `/kiosk/:code?display=true`. Shows now playing, queue, QR code, and album art without any audio playback. No device locking or heartbeats — multiple TVs can run simultaneously. Supports `layout=square` and other kiosk URL params.
 -   **Guest Favorites**: localStorage-based per-venue favorites with quick re-request from party page.
 
 ## External Dependencies

@@ -91,10 +91,11 @@ export default function KioskPage() {
   const autostart = searchParams.get("autostart") === "true";
   const layout = searchParams.get("layout") || "default";
   const isSquareLayout = layout === "square";
+  const isDisplayOnly = searchParams.get("display") === "true";
   const [currentSong, setCurrentSong] = useState<any>(null);
   const [lastPlayedSong, setLastPlayedSong] = useState<{ title: string; artist: string; albumCover?: string } | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [isStarted, setIsStarted] = useState(autostart);
+  const [isStarted, setIsStarted] = useState(autostart || isDisplayOnly);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [isPlayingAnnouncement, setIsPlayingAnnouncement] = useState(false);
   const [currentAnnouncement, setCurrentAnnouncement] = useState<{ id: number; name: string; audioUrl: string } | null>(null);
@@ -166,6 +167,7 @@ export default function KioskPage() {
   }, [venue, manualOverride]);
 
   useEffect(() => {
+    if (isDisplayOnly) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === "Space") {
         e.preventDefault();
@@ -177,11 +179,11 @@ export default function KioskPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [togglePlayHandler]);
+  }, [togglePlayHandler, isDisplayOnly]);
 
   // Send heartbeat every 30 seconds when kiosk is running
   useEffect(() => {
-    if (!code) return;
+    if (!code || isDisplayOnly) return;
 
     const getPlaybackStatus = (): "idle" | "playing" | "paused" | "scheduled" => {
       if (!isStarted) return "idle";
@@ -338,6 +340,7 @@ export default function KioskPage() {
 
   // Pre-populate queue with backup songs when kiosk page first loads
   useEffect(() => {
+    if (isDisplayOnly) return;
     if (!code || !queue || autoPlayAttempts >= MAX_AUTO_PLAY_ATTEMPTS) return;
     if (!canAutoPlay) return;
     
@@ -354,7 +357,7 @@ export default function KioskPage() {
   }, [code, queue, triggerAutoPlay, autoPlayAttempts, isAutoPlaying, canAutoPlay]);
 
   const playNextSong = useCallback(() => {
-    if (isTransitioning || !queue?.items || !canAutoPlay) return;
+    if (isDisplayOnly || isTransitioning || !queue?.items || !canAutoPlay) return;
     
     const playableItems = queue.items.filter((item: any) => 
       (item.status === "approved" || item.status === "pending") && 
@@ -374,7 +377,7 @@ export default function KioskPage() {
   }, [queue?.items, isTransitioning, playNextMutation, triggerAutoPlay, canAutoPlay]);
 
   useEffect(() => {
-    if (!isStarted) return;
+    if (!isStarted || isDisplayOnly) return;
     if (!currentSong && !isTransitioning) {
       const playableItems = queue?.items?.filter((item: any) => 
         (item.status === "approved" || item.status === "pending") && 
@@ -474,7 +477,7 @@ export default function KioskPage() {
   }, [code, isPlayingAnnouncement, skipHandler, deviceId, refetchQueue]);
 
   useEffect(() => {
-    if (!code || !isStarted || isPlayingAnnouncement) return;
+    if (!code || !isStarted || isPlayingAnnouncement || isDisplayOnly) return;
 
     const checkUrgent = async () => {
       try {
@@ -595,14 +598,23 @@ export default function KioskPage() {
     }
   }, [currentSong, markPlayedMutation, refetchQueue]);
 
-  const displayTitle = currentSong?.title || nowPlaying?.title || lastPlayedSong?.title;
-  const displayArtist = currentSong?.artist || nowPlaying?.artist || lastPlayedSong?.artist;
-  const displayCover = currentSong?.albumCover || nowPlaying?.albumCover || lastPlayedSong?.albumCover;
-  const displayPreview = currentSong?.previewUrl;
-  const displayExplicit = currentSong?.isExplicit || nowPlaying?.isExplicit;
+  const displayTitle = isDisplayOnly
+    ? (nowPlaying?.title || lastPlayedSong?.title)
+    : (currentSong?.title || nowPlaying?.title || lastPlayedSong?.title);
+  const displayArtist = isDisplayOnly
+    ? (nowPlaying?.artist || lastPlayedSong?.artist)
+    : (currentSong?.artist || nowPlaying?.artist || lastPlayedSong?.artist);
+  const displayCover = isDisplayOnly
+    ? (nowPlaying?.albumCover || lastPlayedSong?.albumCover)
+    : (currentSong?.albumCover || nowPlaying?.albumCover || lastPlayedSong?.albumCover);
+  const displayPreview = isDisplayOnly ? undefined : currentSong?.previewUrl;
+  const displayExplicit = isDisplayOnly
+    ? nowPlaying?.isExplicit
+    : (currentSong?.isExplicit || nowPlaying?.isExplicit);
 
+  const displayNowPlayingId = isDisplayOnly ? nowPlaying?.id : currentSong?.id;
   const upNextItems = queue?.items?.filter((item: any) => 
-    item.id !== currentSong?.id && 
+    item.id !== displayNowPlayingId && 
     item.status !== "played" && 
     item.status !== "playing"
   ).sort((a: any, b: any) => (b.netVotes || 0) - (a.netVotes || 0)).slice(0, 8) || [];
@@ -613,8 +625,8 @@ export default function KioskPage() {
     }
   }, [scheduleStatus.isActive, isSchedulePaused]);
 
-  // Show lock warning when another device is controlling playback
-  if (!hasLock && lockedByDevice && isStarted) {
+  // Show lock warning when another device is controlling playback (skip in display mode)
+  if (!isDisplayOnly && !hasLock && lockedByDevice && isStarted) {
     return (
       <div className="min-h-screen bg-transparent flex items-center justify-center p-4">
         <div className="text-center">
@@ -639,7 +651,7 @@ export default function KioskPage() {
     );
   }
 
-  if (isSchedulePaused || (!isStarted && venue?.kioskScheduleEnabled && !scheduleStatus.isActive)) {
+  if (!isDisplayOnly && (isSchedulePaused || (!isStarted && venue?.kioskScheduleEnabled && !scheduleStatus.isActive))) {
     return (
       <div className="min-h-screen bg-transparent flex items-center justify-center p-4">
         <div className="text-center">
@@ -684,7 +696,7 @@ export default function KioskPage() {
     );
   }
 
-  if (!isStarted) {
+  if (!isDisplayOnly && !isStarted) {
     return (
       <div className="min-h-screen bg-transparent flex items-center justify-center p-4">
         <div className="text-center">
@@ -721,19 +733,21 @@ export default function KioskPage() {
   if (isSquareLayout) {
     return (
       <div className="min-h-screen bg-transparent flex flex-col relative overflow-hidden">
-        <MusicKitPlayer
-          trackId={currentSong?.trackId || null}
-          previewUrl={displayPreview}
-          onEnded={handleSongEnded}
-          onSkip={handleSkip}
-          hideControls
-          onTogglePlay={(handler) => setTogglePlayHandler(() => handler)}
-          onSkipHandler={(handler) => setSkipHandler(() => handler)}
-          onPlayingChange={setIsPlaying}
-          trackName={currentSong?.title}
-          venueCode={code}
-          sonosEnabled={false}
-        />
+        {!isDisplayOnly && (
+          <MusicKitPlayer
+            trackId={currentSong?.trackId || null}
+            previewUrl={displayPreview}
+            onEnded={handleSongEnded}
+            onSkip={handleSkip}
+            hideControls
+            onTogglePlay={(handler) => setTogglePlayHandler(() => handler)}
+            onSkipHandler={(handler) => setSkipHandler(() => handler)}
+            onPlayingChange={setIsPlaying}
+            trackName={currentSong?.title}
+            venueCode={code}
+            sonosEnabled={false}
+          />
+        )}
 
         <div className="flex-1 flex flex-col items-center justify-center p-4">
           {isPlayingAnnouncement && currentAnnouncement ? (
@@ -802,11 +816,14 @@ export default function KioskPage() {
           </div>
         </div>
 
-        <div className="absolute bottom-2 left-2">
+        <div className="absolute bottom-2 left-2 flex items-center gap-2">
           {venue?.logoUrl ? (
             <img src={venue.logoUrl} alt="" className="h-6 w-auto opacity-50" />
           ) : (
             <img src="/assets/logo-app.png" alt="Jukboks" className="h-6 w-6 rounded opacity-50" />
+          )}
+          {isDisplayOnly && (
+            <span className="text-[10px] text-gray-500 uppercase tracking-wider">Display</span>
           )}
         </div>
       </div>
@@ -871,30 +888,35 @@ export default function KioskPage() {
                 </div>
               </div>
 
-              <MusicKitPlayer
-                trackId={currentSong?.trackId || null}
-                previewUrl={displayPreview}
-                onEnded={handleSongEnded}
-                onSkip={handleSkip}
-                hideControls
-                onTogglePlay={(handler) => setTogglePlayHandler(() => handler)}
-                onSkipHandler={(handler) => setSkipHandler(() => handler)}
-                onPlayingChange={setIsPlaying}
-                trackName={currentSong?.title}
-                venueCode={code}
-                sonosEnabled={false}
-              />
+              {!isDisplayOnly && (
+                <MusicKitPlayer
+                  trackId={currentSong?.trackId || null}
+                  previewUrl={displayPreview}
+                  onEnded={handleSongEnded}
+                  onSkip={handleSkip}
+                  hideControls
+                  onTogglePlay={(handler) => setTogglePlayHandler(() => handler)}
+                  onSkipHandler={(handler) => setSkipHandler(() => handler)}
+                  onPlayingChange={setIsPlaying}
+                  trackName={currentSong?.title}
+                  venueCode={code}
+                  sonosEnabled={false}
+                />
+              )}
             </>
           )}
         </div>
       </div>
 
       {/* Logo in bottom left - hidden on mobile */}
-      <div className="hidden sm:block absolute bottom-4 left-4">
+      <div className="hidden sm:flex absolute bottom-4 left-4 items-center gap-3">
         {venue?.logoUrl ? (
           <img src={venue.logoUrl} alt="" className="h-12 w-auto opacity-70" />
         ) : (
           <img src="/assets/logo-app.png" alt="Jukboks" className="h-12 w-12 rounded-xl opacity-70" />
+        )}
+        {isDisplayOnly && (
+          <span className="text-xs text-gray-500 uppercase tracking-wider">Display Mode</span>
         )}
       </div>
 
