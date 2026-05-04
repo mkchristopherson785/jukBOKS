@@ -422,25 +422,50 @@ export default function KioskPage() {
       refetchQueue();
     };
 
-    if (result.announcement.ttsText && !result.announcement.audioUrl) {
+    let playCount = 0;
+    const totalPlays = 2;
+
+    const playTts = () => {
       if ('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window) {
         const utterance = new SpeechSynthesisUtterance(result.announcement.ttsText);
         utterance.rate = 0.9;
         utterance.pitch = 1.0;
         utterance.volume = 1.0;
-        utterance.onend = () => { onAnnouncementFinished(); };
+        utterance.onend = () => {
+          playCount++;
+          if (playCount < totalPlays) {
+            setTimeout(playTts, 1500);
+          } else {
+            onAnnouncementFinished();
+          }
+        };
         utterance.onerror = () => { onAnnouncementFinished(); };
         speechSynthesis.speak(utterance);
       } else {
         console.warn("TTS not supported, skipping urgent announcement");
         onAnnouncementFinished();
       }
-    } else if (result.announcement.audioUrl) {
+    };
+
+    const playAudioFile = () => {
       const audio = new Audio(result.announcement.audioUrl);
       setAnnouncementAudio(audio);
-      audio.onended = () => { onAnnouncementFinished(); };
+      audio.onended = () => {
+        playCount++;
+        if (playCount < totalPlays) {
+          setTimeout(playAudioFile, 1500);
+        } else {
+          onAnnouncementFinished();
+        }
+      };
       audio.onerror = () => { onAnnouncementError(); };
       audio.play().catch(() => { onAnnouncementError(); });
+    };
+
+    if (result.announcement.ttsText && !result.announcement.audioUrl) {
+      playTts();
+    } else if (result.announcement.audioUrl) {
+      playAudioFile();
     } else {
       onAnnouncementError();
     }
