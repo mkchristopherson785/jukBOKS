@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
-import { ArrowLeft, LogOut, User, Shield, SkipForward, History, Ban, X, Music } from "lucide-react";
+import { ArrowLeft, LogOut, User, Shield, SkipForward, History, Ban, X, Music, Info } from "lucide-react";
 import { fetchMyVenues, fetchVenue, fetchQueue, fetchListeners, fetchPlayHistory, fetchBannedSongs, banSong, unbanSong, skipSong, checkSuperAdmin, updateRequestStatus } from "../lib/api";
 import { QueueList } from "../components/QueueList";
+import { SongDetailsDialog } from "../components/SongDetailsDialog";
 import { useAuth } from "../hooks/use-auth";
 
 export default function QueuePage() {
@@ -22,6 +23,7 @@ export default function QueuePage() {
   });
   
   const [selectedVenueCode, setSelectedVenueCode] = useState<string | null>(venueFromUrl);
+  const [historyDetails, setHistoryDetails] = useState<{ trackId: string; title: string; artist: string; albumCover?: string } | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -250,6 +252,15 @@ export default function QueuePage() {
                             <p className="text-gray-400 text-xs truncate">{song.artist}</p>
                           </div>
                           <button
+                            onClick={() => setHistoryDetails({ trackId: song.trackId, title: song.title, artist: song.artist, albumCover: song.albumCover })}
+                            className="p-2 rounded text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                            title="View song details"
+                            aria-label={`View details for ${song.title}`}
+                            data-testid={`button-history-info-${song.id}`}
+                          >
+                            <Info className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => isBanned 
                               ? unbanSongMutation.mutate(song.trackId)
                               : banSongMutation.mutate({ trackId: song.trackId, title: song.title, artist: song.artist, albumCover: song.albumCover })
@@ -292,6 +303,16 @@ export default function QueuePage() {
           </div>
         )}
       </main>
+
+      <SongDetailsDialog
+        trackId={historyDetails?.trackId || null}
+        fallback={historyDetails ? {
+          title: historyDetails.title,
+          artist: historyDetails.artist,
+          albumCover: historyDetails.albumCover,
+        } : undefined}
+        onClose={() => setHistoryDetails(null)}
+      />
     </div>
   );
 }

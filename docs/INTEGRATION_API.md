@@ -114,6 +114,43 @@ GET /api/v1/venues/:code/now-playing
 }
 ```
 
+### Get Track Details ("View More")
+```
+GET /api/v1/tracks/:trackId
+```
+
+Returns rich metadata for any Apple Music track ID — used by the in-app "View more" dialog and available to external integrations. Pulls from Apple's iTunes Lookup API and is cached server-side for 24 hours. The `trackId` here is the same numeric Apple Music ID returned by `/queue`, `/history`, and `/search`.
+
+**Response:**
+```json
+{
+  "trackId": "1440841672",
+  "title": "Shape of You",
+  "artist": "Ed Sheeran",
+  "album": "÷ (Deluxe)",
+  "albumCover": "https://.../300x300.jpg",
+  "albumCoverLarge": "https://.../600x600.jpg",
+  "duration": 233712,
+  "isExplicit": false,
+  "previewUrl": "https://.../preview.m4a",
+  "releaseDate": "2017-01-06T12:00:00Z",
+  "releaseYear": 2017,
+  "genre": "Pop",
+  "trackNumber": 4,
+  "discNumber": 1,
+  "appleMusicUrl": "https://music.apple.com/...",
+  "artistViewUrl": "https://music.apple.com/...",
+  "collectionId": 1440841090,
+  "country": "USA",
+  "isStreamable": true
+}
+```
+
+**Errors:**
+- `400 INVALID_TRACK_ID` — non-numeric track id
+- `404 TRACK_NOT_FOUND` — Apple Music has no record for this id
+- `502 UPSTREAM_ERROR` — Apple lookup unavailable
+
 ---
 
 ## Authenticated Endpoints (API Key Required)

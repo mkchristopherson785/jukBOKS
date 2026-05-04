@@ -1,6 +1,8 @@
-import { ThumbsUp, ThumbsDown, Music, User, Radio, Check, X, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { ThumbsUp, ThumbsDown, Music, User, Radio, Check, X, Trash2, Info } from "lucide-react";
 import { cn } from "../lib/utils";
 import { GuestRankBadge } from "./GuestRank";
+import { SongDetailsDialog } from "./SongDetailsDialog";
 
 interface QueueItem {
   id: number;
@@ -31,6 +33,19 @@ interface QueueListProps {
 }
 
 export function QueueList({ items, onVote, userVotes = new Map(), currentGuestId, isAdmin, onApprove, onReject, onRemove, guestRankings = {} }: QueueListProps) {
+  const [detailsTrackId, setDetailsTrackId] = useState<string | null>(null);
+  const [detailsFallback, setDetailsFallback] = useState<{ title?: string; artist?: string; albumCover?: string; isExplicit?: boolean } | undefined>();
+
+  const openDetails = (item: QueueItem) => {
+    setDetailsFallback({
+      title: item.title,
+      artist: item.artist,
+      albumCover: item.albumCover,
+      isExplicit: item.isExplicit,
+    });
+    setDetailsTrackId(item.trackId);
+  };
+
   if (items.length === 0) {
     return (
       <div className="text-center py-12 text-gray-400">
@@ -42,6 +57,12 @@ export function QueueList({ items, onVote, userVotes = new Map(), currentGuestId
   }
 
   return (
+    <>
+    <SongDetailsDialog
+      trackId={detailsTrackId}
+      fallback={detailsFallback}
+      onClose={() => setDetailsTrackId(null)}
+    />
     <div className="space-y-3">
       {items.map((item, index) => {
         const userVote = userVotes.get(item.id);
@@ -61,17 +82,28 @@ export function QueueList({ items, onVote, userVotes = new Map(), currentGuestId
               {index + 1}
             </div>
 
-            {item.albumCover ? (
-              <img
-                src={item.albumCover}
-                alt={item.title}
-                className="w-14 h-14 rounded-lg object-cover"
-              />
-            ) : (
-              <div className="w-14 h-14 rounded-lg bg-gray-700 flex items-center justify-center">
-                <Music className="w-6 h-6 text-gray-500" />
+            <button
+              type="button"
+              onClick={() => openDetails(item)}
+              className="flex-shrink-0 group/cover relative"
+              aria-label={`View details for ${item.title}`}
+              data-testid={`button-queue-cover-${item.id}`}
+            >
+              {item.albumCover ? (
+                <img
+                  src={item.albumCover}
+                  alt={item.title}
+                  className="w-14 h-14 rounded-lg object-cover"
+                />
+              ) : (
+                <div className="w-14 h-14 rounded-lg bg-gray-700 flex items-center justify-center">
+                  <Music className="w-6 h-6 text-gray-500" />
+                </div>
+              )}
+              <div className="absolute inset-0 rounded-lg bg-black/50 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center">
+                <Info className="w-5 h-5 text-white" />
               </div>
-            )}
+            </button>
 
             <div className="flex-1 min-w-0">
               <p className="text-white font-medium truncate flex items-center gap-1.5">
@@ -108,6 +140,16 @@ export function QueueList({ items, onVote, userVotes = new Map(), currentGuestId
                 )}
               </div>
             </div>
+
+            <button
+              onClick={() => openDetails(item)}
+              className="p-2 rounded-lg bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
+              title="View song details"
+              aria-label={`View details for ${item.title}`}
+              data-testid={`button-queue-info-${item.id}`}
+            >
+              <Info className="w-4 h-4" />
+            </button>
 
             {isAdmin && (
               <div className="flex items-center gap-1">
@@ -173,5 +215,6 @@ export function QueueList({ items, onVote, userVotes = new Map(), currentGuestId
         );
       })}
     </div>
+    </>
   );
 }

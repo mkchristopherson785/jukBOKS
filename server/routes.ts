@@ -107,6 +107,106 @@ router.get("/api/apple-music/token", async (_req: Request, res: Response) => {
   res.json({ token });
 });
 
+// Track details lookup — used by the in-app "View more" dialog and external integrations.
+// Public endpoint (mirrors /api/apple-music/search which is also unauthenticated).
+// Cache is bounded with a simple LRU to avoid unbounded memory growth from
+// adversarial requests with many unique track IDs.
+const trackDetailsServerCache = new Map<string, { data: any; expiresAt: number }>();
+const TRACK_DETAILS_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+const TRACK_DETAILS_MAX_ENTRIES = 5000;
+const TRACK_DETAILS_UPSTREAM_TIMEOUT_MS = 5000;
+
+function rememberTrackDetails(trackId: string, data: any) {
+  // Evict expired entries opportunistically.
+  const now = Date.now();
+  if (trackDetailsServerCache.size >= TRACK_DETAILS_MAX_ENTRIES) {
+    for (const [key, entry] of trackDetailsServerCache) {
+      if (entry.expiresAt <= now) trackDetailsServerCache.delete(key);
+    }
+    // If still over limit, drop the oldest insertion (Map iteration order = insertion order).
+    while (trackDetailsServerCache.size >= TRACK_DETAILS_MAX_ENTRIES) {
+      const oldestKey = trackDetailsServerCache.keys().next().value;
+      if (oldestKey === undefined) break;
+      trackDetailsServerCache.delete(oldestKey);
+    }
+  }
+  // Re-insert to move to the most-recent slot (LRU touch).
+  trackDetailsServerCache.delete(trackId);
+  trackDetailsServerCache.set(trackId, { data, expiresAt: now + TRACK_DETAILS_TTL_MS });
+}
+
+function normalizeITunesTrack(item: any) {
+  if (!item || !item.trackId) return null;
+  const artwork100: string | undefined = item.artworkUrl100;
+  const albumCoverLarge = artwork100 ? artwork100.replace("100x100", "600x600") : "";
+  const albumCover = artwork100 ? artwork100.replace("100x100", "300x300") : "";
+  const releaseDate: string | undefined = item.releaseDate;
+  const releaseYear = releaseDate ? new Date(releaseDate).getFullYear() : undefined;
+  return {
+    trackId: item.trackId.toString(),
+    title: item.trackName || "",
+    artist: item.artistName || "",
+    album: item.collectionName || "",
+    albumCover,
+    albumCoverLarge,
+    duration: item.trackTimeMillis || 0,
+    isExplicit: item.trackExplicitness === "explicit",
+    previewUrl: item.previewUrl,
+    releaseDate,
+    releaseYear,
+    genre: item.primaryGenreName,
+    trackNumber: item.trackNumber,
+    discNumber: item.discNumber,
+    appleMusicUrl: item.trackViewUrl,
+    artistViewUrl: item.artistViewUrl,
+    collectionId: item.collectionId,
+    country: item.country,
+    isStreamable: item.isStreamable,
+  };
+}
+
+router.get("/api/v1/tracks/:trackId", async (req: Request, res: Response) => {
+  const trackId = String(req.params.trackId || "").trim();
+  if (!trackId || !/^\d+$/.test(trackId)) {
+    return res.status(400).json({ error: "INVALID_TRACK_ID", message: "Track ID must be a numeric Apple Music ID" });
+  }
+  const now = Date.now();
+  const cached = trackDetailsServerCache.get(trackId);
+  if (cached && cached.expiresAt > now) {
+    return res.json(cached.data);
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TRACK_DETAILS_UPSTREAM_TIMEOUT_MS);
+  try {
+    const response = await fetch(
+      `https://itunes.apple.com/lookup?id=${encodeURIComponent(trackId)}&entity=song`,
+      { signal: controller.signal },
+    );
+    if (!response.ok) {
+      return res.status(502).json({ error: "UPSTREAM_ERROR", message: "Apple Music lookup failed" });
+    }
+    const data: any = await response.json();
+    const songResult = (data.results || []).find((r: any) => r.kind === "song" || r.wrapperType === "track");
+    if (!songResult) {
+      return res.status(404).json({ error: "TRACK_NOT_FOUND", message: "Track not found in Apple Music" });
+    }
+    const normalized = normalizeITunesTrack(songResult);
+    if (!normalized) {
+      return res.status(404).json({ error: "TRACK_NOT_FOUND", message: "Track not found in Apple Music" });
+    }
+    rememberTrackDetails(trackId, normalized);
+    res.json(normalized);
+  } catch (error: any) {
+    if (error?.name === "AbortError") {
+      return res.status(504).json({ error: "UPSTREAM_TIMEOUT", message: "Apple Music lookup timed out" });
+    }
+    console.error("Track lookup error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Failed to look up track" });
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
 // Proxy endpoint for iTunes search (avoids CORS issues on mobile)
 router.get("/api/apple-music/search", async (req: Request, res: Response) => {
   const { term, limit = "20", offset = "0" } = req.query;

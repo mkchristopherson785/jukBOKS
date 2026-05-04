@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, X, Music, AlertCircle, ChevronDown, Play, Pause } from "lucide-react";
+import { Search, X, Music, AlertCircle, ChevronDown, Play, Pause, Info } from "lucide-react";
 import { useAppleMusic, type Track } from "../hooks/useAppleMusic";
 import { cn } from "../lib/utils";
+import { SongDetailsDialog } from "./SongDetailsDialog";
 
 const HOLIDAY_KEYWORDS = [
   'christmas', 'xmas', 'santa', 'jingle', 'noel', 'holiday', 'winter wonderland',
@@ -37,6 +38,7 @@ export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic 
   const { searchTracks, results, isSearching, clearResults, loadMore, hasMore, isLoadingMore } = useAppleMusic();
   const [previewingTrackId, setPreviewingTrackId] = useState<string | null>(null);
   const [previewProgress, setPreviewProgress] = useState(0);
+  const [detailsTrack, setDetailsTrack] = useState<Track | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressIntervalRef = useRef<ReturnType<typeof setInterval>>();
 
@@ -223,6 +225,20 @@ export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic 
                       </div>
                       <p className="text-gray-400 text-sm truncate">{track.artist}</p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        stopPreview();
+                        setDetailsTrack(track);
+                      }}
+                      className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0 pointer-events-auto"
+                      title="View song details"
+                      aria-label={`View details for ${track.title}`}
+                      data-testid={`button-search-info-${track.id}`}
+                    >
+                      <Info className="w-4 h-4" />
+                    </button>
                     {isTrackBlocked(track) && (
                       <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0" />
                     )}
@@ -252,6 +268,19 @@ export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic 
           )}
         </div>
       )}
+
+      <SongDetailsDialog
+        trackId={detailsTrack?.id || null}
+        fallback={detailsTrack ? {
+          title: detailsTrack.title,
+          artist: detailsTrack.artist,
+          album: detailsTrack.album,
+          albumCover: detailsTrack.albumCover,
+          isExplicit: detailsTrack.isExplicit,
+          previewUrl: detailsTrack.previewUrl,
+        } : undefined}
+        onClose={() => setDetailsTrack(null)}
+      />
     </div>
   );
 }

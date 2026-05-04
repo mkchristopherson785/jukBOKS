@@ -719,3 +719,41 @@ export async function superAdminGetVenueGuests(venueId: number) {
   if (!res.ok) throw new Error("Failed to fetch guests");
   return res.json();
 }
+
+export interface TrackDetails {
+  trackId: string;
+  title: string;
+  artist: string;
+  album: string;
+  albumCover: string;
+  albumCoverLarge: string;
+  duration: number;
+  isExplicit: boolean;
+  previewUrl?: string;
+  releaseDate?: string;
+  releaseYear?: number;
+  genre?: string;
+  trackNumber?: number;
+  discNumber?: number;
+  appleMusicUrl?: string;
+  artistViewUrl?: string;
+  collectionId?: number;
+  country?: string;
+  isStreamable?: boolean;
+}
+
+const trackDetailsCache = new Map<string, TrackDetails>();
+
+export async function fetchTrackDetails(trackId: string): Promise<TrackDetails> {
+  if (!trackId) throw new Error("trackId required");
+  const cached = trackDetailsCache.get(trackId);
+  if (cached) return cached;
+  const res = await fetch(`${API_BASE}/api/v1/tracks/${encodeURIComponent(trackId)}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body?.message || `Failed to load track (${res.status})`);
+  }
+  const data = (await res.json()) as TrackDetails;
+  trackDetailsCache.set(trackId, data);
+  return data;
+}
