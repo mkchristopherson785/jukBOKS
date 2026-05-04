@@ -16,6 +16,9 @@ Jukboks is a standalone SaaS platform that enables businesses (bars, restaurants
 - **Duplicate Request Prevention**: Search results show "In Queue" badge for songs already queued, preventing duplicate requests
 - **Connection Status Indicator**: Offline/reconnecting banner on party pages when server connection drops
 - **Mobile Host Quick Actions**: Skip song, clear queue (with confirmation), and live listener count on host dashboard
+- **Queue Position Indicator**: Guests see "Your song — #N" badges on their requested songs in the queue
+- **Admin Queue Management**: Approve/reject pending requests, remove individual songs from queue
+- **Recently Played History**: Last 20 played songs shown on party pages for guests
 - **Per-Venue Settings**: Explicit content filtering, daily request limits (1-10 or unlimited), auto-approve
 - **Upvote/Downvote System**: Guests can thumbs up or thumbs down songs in the queue
 - **Smart Repetition Prevention**: Configurable song cooldown (30min-24hrs) and artist play limits per hour, persisted across server reboots

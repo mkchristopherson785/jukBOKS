@@ -71,13 +71,20 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
     }
   }, [isListening, party?.nowPlaying?.trackId, listeningTrackId, playSong]);
 
+  const [guestId, setGuestId] = useState<number | null>(() => {
+    const saved = localStorage.getItem(`jukboks_guest_id_${venueCode}`);
+    return saved ? parseInt(saved) : null;
+  });
+
   const joinMutation = useMutation({
     mutationFn: (name: string) => joinParty(venueCode, name),
     onSuccess: (data: any) => {
       if (data.sessionToken) {
         setGuestToken(data.sessionToken);
+        setGuestId(data.guestId);
         localStorage.setItem(`jukboks_guest_${venueCode}`, data.sessionToken);
         localStorage.setItem(`jukboks_guest_name_${venueCode}`, guestName);
+        localStorage.setItem(`jukboks_guest_id_${venueCode}`, String(data.guestId));
         setShowJoinForm(false);
       }
     },
@@ -246,10 +253,11 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
               <div>
                 <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Up Next</h3>
                 <div className="space-y-2">
-                  {queue.slice(0, 5).map((song: any) => {
+                  {queue.slice(0, 5).map((song: any, i: number) => {
                     const userVote = userVotes.get(song.id);
+                    const isYourSong = guestId != null && song.requestedByGuestId === guestId;
                     return (
-                      <div key={song.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
+                      <div key={song.id} className={`flex items-center gap-3 p-3 bg-white/5 rounded-xl ${isYourSong ? "border border-indigo-500/30" : ""}`}>
                         {song.albumCover ? (
                           <img src={song.albumCover} alt="" className="w-10 h-10 rounded-lg" />
                         ) : (
@@ -260,6 +268,9 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
                         <div className="flex-1 min-w-0">
                           <p className="text-white font-medium truncate text-sm">{song.title}</p>
                           <p className="text-gray-400 text-xs truncate">{song.artist}</p>
+                          {isYourSong && (
+                            <span className="text-[10px] text-indigo-300 font-semibold">Your song — #{i + 1}</span>
+                          )}
                         </div>
                         <div className="flex items-center gap-1">
                           <button
@@ -322,21 +333,48 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
         {activeTab === "queue" && (
           <div className="space-y-3">
             <h2 className="text-lg font-bold text-white mb-3">Queue ({queue.length})</h2>
-            {queue.map((song: any, i: number) => (
-              <div key={song.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl">
-                <span className="text-gray-500 text-sm font-mono w-6 text-center">{i + 1}</span>
-                {song.albumCover && (
-                  <img src={song.albumCover} alt="" className="w-10 h-10 rounded-lg" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-white font-medium truncate text-sm">{song.title}</p>
-                  <p className="text-gray-400 text-xs truncate">{song.artist}</p>
+            {queue.map((song: any, i: number) => {
+              const isYourSong = guestId != null && song.requestedByGuestId === guestId;
+              return (
+                <div key={song.id} className={`flex items-center gap-3 p-3 bg-white/5 rounded-xl ${isYourSong ? "border border-indigo-500/30" : ""}`}>
+                  <span className={`text-sm font-mono w-6 text-center ${isYourSong ? "text-indigo-400 font-bold" : "text-gray-500"}`}>{i + 1}</span>
+                  {song.albumCover && (
+                    <img src={song.albumCover} alt="" className="w-10 h-10 rounded-lg" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-medium truncate text-sm">{song.title}</p>
+                    <p className="text-gray-400 text-xs truncate">{song.artist}</p>
+                    {isYourSong && (
+                      <span className="text-[10px] text-indigo-300 font-semibold">Your song</span>
+                    )}
+                  </div>
+                  <span className="text-indigo-400 text-xs font-medium">
+                    {(song.upvotes || 0) - (song.downvotes || 0)} votes
+                  </span>
                 </div>
-                <span className="text-indigo-400 text-xs font-medium">
-                  {(song.upvotes || 0) - (song.downvotes || 0)} votes
-                </span>
+              );
+            })}
+
+            {party?.recentlyPlayed && party.recentlyPlayed.length > 0 && (
+              <div className="mt-6">
+                <h2 className="text-lg font-bold text-white mb-3">Recently Played</h2>
+                {party.recentlyPlayed.slice(0, 10).map((song: any) => (
+                  <div key={song.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl mb-2">
+                    {song.albumCover ? (
+                      <img src={song.albumCover} alt="" className="w-10 h-10 rounded-lg opacity-60" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-gray-700/50 flex items-center justify-center">
+                        <Music2 className="w-5 h-5 text-gray-600" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-gray-300 font-medium truncate text-sm">{song.title}</p>
+                      <p className="text-gray-500 text-xs truncate">{song.artist}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>

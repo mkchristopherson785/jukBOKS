@@ -1,4 +1,4 @@
-import { ThumbsUp, ThumbsDown, Music, User, Radio } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Music, User, Radio, Check, X, Trash2 } from "lucide-react";
 import { cn } from "../lib/utils";
 
 interface QueueItem {
@@ -8,6 +8,7 @@ interface QueueItem {
   artist: string;
   albumCover?: string;
   requesterName?: string;
+  requestedByGuestId?: number;
   isAutoPlay: boolean;
   isExplicit?: boolean;
   upvotes: number;
@@ -20,9 +21,14 @@ interface QueueListProps {
   items: QueueItem[];
   onVote?: (requestId: number, voteType: "up" | "down") => void;
   userVotes?: Map<number, "up" | "down">;
+  currentGuestId?: number | null;
+  isAdmin?: boolean;
+  onApprove?: (requestId: number) => void;
+  onReject?: (requestId: number) => void;
+  onRemove?: (requestId: number) => void;
 }
 
-export function QueueList({ items, onVote, userVotes = new Map() }: QueueListProps) {
+export function QueueList({ items, onVote, userVotes = new Map(), currentGuestId, isAdmin, onApprove, onReject, onRemove }: QueueListProps) {
   if (items.length === 0) {
     return (
       <div className="text-center py-12 text-gray-400">
@@ -37,13 +43,16 @@ export function QueueList({ items, onVote, userVotes = new Map() }: QueueListPro
     <div className="space-y-3">
       {items.map((item, index) => {
         const userVote = userVotes.get(item.id);
+        const isYourSong = currentGuestId != null && item.requestedByGuestId === currentGuestId;
         
         return (
           <div
             key={item.id}
             className={cn(
-              "flex items-center gap-4 p-4 bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 transition-all hover:bg-white/10",
-              index === 0 && "ring-2 ring-indigo-500/50"
+              "flex items-center gap-4 p-4 bg-white/5 backdrop-blur-lg rounded-xl border transition-all hover:bg-white/10",
+              index === 0 && "ring-2 ring-indigo-500/50",
+              isYourSong ? "border-indigo-500/30" : "border-white/10",
+              item.status === "pending" && isAdmin && "border-amber-500/30 bg-amber-500/5"
             )}
           >
             <div className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-500/20 text-indigo-400 font-bold text-sm">
@@ -72,20 +81,64 @@ export function QueueList({ items, onVote, userVotes = new Map() }: QueueListPro
                 )}
               </p>
               <p className="text-gray-400 text-sm truncate">{item.artist}</p>
-              {item.isAutoPlay ? (
-                <div className="flex items-center gap-1 mt-1 text-xs text-purple-400">
-                  <Radio className="w-3 h-3" />
-                  Auto-play
-                </div>
-              ) : item.requesterName ? (
-                <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
-                  <User className="w-3 h-3" />
-                  {item.requesterName}
-                </div>
-              ) : null}
+              <div className="flex items-center gap-2 mt-1">
+                {item.isAutoPlay ? (
+                  <div className="flex items-center gap-1 text-xs text-purple-400">
+                    <Radio className="w-3 h-3" />
+                    Auto-play
+                  </div>
+                ) : item.requesterName ? (
+                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                    <User className="w-3 h-3" />
+                    {item.requesterName}
+                  </div>
+                ) : null}
+                {isYourSong && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">
+                    Your song — #{index + 1}
+                  </span>
+                )}
+                {item.status === "pending" && isAdmin && (
+                  <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-amber-500/20 text-amber-300 rounded-full">
+                    Pending
+                  </span>
+                )}
+              </div>
             </div>
 
-            {onVote && (
+            {isAdmin && (
+              <div className="flex items-center gap-1">
+                {item.status === "pending" && onApprove && (
+                  <button
+                    onClick={() => onApprove(item.id)}
+                    className="p-2 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-colors"
+                    title="Approve"
+                  >
+                    <Check className="w-4 h-4" />
+                  </button>
+                )}
+                {item.status === "pending" && onReject && (
+                  <button
+                    onClick={() => onReject(item.id)}
+                    className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                    title="Reject"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+                {onRemove && (
+                  <button
+                    onClick={() => onRemove(item.id)}
+                    className="p-2 rounded-lg bg-white/5 text-gray-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                    title="Remove from queue"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            )}
+
+            {onVote && !isAdmin && (
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => onVote(item.id, "up")}

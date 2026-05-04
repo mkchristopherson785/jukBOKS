@@ -317,6 +317,17 @@ export async function fetchListeners(venueCode: string) {
   return res.json();
 }
 
+export async function updateRequestStatus(venueCode: string, requestId: number, action: "approve" | "reject" | "remove") {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/requests/${requestId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ action }),
+  });
+  if (!res.ok) throw new Error("Failed to update request");
+  return res.json();
+}
+
 export async function clearQueue(venueCode: string) {
   const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/queue`, {
     method: "DELETE",

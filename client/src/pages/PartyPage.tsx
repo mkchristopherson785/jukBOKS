@@ -121,12 +121,19 @@ export default function PartyPage() {
     }
   }, [isListening, isConfigured, isAuthorized, configure, authorize, stop, playSong, party?.nowPlaying?.trackId]);
 
+  const [guestId, setGuestId] = useState<number | null>(() => {
+    const saved = localStorage.getItem(`jukboks_guest_id_${code}`);
+    return saved ? parseInt(saved) : null;
+  });
+
   const joinMutation = useMutation({
     mutationFn: () => joinParty(code!, guestName),
     onSuccess: (data) => {
       setGuestToken(data.sessionToken);
+      setGuestId(data.guestId);
       localStorage.setItem(`jukboks_guest_${code}`, data.sessionToken);
       localStorage.setItem(`jukboks_guest_name_${code}`, guestName);
+      localStorage.setItem(`jukboks_guest_id_${code}`, String(data.guestId));
       setShowJoinForm(false);
     },
   });
@@ -327,8 +334,35 @@ export default function PartyPage() {
             items={party.queue || []}
             onVote={(requestId, voteType) => voteMutation.mutate({ requestId, voteType })}
             userVotes={userVotes}
+            currentGuestId={guestId}
           />
         </div>
+
+        {party.recentlyPlayed && party.recentlyPlayed.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-lg font-semibold text-white mb-4">Recently Played</h2>
+            <div className="space-y-2">
+              {party.recentlyPlayed.slice(0, 10).map((song: any) => (
+                <div key={song.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/10">
+                  {song.albumCover ? (
+                    <img src={song.albumCover} alt="" className="w-10 h-10 rounded-lg object-cover opacity-70" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-gray-700/50 flex items-center justify-center">
+                      <Music2 className="w-5 h-5 text-gray-600" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-300 font-medium truncate text-sm">{song.title}</p>
+                    <p className="text-gray-500 text-xs truncate">{song.artist}</p>
+                  </div>
+                  {song.requesterName && (
+                    <span className="text-gray-600 text-xs truncate max-w-[80px]">{song.requesterName}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

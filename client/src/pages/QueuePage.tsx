@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, useSearch } from "wouter";
 import { ArrowLeft, LogOut, User, Shield, SkipForward, History, Ban, X, Music } from "lucide-react";
-import { fetchMyVenues, fetchVenue, fetchQueue, fetchListeners, fetchPlayHistory, fetchBannedSongs, banSong, unbanSong, skipSong, checkSuperAdmin } from "../lib/api";
+import { fetchMyVenues, fetchVenue, fetchQueue, fetchListeners, fetchPlayHistory, fetchBannedSongs, banSong, unbanSong, skipSong, checkSuperAdmin, updateRequestStatus } from "../lib/api";
 import { QueueList } from "../components/QueueList";
 import { useAuth } from "../hooks/use-auth";
 
@@ -92,6 +92,15 @@ export default function QueuePage() {
     mutationFn: (trackId: string) => unbanSong(selectedVenue?.id!, trackId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["bannedSongs", selectedVenue?.id] });
+    },
+  });
+
+  const updateRequestMutation = useMutation({
+    mutationFn: ({ requestId, action }: { requestId: number; action: "approve" | "reject" | "remove" }) =>
+      updateRequestStatus(selectedVenueCode!, requestId, action),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["queue", selectedVenueCode] });
+      queryClient.invalidateQueries({ queryKey: ["playHistory", selectedVenue?.id] });
     },
   });
 
@@ -205,7 +214,13 @@ export default function QueuePage() {
                 )}
               </div>
               <div className="max-h-[60vh] overflow-y-auto">
-                <QueueList items={queue?.items || []} />
+                <QueueList
+                  items={queue?.items || []}
+                  isAdmin={true}
+                  onApprove={(id) => updateRequestMutation.mutate({ requestId: id, action: "approve" })}
+                  onReject={(id) => updateRequestMutation.mutate({ requestId: id, action: "reject" })}
+                  onRemove={(id) => updateRequestMutation.mutate({ requestId: id, action: "remove" })}
+                />
               </div>
             </div>
 

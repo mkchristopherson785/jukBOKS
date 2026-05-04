@@ -615,15 +615,18 @@ router.post("/api/v1/venues/:code/played/:requestId", async (req: Request, res: 
 
 router.delete("/api/v1/venues/:code/queue", isAuthenticated, async (req: any, res: Response) => {
   try {
+    const userId = req.user?.claims?.sub;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
     const venue = await storage.getVenueByCode(req.params.code);
     if (!venue) {
       return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
     }
 
     const org = await storage.getOrganization(venue.organizationId);
-    if (!org || org.ownerId !== req.user.id) {
+    if (!org || org.ownerId !== userId) {
       const members = await storage.getOrganizationMembers(org?.id || 0);
-      const isMember = members.some((m: any) => m.authUserId === req.user.id);
+      const isMember = members.some((m: any) => m.authUserId === userId);
       if (!isMember) {
         return res.status(403).json({ error: "FORBIDDEN", message: "Not authorized" });
       }
@@ -638,6 +641,54 @@ router.delete("/api/v1/venues/:code/queue", isAuthenticated, async (req: any, re
     }
 
     res.json({ success: true, cleared: allToClear.length });
+  } catch (error) {
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+router.patch("/api/v1/venues/:code/requests/:requestId", isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const org = await storage.getOrganization(venue.organizationId);
+    if (!org || org.ownerId !== userId) {
+      const members = await storage.getOrganizationMembers(org?.id || 0);
+      const isMember = members.some((m: any) => m.authUserId === userId);
+      if (!isMember) {
+        return res.status(403).json({ error: "FORBIDDEN", message: "Not authorized" });
+      }
+    }
+
+    const requestId = parseInt(req.params.requestId);
+    const songRequest = await storage.getRequest(requestId);
+    if (!songRequest || songRequest.venueId !== venue.id) {
+      return res.status(404).json({ error: "REQUEST_NOT_FOUND", message: "Request not found" });
+    }
+
+    const { action } = req.body;
+    if (!["approve", "reject", "remove"].includes(action)) {
+      return res.status(400).json({ error: "INVALID_ACTION", message: "Action must be approve, reject, or remove" });
+    }
+
+    if (!["pending", "approved"].includes(songRequest.status)) {
+      return res.status(400).json({ error: "INVALID_STATE", message: "Can only modify pending or approved requests" });
+    }
+
+    if (action === "approve") {
+      await storage.updateRequest(requestId, { status: "approved" });
+    } else if (action === "reject") {
+      await storage.updateRequest(requestId, { status: "rejected" });
+    } else if (action === "remove") {
+      await storage.updateRequest(requestId, { status: "rejected" });
+    }
+
+    res.json({ success: true, action });
   } catch (error) {
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }
@@ -866,6 +917,7 @@ router.get("/api/v1/party/:partyCode", async (req: Request, res: Response) => {
 
     const org = await storage.getOrganization(venue.organizationId);
     const queue = await storage.getQueueWithVotes(venue.id);
+    const recentlyPlayed = await storage.getPlayHistory(venue.id, 20);
 
     res.json({
       venue: {
@@ -894,10 +946,20 @@ router.get("/api/v1/party/:partyCode", async (req: Request, res: Response) => {
         albumCover: item.albumCover,
         isExplicit: item.isExplicit,
         requesterName: item.requesterName,
+        requestedByGuestId: item.requestedByGuestId,
         isAutoPlay: item.isAutoPlay || false,
         upvotes: item.upvotes,
         downvotes: item.downvotes,
         netVotes: item.netVotes,
+      })),
+      recentlyPlayed: recentlyPlayed.slice(0, 20).map(item => ({
+        id: item.id,
+        trackId: item.trackId,
+        title: item.title,
+        artist: item.artist,
+        albumCover: item.albumCover,
+        playedAt: item.playedAt,
+        requesterName: item.requesterName,
       })),
     });
   } catch (error) {
