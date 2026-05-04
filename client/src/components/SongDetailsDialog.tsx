@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { X, Music, Disc, Calendar, Clock, ExternalLink, Play, Pause, Loader2, AlertCircle, Sparkles, ChevronLeft } from "lucide-react";
+import { X, Music, Disc, Calendar, Clock, ExternalLink, Play, Pause, Loader2, AlertCircle, Sparkles, ChevronLeft, Plus, Check } from "lucide-react";
 import { fetchTrackDetails, fetchSimilarTracks, type TrackDetails, type TrackSummary } from "../lib/api";
 
 interface SongDetailsDialogProps {
@@ -14,6 +14,19 @@ interface SongDetailsDialogProps {
     previewUrl?: string;
   };
   onClose: () => void;
+  /** Optional: called when the user taps "Add" on a similar song. Only shown when provided. */
+  onRequest?: (track: {
+    id: string;
+    title: string;
+    artist: string;
+    album: string;
+    albumCover: string;
+    duration: number;
+    isExplicit: boolean;
+    previewUrl?: string;
+  }) => void;
+  /** Track IDs already in the queue — those rows show a "queued" state instead of "Add". */
+  queuedTrackIds?: Set<string>;
 }
 
 function formatDuration(ms: number) {
@@ -34,7 +47,8 @@ function formatDate(iso?: string) {
   }
 }
 
-export function SongDetailsDialog({ trackId, fallback, onClose }: SongDetailsDialogProps) {
+export function SongDetailsDialog({ trackId, fallback, onClose, onRequest, queuedTrackIds }: SongDetailsDialogProps) {
+  const [justRequestedIds, setJustRequestedIds] = useState<Set<string>>(new Set());
   const [details, setDetails] = useState<TrackDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,6 +156,27 @@ export function SongDetailsDialog({ trackId, fallback, onClose }: SongDetailsDia
   const displayCover = details?.albumCover || activeFallback?.albumCover;
   const displayExplicit = details?.isExplicit ?? activeFallback?.isExplicit ?? false;
   const previewUrl = details?.previewUrl || activeFallback?.previewUrl;
+
+  const handleRequestSimilar = (track: TrackSummary, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onRequest) return;
+    if (queuedTrackIds?.has(track.trackId) || justRequestedIds.has(track.trackId)) return;
+    onRequest({
+      id: track.trackId,
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      albumCover: track.albumCover,
+      duration: track.duration,
+      isExplicit: track.isExplicit,
+      previewUrl: track.previewUrl,
+    });
+    setJustRequestedIds((prev) => {
+      const next = new Set(prev);
+      next.add(track.trackId);
+      return next;
+    });
+  };
 
   const drillIntoSimilar = (track: TrackSummary) => {
     stopPreview();
@@ -394,42 +429,62 @@ export function SongDetailsDialog({ trackId, fallback, onClose }: SongDetailsDia
               <p className="text-xs text-gray-500 py-2">No similar songs found.</p>
             ) : (
               <ul className="space-y-1.5" data-testid="list-similar-songs">
-                {similar.map((track) => (
-                  <li key={track.trackId}>
-                    <button
-                      type="button"
-                      onClick={() => drillIntoSimilar(track)}
-                      className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 active:bg-white/10 transition-colors text-left"
-                      data-testid={`button-similar-${track.trackId}`}
-                    >
-                      {track.albumCover ? (
-                        <img
-                          src={track.albumCover}
-                          alt={track.album || track.title}
-                          className="w-10 h-10 rounded object-cover flex-shrink-0"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center flex-shrink-0">
-                          <Music className="w-5 h-5 text-gray-500" />
+                {similar.map((track) => {
+                  const alreadyQueued = queuedTrackIds?.has(track.trackId) || justRequestedIds.has(track.trackId);
+                  return (
+                    <li key={track.trackId} className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => drillIntoSimilar(track)}
+                        className="flex-1 min-w-0 flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 active:bg-white/10 transition-colors text-left"
+                        data-testid={`button-similar-${track.trackId}`}
+                      >
+                        {track.albumCover ? (
+                          <img
+                            src={track.albumCover}
+                            alt={track.album || track.title}
+                            className="w-10 h-10 rounded object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center flex-shrink-0">
+                            <Music className="w-5 h-5 text-gray-500" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm text-white truncate">{track.title}</p>
+                            {track.isExplicit && (
+                              <span className="inline-flex items-center justify-center w-3.5 h-3.5 bg-gray-700 text-[8px] font-bold rounded text-gray-300 flex-shrink-0">
+                                E
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-400 truncate">
+                            {track.album || track.artist}
+                            {track.releaseYear ? ` · ${track.releaseYear}` : ""}
+                          </p>
                         </div>
+                      </button>
+                      {onRequest && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleRequestSimilar(track, e)}
+                          disabled={alreadyQueued}
+                          className={
+                            alreadyQueued
+                              ? "flex-shrink-0 w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center cursor-default"
+                              : "flex-shrink-0 w-9 h-9 rounded-full bg-indigo-500 hover:bg-indigo-400 active:bg-indigo-600 text-white flex items-center justify-center transition-colors"
+                          }
+                          aria-label={alreadyQueued ? "Already in queue" : `Add ${track.title} to queue`}
+                          title={alreadyQueued ? "Already in queue" : "Add to queue"}
+                          data-testid={`button-request-similar-${track.trackId}`}
+                        >
+                          {alreadyQueued ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                        </button>
                       )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <p className="text-sm text-white truncate">{track.title}</p>
-                          {track.isExplicit && (
-                            <span className="inline-flex items-center justify-center w-3.5 h-3.5 bg-gray-700 text-[8px] font-bold rounded text-gray-300 flex-shrink-0">
-                              E
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-400 truncate">
-                          {track.album || track.artist}
-                          {track.releaseYear ? ` · ${track.releaseYear}` : ""}
-                        </p>
-                      </div>
-                    </button>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

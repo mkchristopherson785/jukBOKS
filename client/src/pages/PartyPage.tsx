@@ -401,6 +401,8 @@ export default function PartyPage() {
             userVotes={userVotes}
             currentGuestId={guestId}
             guestRankings={party.guestRankings || {}}
+            onRequestTrack={(track) => requestMutation.mutate(track)}
+            queuedTrackIds={queueTrackIds}
           />
         </div>
 

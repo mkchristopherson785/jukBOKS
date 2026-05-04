@@ -280,6 +280,8 @@ export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic 
           previewUrl: detailsTrack.previewUrl,
         } : undefined}
         onClose={() => setDetailsTrack(null)}
+        onRequest={(track) => onSelect(track as Track)}
+        queuedTrackIds={queueTrackIds}
       />
     </div>
   );

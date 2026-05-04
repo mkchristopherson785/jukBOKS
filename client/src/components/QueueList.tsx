@@ -30,9 +30,20 @@ interface QueueListProps {
   onReject?: (requestId: number) => void;
   onRemove?: (requestId: number) => void;
   guestRankings?: Record<string, number>;
+  onRequestTrack?: (track: {
+    id: string;
+    title: string;
+    artist: string;
+    album: string;
+    albumCover: string;
+    duration: number;
+    isExplicit: boolean;
+    previewUrl?: string;
+  }) => void;
+  queuedTrackIds?: Set<string>;
 }
 
-export function QueueList({ items, onVote, userVotes = new Map(), currentGuestId, isAdmin, onApprove, onReject, onRemove, guestRankings = {} }: QueueListProps) {
+export function QueueList({ items, onVote, userVotes = new Map(), currentGuestId, isAdmin, onApprove, onReject, onRemove, guestRankings = {}, onRequestTrack, queuedTrackIds }: QueueListProps) {
   const [detailsTrackId, setDetailsTrackId] = useState<string | null>(null);
   const [detailsFallback, setDetailsFallback] = useState<{ title?: string; artist?: string; albumCover?: string; isExplicit?: boolean } | undefined>();
 
@@ -62,6 +73,8 @@ export function QueueList({ items, onVote, userVotes = new Map(), currentGuestId
       trackId={detailsTrackId}
       fallback={detailsFallback}
       onClose={() => setDetailsTrackId(null)}
+      onRequest={onRequestTrack}
+      queuedTrackIds={queuedTrackIds}
     />
     <div className="space-y-3">
       {items.map((item, index) => {
