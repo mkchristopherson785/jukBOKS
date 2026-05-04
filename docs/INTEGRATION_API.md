@@ -31,7 +31,7 @@ X-Guest-Token: guest-session-token
 
 ## Base URL
 ```
-Production: https://api.jukboks.app
+Production: https://jukboks.replit.app
 ```
 
 ---
@@ -412,14 +412,14 @@ Jukboks can send webhooks to your application for real-time updates:
 ### Option 1: Redirect to Party Page
 Simply link users to the Jukboks party page:
 ```
-https://party.jukboks.app/{venue-code}
+https://jukboks.replit.app/party/{venue-code}
 ```
 
 ### Option 2: Iframe Embed
 Embed the party experience in your app:
 ```html
 <iframe 
-  src="https://party.jukboks.app/{venue-code}?embed=true"
+  src="https://jukboks.replit.app/party/{venue-code}?embed=true"
   width="100%"
   height="600"
   frameborder="0"
@@ -429,7 +429,7 @@ Embed the party experience in your app:
 ### Option 3: Widget Script (Coming Soon)
 ```html
 <div id="jukboks-widget" data-venue="pool-deck"></div>
-<script src="https://cdn.jukboks.app/widget.js"></script>
+<script src="https://jukboks.replit.app/widget.js"></script>
 ```
 
 ---
@@ -444,7 +444,7 @@ In LivHOA tenant settings, store:
 ### Step 2: Link to Party Page
 From the LivHOA dashboard, link to the Jukboks party:
 ```jsx
-<a href={`https://party.jukboks.app/${tenant.jukboksVenueCode}`}>
+<a href={`https://jukboks.replit.app/party/${tenant.jukboksVenueCode}`}>
   Open Music Jukebox
 </a>
 ```
@@ -452,7 +452,7 @@ From the LivHOA dashboard, link to the Jukboks party:
 ### Step 3: Display Now Playing (Optional)
 Fetch and display the current song in LivHOA:
 ```javascript
-const response = await fetch(`https://api.jukboks.app/api/v1/venues/${venueCode}/now-playing`);
+const response = await fetch(`https://jukboks.replit.app/api/v1/venues/${venueCode}/now-playing`);
 const nowPlaying = await response.json();
 // Display in LivHOA UI
 ```
@@ -461,7 +461,7 @@ const nowPlaying = await response.json();
 If you want LivHOA users to request songs through LivHOA's UI:
 ```javascript
 // Server-side (to protect API key)
-const response = await fetch(`https://api.jukboks.app/api/v1/venues/${venueCode}/request`, {
+const response = await fetch(`https://jukboks.replit.app/api/v1/venues/${venueCode}/request`, {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
