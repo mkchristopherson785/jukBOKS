@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, boolean, timestamp, jsonb, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, boolean, timestamp, jsonb, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -417,7 +417,7 @@ export const guestFavorites = pgTable("guest_favorites", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   venueGuestIdx: index("guest_favorites_venue_guest_idx").on(table.venueId, table.guestName),
-  uniqueTrack: index("guest_favorites_unique_track_idx").on(table.venueId, table.guestName, table.trackId),
+  uniqueTrack: uniqueIndex("guest_favorites_unique_track_idx").on(table.venueId, table.guestName, table.trackId),
 }));
 
 export type GuestFavorite = typeof guestFavorites.$inferSelect;

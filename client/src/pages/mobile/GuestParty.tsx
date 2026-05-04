@@ -6,6 +6,7 @@ import { SongSearch } from "../../components/SongSearch";
 import { ConnectionStatus } from "../../components/ConnectionStatus";
 import { useMusicKit } from "../../hooks/useMusicKit";
 import { useGuestFavorites } from "../../hooks/useGuestFavorites";
+import { GuestRankBadge, GuestRankCard } from "../../components/GuestRank";
 import type { Track } from "../../hooks/useAppleMusic";
 
 type GuestTab = "playing" | "search" | "queue";
@@ -325,6 +326,11 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
 
         {activeTab === "search" && (
           <div>
+            {savedGuestName && party?.guestRankings && (
+              <div className="mb-6">
+                <GuestRankCard guestName={savedGuestName} rankings={party.guestRankings} />
+              </div>
+            )}
             <h2 className="text-lg font-bold text-white mb-3">Request a Song</h2>
             <SongSearch
               onSelect={(track) => requestMutation.mutate(track)}
@@ -401,9 +407,14 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-medium truncate text-sm">{song.title}</p>
                     <p className="text-gray-400 text-xs truncate">{song.artist}</p>
-                    {isYourSong && (
-                      <span className="text-[10px] text-indigo-300 font-semibold">Your song</span>
-                    )}
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {isYourSong && (
+                        <span className="text-[10px] text-indigo-300 font-semibold">Your song</span>
+                      )}
+                      {song.requesterName && !song.isAutoPlay && party?.guestRankings && (
+                        <GuestRankBadge guestName={song.requesterName} rankings={party.guestRankings} size={12} />
+                      )}
+                    </div>
                   </div>
                   <span className="text-indigo-400 text-xs font-medium">
                     {(song.upvotes || 0) - (song.downvotes || 0)} votes

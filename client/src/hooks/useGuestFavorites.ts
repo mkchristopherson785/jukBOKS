@@ -30,19 +30,57 @@ export function useGuestFavorites(venueCode?: string, guestName?: string) {
 
     loadedRef.current = key;
     fetchGuestFavorites(venueCode, guestName)
-      .then((data) => {
-        setFavorites(
-          (data.favorites || []).map((f: any) => ({
-            trackId: f.trackId,
-            title: f.title,
-            artist: f.artist,
-            album: f.album || "",
-            albumCover: f.albumCover || "",
-            previewUrl: f.previewUrl,
-            duration: f.duration,
-            isExplicit: f.isExplicit,
-          }))
-        );
+      .then(async (data) => {
+        const cloudFavs: FavoriteSong[] = (data.favorites || []).map((f: any) => ({
+          trackId: f.trackId,
+          title: f.title,
+          artist: f.artist,
+          album: f.album || "",
+          albumCover: f.albumCover || "",
+          previewUrl: f.previewUrl,
+          duration: f.duration,
+          isExplicit: f.isExplicit,
+        }));
+
+        const legacyKey = `jukboks_favorites_${venueCode}`;
+        const legacyGlobalKey = "jukboks_favorites";
+        const legacyData = localStorage.getItem(legacyKey) || localStorage.getItem(legacyGlobalKey);
+        if (legacyData) {
+          try {
+            const legacyFavs: any[] = JSON.parse(legacyData);
+            const cloudTrackIds = new Set(cloudFavs.map((f) => f.trackId));
+            const toMigrate = legacyFavs.filter((f) => f.trackId && !cloudTrackIds.has(f.trackId));
+            for (const f of toMigrate) {
+              addGuestFavoriteApi(venueCode, {
+                guestName,
+                trackId: f.trackId,
+                title: f.title,
+                artist: f.artist,
+                album: f.album,
+                albumCover: f.albumCover,
+                previewUrl: f.previewUrl,
+                duration: f.duration,
+                isExplicit: f.isExplicit,
+              }).catch(() => {});
+              cloudFavs.push({
+                trackId: f.trackId,
+                title: f.title,
+                artist: f.artist,
+                album: f.album || "",
+                albumCover: f.albumCover || "",
+                previewUrl: f.previewUrl,
+                duration: f.duration,
+                isExplicit: f.isExplicit,
+              });
+            }
+            localStorage.removeItem(legacyKey);
+            if (legacyGlobalKey !== legacyKey) {
+              localStorage.removeItem(legacyGlobalKey);
+            }
+          } catch {}
+        }
+
+        setFavorites(cloudFavs.slice(0, 50));
         setIsLoaded(true);
       })
       .catch(() => {

@@ -3,6 +3,7 @@ import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, Radio, Pause, AlertCircle } from "lucide-react";
 import { fetchParty, joinParty, submitRequest, submitVote, registerListener, unregisterListener } from "../lib/api";
+import { GuestRankCard } from "../components/GuestRank";
 
 function hexToRgb(hex: string): string {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -323,6 +324,13 @@ export default function PartyPage() {
           </div>
         </div>
 
+        {savedGuestName && party.guestRankings && (
+          <div className="mb-8">
+            <h2 className="text-lg font-semibold text-white mb-4">Your Rank</h2>
+            <GuestRankCard guestName={savedGuestName} rankings={party.guestRankings} />
+          </div>
+        )}
+
         <div className="mb-8 relative z-30">
           <h2 className="text-lg font-semibold text-white mb-4">Request a Song</h2>
           <SongSearch
@@ -392,6 +400,7 @@ export default function PartyPage() {
             onVote={(requestId, voteType) => voteMutation.mutate({ requestId, voteType })}
             userVotes={userVotes}
             currentGuestId={guestId}
+            guestRankings={party.guestRankings || {}}
           />
         </div>
 

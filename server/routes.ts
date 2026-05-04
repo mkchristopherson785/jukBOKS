@@ -918,6 +918,9 @@ router.get("/api/v1/party/:partyCode", async (req: Request, res: Response) => {
     const org = await storage.getOrganization(venue.organizationId);
     const queue = await storage.getQueueWithVotes(venue.id);
     const recentlyPlayed = await storage.getPlayHistory(venue.id, 20);
+    const guestRankingsMap = await storage.getGuestRankings(venue.id);
+    const guestRankings: Record<string, number> = {};
+    guestRankingsMap.forEach((upvotes, name) => { guestRankings[name] = upvotes; });
 
     res.json({
       venue: {
@@ -938,6 +941,7 @@ router.get("/api/v1/party/:partyCode", async (req: Request, res: Response) => {
         artist: venue.currentlyPlayingArtist,
         albumCover: venue.currentlyPlayingAlbumCover,
       },
+      guestRankings,
       queue: queue.map(item => ({
         id: item.id,
         trackId: item.trackId,

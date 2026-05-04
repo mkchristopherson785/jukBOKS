@@ -94,6 +94,7 @@ export interface IStorage {
   isSongBanned(venueId: number, trackId: string): Promise<boolean>;
   getPlayHistory(venueId: number, limit?: number): Promise<any[]>;
 
+  getGuestRankings(venueId: number): Promise<Map<string, number>>;
   getGuestFavorites(venueId: number, guestName: string): Promise<any[]>;
   addGuestFavorite(venueId: number, guestName: string, data: { trackId: string; title: string; artist: string; album?: string; albumCover?: string; previewUrl?: string; duration?: number; isExplicit?: boolean }): Promise<any>;
   removeGuestFavorite(venueId: number, guestName: string, trackId: string): Promise<boolean>;
@@ -664,6 +665,30 @@ export class DatabaseStorage implements IStorage {
       .orderBy(sql`to_char(${requests.playedAt}, 'YYYY-MM-DD')`);
 
     return { totalPlayed, totalRequests, uniqueGuests, topSongs, topArtists, peakHours, dailyPlays };
+  }
+
+  async getGuestRankings(venueId: number): Promise<Map<string, number>> {
+    const result = await db
+      .select({
+        name: requests.requesterName,
+        totalUpvotes: sql<number>`COALESCE(SUM(CASE WHEN ${votes.voteType} = 'up' THEN 1 ELSE 0 END), 0)::int`,
+      })
+      .from(requests)
+      .leftJoin(votes, eq(requests.id, votes.requestId))
+      .where(and(
+        eq(requests.venueId, venueId),
+        sql`${requests.requesterName} IS NOT NULL`,
+        eq(requests.isAutoPlay, false)
+      ))
+      .groupBy(requests.requesterName);
+
+    const rankings = new Map<string, number>();
+    for (const row of result) {
+      if (row.name) {
+        rankings.set(row.name, row.totalUpvotes);
+      }
+    }
+    return rankings;
   }
 
   async getGuestFavorites(venueId: number, guestName: string): Promise<any[]> {

@@ -1,5 +1,6 @@
 import { ThumbsUp, ThumbsDown, Music, User, Radio, Check, X, Trash2 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { GuestRankBadge } from "./GuestRank";
 
 interface QueueItem {
   id: number;
@@ -26,9 +27,10 @@ interface QueueListProps {
   onApprove?: (requestId: number) => void;
   onReject?: (requestId: number) => void;
   onRemove?: (requestId: number) => void;
+  guestRankings?: Record<string, number>;
 }
 
-export function QueueList({ items, onVote, userVotes = new Map(), currentGuestId, isAdmin, onApprove, onReject, onRemove }: QueueListProps) {
+export function QueueList({ items, onVote, userVotes = new Map(), currentGuestId, isAdmin, onApprove, onReject, onRemove, guestRankings = {} }: QueueListProps) {
   if (items.length === 0) {
     return (
       <div className="text-center py-12 text-gray-400">
@@ -88,9 +90,10 @@ export function QueueList({ items, onVote, userVotes = new Map(), currentGuestId
                     Auto-play
                   </div>
                 ) : item.requesterName ? (
-                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-500">
                     <User className="w-3 h-3" />
                     {item.requesterName}
+                    <GuestRankBadge guestName={item.requesterName} rankings={guestRankings} size={12} />
                   </div>
                 ) : null}
                 {isYourSong && (
