@@ -266,7 +266,7 @@ export default function SettingsPage() {
   });
 
   const updateVenueMutation = useMutation({
-    mutationFn: (data: { allowExplicit?: boolean; autoApprove?: boolean; dailyRequestLimit?: number }) => 
+    mutationFn: (data: { allowExplicit?: boolean; autoApprove?: boolean; dailyRequestLimit?: number; songCooldownMinutes?: number; artistCooldownMinutes?: number; artistMaxPlaysPerHour?: number; [key: string]: any }) => 
       updateVenue(selectedVenue!.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["venue", selectedVenueCode] });
@@ -432,6 +432,47 @@ export default function SettingsPage() {
                     <option value="5" className="bg-gray-900">5</option>
                     <option value="10" className="bg-gray-900">10</option>
                     <option value="0" className="bg-gray-900">Unlimited</option>
+                  </select>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                  <div>
+                    <p className="text-white font-medium">Song Cooldown</p>
+                    <p className="text-gray-400 text-xs">How long before a song can repeat</p>
+                  </div>
+                  <select
+                    value={selectedVenue.songCooldownMinutes ?? 120}
+                    onChange={(e) => updateVenueMutation.mutate({ songCooldownMinutes: parseInt(e.target.value) })}
+                    className="px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="0" className="bg-gray-900">Off</option>
+                    <option value="30" className="bg-gray-900">30 min</option>
+                    <option value="60" className="bg-gray-900">1 hour</option>
+                    <option value="120" className="bg-gray-900">2 hours</option>
+                    <option value="180" className="bg-gray-900">3 hours</option>
+                    <option value="240" className="bg-gray-900">4 hours</option>
+                    <option value="360" className="bg-gray-900">6 hours</option>
+                    <option value="480" className="bg-gray-900">8 hours</option>
+                    <option value="720" className="bg-gray-900">12 hours</option>
+                    <option value="1440" className="bg-gray-900">24 hours</option>
+                  </select>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                  <div>
+                    <p className="text-white font-medium">Artist Limit</p>
+                    <p className="text-gray-400 text-xs">Max plays per artist per hour</p>
+                  </div>
+                  <select
+                    value={selectedVenue.artistMaxPlaysPerHour ?? 3}
+                    onChange={(e) => updateVenueMutation.mutate({ artistMaxPlaysPerHour: parseInt(e.target.value) })}
+                    className="px-3 py-1.5 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="1" className="bg-gray-900">1</option>
+                    <option value="2" className="bg-gray-900">2</option>
+                    <option value="3" className="bg-gray-900">3</option>
+                    <option value="4" className="bg-gray-900">4</option>
+                    <option value="5" className="bg-gray-900">5</option>
+                    <option value="10" className="bg-gray-900">10</option>
+                    <option value="0" className="bg-gray-900">No limit</option>
                   </select>
                 </div>
               </div>

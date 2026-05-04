@@ -353,6 +353,9 @@ router.get("/api/v1/venues/:code", async (req: Request, res: Response) => {
       autoApprove: venue.autoApprove,
       dailyRequestLimit: venue.dailyRequestLimit,
       isActive: venue.isActive,
+      songCooldownMinutes: venue.songCooldownMinutes ?? 120,
+      artistCooldownMinutes: venue.artistCooldownMinutes ?? 30,
+      artistMaxPlaysPerHour: venue.artistMaxPlaysPerHour ?? 3,
       announcementFrequencyType: venue.announcementFrequencyType,
       announcementFrequency: venue.announcementFrequency,
       announcementPlayMode: venue.announcementPlayMode,
@@ -662,12 +665,31 @@ router.post("/api/v1/venues/:code/request", async (req: Request, res: Response) 
       return res.status(400).json({ error: "SONG_BANNED", message: "This song has been banned at this venue" });
     }
 
-    const wasPlayedRecently = await storage.wasTrackPlayedRecently(venue.id, trackId, 2);
-    if (wasPlayedRecently) {
-      return res.status(400).json({ 
-        error: "SONG_PLAYED_RECENTLY", 
-        message: "This song was played in the last 2 hours. Please choose a different song." 
-      });
+    const songCooldown = venue.songCooldownMinutes ?? 120;
+    if (songCooldown > 0) {
+      const wasPlayedRecently = await storage.wasTrackPlayedRecentlyMinutes(venue.id, trackId, songCooldown);
+      if (wasPlayedRecently) {
+        const hours = Math.floor(songCooldown / 60);
+        const mins = songCooldown % 60;
+        const timeStr = hours > 0 ? `${hours}h${mins > 0 ? ` ${mins}m` : ''}` : `${mins} minutes`;
+        return res.status(400).json({ 
+          error: "SONG_PLAYED_RECENTLY", 
+          message: `This song was played in the last ${timeStr}. Please choose a different song.` 
+        });
+      }
+    }
+
+    const artistCooldown = venue.artistCooldownMinutes ?? 30;
+    const artistMaxPlays = venue.artistMaxPlaysPerHour ?? 3;
+    if (artistCooldown > 0 && artistMaxPlays > 0 && artist) {
+      const artistPlayCount = await storage.getArtistPlayCountRecent(venue.id, artist, artistCooldown);
+      if (artistPlayCount >= artistMaxPlays) {
+        const timeStr = artistCooldown >= 60 ? `${Math.floor(artistCooldown / 60)} hour${artistCooldown >= 120 ? 's' : ''}` : `${artistCooldown} minutes`;
+        return res.status(400).json({
+          error: "ARTIST_PLAYED_TOO_OFTEN",
+          message: `This artist has been played ${artistMaxPlays} times in the last ${timeStr}. Try a different artist.`
+        });
+      }
     }
 
     const requestData: InsertRequest = {
@@ -1038,7 +1060,7 @@ router.patch("/api/v1/venues/:code/settings", async (req: Request, res: Response
       return res.status(403).json({ error: "FORBIDDEN", message: "API key not authorized for this venue" });
     }
 
-    const { allowExplicit, dailyRequestLimit, autoApprove, autoPlayEnabled } = req.body;
+    const { allowExplicit, dailyRequestLimit, autoApprove, autoPlayEnabled, songCooldownMinutes, artistCooldownMinutes, artistMaxPlaysPerHour } = req.body;
     
     const updates: Partial<typeof venue> = {};
     if (typeof allowExplicit === "boolean") updates.allowExplicit = allowExplicit;
@@ -1046,6 +1068,15 @@ router.patch("/api/v1/venues/:code/settings", async (req: Request, res: Response
     if (typeof autoPlayEnabled === "boolean") updates.autoPlayEnabled = autoPlayEnabled;
     if (typeof dailyRequestLimit === "number" && dailyRequestLimit >= 0 && dailyRequestLimit <= 100) {
       updates.dailyRequestLimit = dailyRequestLimit;
+    }
+    if (typeof songCooldownMinutes === "number" && songCooldownMinutes >= 0 && songCooldownMinutes <= 1440) {
+      updates.songCooldownMinutes = songCooldownMinutes;
+    }
+    if (typeof artistCooldownMinutes === "number" && artistCooldownMinutes >= 0 && artistCooldownMinutes <= 1440) {
+      updates.artistCooldownMinutes = artistCooldownMinutes;
+    }
+    if (typeof artistMaxPlaysPerHour === "number" && artistMaxPlaysPerHour >= 0 && artistMaxPlaysPerHour <= 20) {
+      updates.artistMaxPlaysPerHour = artistMaxPlaysPerHour;
     }
 
     const updated = await storage.updateVenue(venue.id, updates);
@@ -1216,14 +1247,20 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
       const selected = availableCandidates[selectedIdx];
       availableCandidates.splice(selectedIdx, 1);
       
-      // Check if track was played recently
-      const wasPlayedRecently = await storage.wasTrackPlayedRecently(venue.id, selected.track.id, 4);
+      const songCooldown = venue.songCooldownMinutes ?? 120;
+      const wasPlayedRecently = await storage.wasTrackPlayedRecentlyMinutes(venue.id, selected.track.id, songCooldown);
       if (wasPlayedRecently) continue;
       
       const attrs = selected.track.attributes;
       const trackArtist = attrs.artistName?.toLowerCase() || "";
+
+      const artistCooldown = venue.artistCooldownMinutes ?? 30;
+      const artistMaxPlays = venue.artistMaxPlaysPerHour ?? 3;
+      if (trackArtist && artistCooldown > 0 && artistMaxPlays > 0) {
+        const artistPlayCount = await storage.getArtistPlayCountRecent(venue.id, trackArtist, artistCooldown);
+        if (artistPlayCount >= artistMaxPlays) continue;
+      }
       
-      // Skip if same artist as last added song (prevent back-to-back)
       if (lastArtist && trackArtist === lastArtist) {
         // Put it back at the end so it might be selected later
         availableCandidates.push(selected);
@@ -1517,7 +1554,7 @@ router.patch("/api/me/venues/:venueId", isAuthenticated, async (req: any, res) =
       return res.status(404).json({ error: "NOT_FOUND", message: "Venue not found" });
     }
 
-    const { name, allowExplicit, blockHolidayMusic, autoApprove, dailyRequestLimit, isActive } = req.body;
+    const { name, allowExplicit, blockHolidayMusic, autoApprove, dailyRequestLimit, isActive, songCooldownMinutes, artistCooldownMinutes, artistMaxPlaysPerHour } = req.body;
     
     const updatedVenue = await storage.updateVenue(venueId, {
       ...(name !== undefined && { name }),
@@ -1526,6 +1563,9 @@ router.patch("/api/me/venues/:venueId", isAuthenticated, async (req: any, res) =
       ...(autoApprove !== undefined && { autoApprove }),
       ...(dailyRequestLimit !== undefined && { dailyRequestLimit }),
       ...(isActive !== undefined && { isActive }),
+      ...(songCooldownMinutes !== undefined && typeof songCooldownMinutes === "number" && songCooldownMinutes >= 0 && songCooldownMinutes <= 1440 && { songCooldownMinutes }),
+      ...(artistCooldownMinutes !== undefined && typeof artistCooldownMinutes === "number" && artistCooldownMinutes >= 0 && artistCooldownMinutes <= 1440 && { artistCooldownMinutes }),
+      ...(artistMaxPlaysPerHour !== undefined && typeof artistMaxPlaysPerHour === "number" && artistMaxPlaysPerHour >= 0 && artistMaxPlaysPerHour <= 20 && { artistMaxPlaysPerHour }),
     });
 
     res.json(updatedVenue);

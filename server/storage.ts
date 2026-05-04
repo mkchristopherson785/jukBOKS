@@ -46,6 +46,8 @@ export interface IStorage {
   getQueueWithVotes(venueId: number): Promise<QueueItemWithVotes[]>;
   updateRequest(id: number, data: Partial<Request>): Promise<Request | undefined>;
   wasTrackPlayedRecently(venueId: number, trackId: string, hoursAgo: number): Promise<boolean>;
+  wasTrackPlayedRecentlyMinutes(venueId: number, trackId: string, minutes: number): Promise<boolean>;
+  getArtistPlayCountRecent(venueId: number, artist: string, minutes: number): Promise<number>;
   
   createVote(data: InsertVote): Promise<Vote>;
   getVotesByRequest(requestId: number): Promise<Vote[]>;
@@ -277,6 +279,34 @@ export class DatabaseStorage implements IStorage {
       ))
       .limit(1);
     return !!result;
+  }
+
+  async wasTrackPlayedRecentlyMinutes(venueId: number, trackId: string, minutes: number): Promise<boolean> {
+    const cutoffTime = new Date(Date.now() - minutes * 60 * 1000);
+    const [result] = await db
+      .select()
+      .from(requests)
+      .where(and(
+        eq(requests.venueId, venueId),
+        eq(requests.trackId, trackId),
+        eq(requests.status, 'played'),
+        gte(requests.playedAt, cutoffTime)
+      ))
+      .limit(1);
+    return !!result;
+  }
+
+  async getArtistPlayCountRecent(venueId: number, artist: string, minutes: number): Promise<number> {
+    const cutoffTime = new Date(Date.now() - minutes * 60 * 1000);
+    const results = await db
+      .select()
+      .from(requests)
+      .where(and(
+        eq(requests.venueId, venueId),
+        eq(requests.status, 'played'),
+        gte(requests.playedAt, cutoffTime)
+      ));
+    return results.filter(r => r.artist?.toLowerCase() === artist.toLowerCase()).length;
   }
 
   async updateRequest(id: number, data: Partial<Request>): Promise<Request | undefined> {

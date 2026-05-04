@@ -13,7 +13,7 @@ Jukboks is a standalone SaaS platform that enables businesses (bars, restaurants
 - **Listen Along**: Remote users with Apple Music can sync playback in real-time
 - **Per-Venue Settings**: Explicit content filtering, daily request limits (1-10 or unlimited), auto-approve
 - **Upvote/Downvote System**: Guests can thumbs up or thumbs down songs in the queue
-- **Duplicate Song Prevention**: Songs can't be requested again within 2 hours of playing
+- **Smart Repetition Prevention**: Configurable song cooldown (30min-24hrs) and artist play limits per hour, persisted across server reboots
 - **Backup Playlists**: Up to 10 playlists per venue for auto-play when queue is empty, with weighted selection (1-5) to control how often each playlist is used
 - **Announcement Groups**: Multiple announcement groups per venue, each with independent timing rules (every X songs, every X minutes, or hourly) and play modes (sequential/random). Add announcements to the same group to share rules, or create new groups for different schedules.
 - **Multi-Organization Support**: Each business manages their own venues
