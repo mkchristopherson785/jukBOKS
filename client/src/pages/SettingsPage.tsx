@@ -9,7 +9,13 @@ import { useMusicKit } from "../hooks/useMusicKit";
 export default function SettingsPage() {
   const queryClient = useQueryClient();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
-  const { uploadFile, isUploading } = useUpload({});
+  const { uploadFile, isUploading } = useUpload({
+    onError: (err) => {
+      // Surface upload failures (presigned URL fetch, GCS PUT, network) into
+      // the announcement modal — otherwise the user sees nothing happen.
+      setAnnouncementError(err.message || "Upload failed. Please try again.");
+    },
+  });
   const { isConfigured: musicKitConfigured, isAuthorized: musicKitAuthorized, authorize: authorizeMusicKit, musicKit } = useMusicKit();
   
   const { data: superAdminCheck } = useQuery({
@@ -323,6 +329,7 @@ export default function SettingsPage() {
   };
 
   const handleAnnouncementUpload = async (file: File) => {
+    setAnnouncementError("");
     if (!announcementName.trim()) {
       setAnnouncementError("Please enter a name for the announcement");
       return;
@@ -331,8 +338,23 @@ export default function SettingsPage() {
       setAnnouncementError("No group selected");
       return;
     }
-    const result = await uploadFile(file);
-    if (result?.objectPath) {
+    // Reject obviously-wrong files early with a clear message.
+    if (file.type && !file.type.startsWith("audio/")) {
+      setAnnouncementError("Please choose an audio file (MP3, WAV, M4A, etc.)");
+      return;
+    }
+    // 50 MB cap — keeps presigned upload well under the 15-minute URL window.
+    if (file.size > 50 * 1024 * 1024) {
+      setAnnouncementError("Audio file is too large (max 50 MB).");
+      return;
+    }
+    try {
+      const result = await uploadFile(file);
+      if (!result?.objectPath) {
+        // useUpload's onError already set a message; fall back if not.
+        setAnnouncementError(prev => prev || "Upload failed. Please try again.");
+        return;
+      }
       addAnnouncementMutation.mutate({
         groupId: addingToGroupId,
         data: {
@@ -340,6 +362,8 @@ export default function SettingsPage() {
           audioUrl: result.objectPath,
         },
       });
+    } catch (err: any) {
+      setAnnouncementError(err?.message || "Upload failed. Please try again.");
     }
   };
 
