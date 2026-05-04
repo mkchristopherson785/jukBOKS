@@ -406,11 +406,11 @@ export async function fetchNextAnnouncement(venueCode: string) {
   return res.json();
 }
 
-export async function markAnnouncementPlayed(venueCode: string, groupId?: number, announcementId?: number) {
+export async function markAnnouncementPlayed(venueCode: string, groupId?: number, announcementId?: number, urgent?: boolean, deviceId?: string) {
   const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/announcement-played`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ groupId, announcementId }),
+    body: JSON.stringify({ groupId, announcementId, urgent, deviceId }),
   });
   if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`);
   return res.json();

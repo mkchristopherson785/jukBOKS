@@ -178,6 +178,49 @@ Headers:
 }
 ```
 
+### Trigger Urgent Announcement
+```
+POST /api/v1/venues/:code/announce
+Headers:
+  X-Jukboks-API-Key: your-api-key
+  Content-Type: application/json
+```
+
+Triggers an immediate announcement on the kiosk. The announcement plays after the current song ends. Provide either `message` (text-to-speech) or `audioUrl` (pre-recorded audio), or both.
+
+**Request Body:**
+```json
+{
+  "message": "Lightning has been detected in the area. Please vacate the pool area until further notice.",
+  "audioUrl": null
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Urgent announcement queued. It will play on the kiosk after the current song ends."
+}
+```
+
+### Cancel Pending Announcement
+```
+DELETE /api/v1/venues/:code/announce
+Headers:
+  X-Jukboks-API-Key: your-api-key
+```
+
+Cancels a pending urgent announcement before it plays.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Pending urgent announcement cancelled"
+}
+```
+
 ### Submit Song Request
 ```
 POST /api/v1/venues/:code/request

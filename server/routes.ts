@@ -1225,6 +1225,86 @@ router.get("/api/v1/venues/:code/history", async (req: Request, res: Response) =
   }
 });
 
+router.post("/api/v1/venues/:code/announce", async (req: Request, res: Response) => {
+  try {
+    const apiKey = req.headers["x-jukboks-api-key"] as string;
+    const org = apiKey ? await validateApiKey(apiKey) : null;
+    if (!org) {
+      return res.status(401).json({ error: "INVALID_API_KEY", message: "Valid API key required" });
+    }
+
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+    if (venue.organizationId !== org.id) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "API key not authorized for this venue" });
+    }
+
+    const { message, audioUrl } = req.body;
+    if (!message && !audioUrl) {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "Either 'message' (text-to-speech) or 'audioUrl' is required" });
+    }
+    if (message && typeof message !== "string") {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "'message' must be a string" });
+    }
+    if (message && message.length > 500) {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "'message' must be 500 characters or less" });
+    }
+    if (audioUrl) {
+      if (typeof audioUrl !== "string" || audioUrl.length > 2000) {
+        return res.status(400).json({ error: "INVALID_REQUEST", message: "'audioUrl' must be a valid URL string (max 2000 chars)" });
+      }
+      if (!audioUrl.startsWith("https://")) {
+        return res.status(400).json({ error: "INVALID_REQUEST", message: "'audioUrl' must be an HTTPS URL" });
+      }
+    }
+
+    await storage.updateVenue(venue.id, {
+      urgentAnnouncementText: message || null,
+      urgentAnnouncementAudioUrl: audioUrl || null,
+      urgentAnnouncementTriggeredAt: new Date(),
+    });
+
+    res.json({
+      success: true,
+      message: "Urgent announcement queued. It will play on the kiosk after the current song ends.",
+    });
+  } catch (error) {
+    console.error("Trigger announcement error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+router.delete("/api/v1/venues/:code/announce", async (req: Request, res: Response) => {
+  try {
+    const apiKey = req.headers["x-jukboks-api-key"] as string;
+    const org = apiKey ? await validateApiKey(apiKey) : null;
+    if (!org) {
+      return res.status(401).json({ error: "INVALID_API_KEY", message: "Valid API key required" });
+    }
+
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+    if (venue.organizationId !== org.id) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "API key not authorized for this venue" });
+    }
+
+    await storage.updateVenue(venue.id, {
+      urgentAnnouncementText: null,
+      urgentAnnouncementAudioUrl: null,
+      urgentAnnouncementTriggeredAt: null,
+    });
+
+    res.json({ success: true, message: "Pending urgent announcement cancelled" });
+  } catch (error) {
+    console.error("Cancel announcement error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
 router.patch("/api/v1/venues/:code/settings", async (req: Request, res: Response) => {
   try {
     const apiKey = req.headers["x-jukboks-api-key"] as string;
@@ -2425,6 +2505,21 @@ router.get("/api/v1/venues/:code/next-announcement", async (req: Request, res: R
       return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
     }
 
+    if (venue.urgentAnnouncementTriggeredAt && (venue.urgentAnnouncementText || venue.urgentAnnouncementAudioUrl)) {
+      return res.json({
+        shouldPlay: true,
+        urgent: true,
+        groupId: null,
+        announcement: {
+          id: -1,
+          name: "Urgent Announcement",
+          audioUrl: venue.urgentAnnouncementAudioUrl || null,
+          ttsText: venue.urgentAnnouncementText || null,
+          duration: null,
+        },
+      });
+    }
+
     // Get all announcement groups for this venue
     const groups = await storage.getAnnouncementGroupsByVenue(venue.id);
     if (groups.length === 0) {
@@ -2510,10 +2605,21 @@ router.post("/api/v1/venues/:code/announcement-played", async (req: Request, res
       return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
     }
 
-    const { groupId, announcementId } = req.body;
+    const { groupId, announcementId, urgent, deviceId } = req.body;
+
+    if (urgent) {
+      if (!deviceId || venue.kioskLockId !== deviceId) {
+        return res.status(403).json({ error: "FORBIDDEN", message: "Only the active kiosk device can clear urgent announcements" });
+      }
+      await storage.updateVenue(venue.id, {
+        urgentAnnouncementText: null,
+        urgentAnnouncementAudioUrl: null,
+        urgentAnnouncementTriggeredAt: null,
+      });
+      return res.json({ success: true });
+    }
     
     if (groupId) {
-      // Update the specific group's counters
       const group = await storage.getAnnouncementGroup(groupId);
       if (group && group.venueId === venue.id) {
         const announcements = await storage.getActiveAnnouncementsByGroup(groupId);

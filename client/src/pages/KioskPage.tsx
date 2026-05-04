@@ -408,23 +408,18 @@ export default function KioskPage() {
         setCurrentAnnouncement(result.announcement);
         const playedGroupId = result.groupId;
         const playedAnnouncementId = result.announcement.id;
-        
-        // Create and play the audio element
-        const audio = new Audio(result.announcement.audioUrl);
-        setAnnouncementAudio(audio);
-        
-        audio.onended = async () => {
-          // Mark announcement as played with group context
-          await markAnnouncementPlayed(code, playedGroupId, playedAnnouncementId);
+        const isUrgent = result.urgent === true;
+
+        const onAnnouncementFinished = async () => {
+          await markAnnouncementPlayed(code, playedGroupId, playedAnnouncementId, isUrgent, isUrgent ? deviceId : undefined);
           setIsPlayingAnnouncement(false);
           setCurrentAnnouncement(null);
           setAnnouncementAudio(null);
-          // Continue to next song
           setIsTransitioning(false);
           refetchQueue();
         };
-        
-        audio.onerror = () => {
+
+        const onAnnouncementError = () => {
           console.error("Error playing announcement");
           setIsPlayingAnnouncement(false);
           setCurrentAnnouncement(null);
@@ -432,17 +427,31 @@ export default function KioskPage() {
           setIsTransitioning(false);
           refetchQueue();
         };
+
+        if (result.announcement.ttsText && !result.announcement.audioUrl) {
+          if ('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window) {
+            const utterance = new SpeechSynthesisUtterance(result.announcement.ttsText);
+            utterance.rate = 0.9;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+            utterance.onend = () => { onAnnouncementFinished(); };
+            utterance.onerror = () => { onAnnouncementFinished(); };
+            speechSynthesis.speak(utterance);
+          } else {
+            console.warn("TTS not supported on this device, skipping announcement");
+            onAnnouncementFinished();
+          }
+        } else if (result.announcement.audioUrl) {
+          const audio = new Audio(result.announcement.audioUrl);
+          setAnnouncementAudio(audio);
+          audio.onended = () => { onAnnouncementFinished(); };
+          audio.onerror = () => { onAnnouncementError(); };
+          audio.play().catch(() => { onAnnouncementError(); });
+        } else {
+          onAnnouncementError();
+        }
         
-        audio.play().catch((err) => {
-          console.error("Failed to play announcement:", err);
-          setIsPlayingAnnouncement(false);
-          setCurrentAnnouncement(null);
-          setAnnouncementAudio(null);
-          setIsTransitioning(false);
-          refetchQueue();
-        });
-        
-        return true; // Announcement is playing
+        return true;
       }
     } catch (error) {
       console.error("Error checking announcement:", error);

@@ -942,6 +942,7 @@ export default function SettingsPage() {
                   <p className="font-mono text-gray-400">GET /api/v1/search?term=... - Search songs</p>
                   <p className="font-mono text-gray-400">POST /api/v1/venues/:code/request - Request song</p>
                   <p className="font-mono text-gray-400">POST /api/v1/venues/:code/vote - Vote on song</p>
+                  <p className="font-mono text-gray-400">POST /api/v1/venues/:code/announce - Trigger announcement</p>
                 </div>
               </div>
             </div>
