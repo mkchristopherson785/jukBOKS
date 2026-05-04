@@ -55,9 +55,14 @@ export function useAppleMusic() {
         previewUrl: item.previewUrl,
       }));
 
+      const returned = data.results.length;
       setResults(tracks);
-      setHasMore(data.results.length === RESULTS_PER_PAGE);
-      offsetRef.current = RESULTS_PER_PAGE;
+      // iTunes sometimes returns slightly more or fewer than the requested
+      // limit, so treat anything >= page size (with a small tolerance) as
+      // "probably more available". Advance the offset by what we actually
+      // got so page 2 doesn't skip or duplicate rows.
+      setHasMore(returned >= RESULTS_PER_PAGE);
+      offsetRef.current = returned;
     } catch (error) {
       console.error("Search failed:", error);
       setResults([]);
@@ -88,9 +93,10 @@ export function useAppleMusic() {
         previewUrl: item.previewUrl,
       }));
 
+      const returned = data.results.length;
       setResults(prev => [...prev, ...tracks]);
-      setHasMore(data.results.length === RESULTS_PER_PAGE);
-      offsetRef.current += RESULTS_PER_PAGE;
+      setHasMore(returned >= RESULTS_PER_PAGE);
+      offsetRef.current += returned;
     } catch (error) {
       console.error("Load more failed:", error);
     } finally {
