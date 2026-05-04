@@ -5,6 +5,7 @@ import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackup
 import { useUpload } from "../hooks/use-upload";
 import { useAuth } from "../hooks/use-auth";
 import { useMusicKit } from "../hooks/useMusicKit";
+import { cn } from "../lib/utils";
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -1198,15 +1199,25 @@ export default function SettingsPage() {
             <p className="text-gray-400 mb-4">
               Upload an audio file (MP3, WAV, etc.) that will play between songs.
             </p>
+            <label className="block text-gray-400 text-sm mb-1">
+              Name <span className="text-red-400">*</span>
+            </label>
             <input
               type="text"
               value={announcementName}
-              onChange={(e) => setAnnouncementName(e.target.value)}
-              placeholder="Announcement name (e.g., Happy Hour Special)"
+              onChange={(e) => {
+                setAnnouncementName(e.target.value);
+                if (announcementError) setAnnouncementError("");
+              }}
+              placeholder="e.g., Happy Hour Special"
               className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 mb-4"
               autoFocus
             />
-            <label className="block w-full">
+            <label className={cn(
+              "block w-full",
+              (!announcementName.trim() || isUploading || addAnnouncementMutation.isPending) &&
+                "opacity-50 pointer-events-none"
+            )}>
               <div className="flex items-center justify-center gap-2 px-4 py-3 bg-white/5 border border-dashed border-white/20 rounded-lg text-gray-300 hover:bg-white/10 cursor-pointer transition-colors">
                 <Upload className="w-5 h-5" />
                 {isUploading || addAnnouncementMutation.isPending ? "Uploading..." : "Choose Audio File"}
@@ -1215,15 +1226,20 @@ export default function SettingsPage() {
                 type="file"
                 accept="audio/*"
                 className="hidden"
-                disabled={isUploading || addAnnouncementMutation.isPending}
+                disabled={!announcementName.trim() || isUploading || addAnnouncementMutation.isPending}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
+                  // Reset the input so the same file can be picked again after an error
+                  e.target.value = "";
                   if (file) {
                     handleAnnouncementUpload(file);
                   }
                 }}
               />
             </label>
+            {!announcementName.trim() && (
+              <p className="text-gray-500 text-xs mt-2">Enter a name above to enable file upload.</p>
+            )}
             {announcementError && (
               <p className="text-red-400 text-sm mt-2">{announcementError}</p>
             )}
