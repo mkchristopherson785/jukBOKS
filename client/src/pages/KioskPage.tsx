@@ -396,8 +396,16 @@ export default function KioskPage() {
     }
   }, [queue?.items, currentSong, isTransitioning, playNextSong, isStarted, triggerAutoPlay]);
 
+  // Synchronous re-entry lock for urgent playback. The React state
+  // `isPlayingAnnouncement` can lag behind multiple polling ticks (the 5s
+  // interval can fire again before React has flushed the state update from
+  // the previous call), which would cause the same urgent alert to play
+  // twice. This ref flips synchronously and is checked first.
+  const urgentPlaybackLockRef = useRef(false);
+
   const playUrgentAnnouncement = useCallback(async (result: any): Promise<boolean> => {
-    if (!code || isPlayingAnnouncement) return false;
+    if (!code || isPlayingAnnouncement || urgentPlaybackLockRef.current) return false;
+    urgentPlaybackLockRef.current = true;
 
     setIsPlayingAnnouncement(true);
     setCurrentAnnouncement(result.announcement);
@@ -408,7 +416,10 @@ export default function KioskPage() {
     setCurrentSong(null);
 
     const onAnnouncementFinished = async () => {
-      await markAnnouncementPlayed(code, undefined, result.announcement.id, true, deviceId);
+      try {
+        await markAnnouncementPlayed(code, undefined, result.announcement.id, true, deviceId);
+      } catch {}
+      urgentPlaybackLockRef.current = false;
       setIsPlayingAnnouncement(false);
       setCurrentAnnouncement(null);
       setAnnouncementAudio(null);
@@ -418,6 +429,7 @@ export default function KioskPage() {
 
     const onAnnouncementError = () => {
       console.error("Error playing urgent announcement");
+      urgentPlaybackLockRef.current = false;
       setIsPlayingAnnouncement(false);
       setCurrentAnnouncement(null);
       setAnnouncementAudio(null);
@@ -476,23 +488,43 @@ export default function KioskPage() {
     return true;
   }, [code, isPlayingAnnouncement, skipHandler, deviceId, refetchQueue]);
 
+  // Hold playUrgentAnnouncement in a ref so the polling effect below can
+  // depend only on stable values. Without this, the effect was tearing down
+  // and re-creating its 5s interval every time `skipHandler` (a dep of
+  // `playUrgentAnnouncement`) got a new identity from MusicKitPlayer
+  // re-rendering — which could happen faster than 5s, meaning the interval
+  // never actually fired and urgent announcements were never picked up.
+  const playUrgentAnnouncementRef = useRef(playUrgentAnnouncement);
+  useEffect(() => {
+    playUrgentAnnouncementRef.current = playUrgentAnnouncement;
+  }, [playUrgentAnnouncement]);
+
   useEffect(() => {
     if (!code || !isStarted || isPlayingAnnouncement || isDisplayOnly) return;
 
+    let cancelled = false;
     const checkUrgent = async () => {
       try {
         const result = await fetchNextAnnouncement(code);
+        if (cancelled) return;
         if (result.shouldPlay && result.urgent && result.announcement) {
-          playUrgentAnnouncement(result);
+          playUrgentAnnouncementRef.current(result);
         }
       } catch (error) {
         // Silent fail for urgent poll
       }
     };
 
+    // Fire one check immediately on (re)mount so we don't wait 5s — important
+    // for the case where the user just pressed Start and an urgent alert was
+    // already pending.
+    checkUrgent();
     const interval = setInterval(checkUrgent, 5000);
-    return () => clearInterval(interval);
-  }, [code, isStarted, isPlayingAnnouncement, playUrgentAnnouncement]);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [code, isStarted, isPlayingAnnouncement, isDisplayOnly]);
 
   const checkAndPlayAnnouncement = useCallback(async (): Promise<boolean> => {
     if (!code || isPlayingAnnouncement) return false;
