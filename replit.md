@@ -178,25 +178,39 @@ The app includes a mobile-optimized experience with dual-mode navigation:
 ## Raspberry Pi Kiosk
 A Raspberry Pi can serve as a plug-and-play kiosk device. Setup script at `scripts/rpi-setup.sh`.
 
-**Setup:**
+**Setup Options:**
 ```bash
+# Option A: Hotspot mode (configure from phone)
+sudo bash rpi-setup.sh --hotspot-only
+
+# Option B: Direct setup (if you know the details)
 sudo bash rpi-setup.sh --venue-code YOUR_CODE --url https://your-app.replit.app
 ```
 
-**Options:**
-- `--layout square` - Optimized for small square displays (default)
-- `--layout default` - Standard widescreen layout
-- `--audio hdmi|headphone|auto` - Audio output selection
+**Hotspot Setup Flow:**
+1. Run setup with `--hotspot-only` and reboot
+2. Pi creates "Jukboks-Setup" WiFi network (password: jukboks123)
+3. Connect from phone — setup page opens automatically
+4. Enter WiFi network, venue code, and app URL
+5. Pi connects to WiFi and starts the kiosk
+6. If WiFi ever fails, the hotspot reactivates for reconfiguration
 
 **URL Parameters (kiosk page):**
 - `?autostart=true` - Skip "Start Kiosk" button, auto-begin playback
 - `?layout=square` - Compact layout for small/square displays
 
-**Features:**
-- Auto-boots into kiosk on power-on (headless)
-- Browser auto-restarts if it crashes (watchdog service)
-- Management commands: `jukboks-status`, `jukboks-restart`, `jukboks-update-venue`
-- Remote management via SSH
+**Architecture:**
+- `scripts/rpi-setup.sh` - Main installer (packages, services, management commands)
+- `scripts/rpi-portal/portal.py` - Captive portal web server with setup UI
+- `scripts/rpi-portal/wifi-manager.sh` - WiFi connection manager with hotspot fallback
+- `/etc/jukboks/config.json` - Persistent venue/WiFi config on the Pi
+- `/opt/jukboks/` - Installed portal files on the Pi
+
+**Management Commands:**
+- `jukboks-status` - Check kiosk status, WiFi, hotspot
+- `jukboks-restart` - Restart the browser
+- `jukboks-update-venue X` - Change venue code
+- `jukboks-reset` - Clear config and restart setup hotspot
 
 ## Kiosk Monitoring
 - **Heartbeat**: Kiosk sends heartbeat every 30 seconds with device ID, name, and playback status
