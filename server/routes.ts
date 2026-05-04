@@ -59,8 +59,6 @@ async function generateAppleMusicToken(): Promise<string | null> {
       formattedKey = `-----BEGIN PRIVATE KEY-----\n${formattedKey}\n-----END PRIVATE KEY-----`;
     }
     
-    console.log("Formatted key starts with:", formattedKey.substring(0, 30));
-    console.log("Formatted key ends with:", formattedKey.substring(formattedKey.length - 30));
     
     // Import the PKCS8 private key
     const key = await importPKCS8(formattedKey, 'ES256');
@@ -73,7 +71,6 @@ async function generateAppleMusicToken(): Promise<string | null> {
       .setExpirationTime('180d')
       .sign(key);
     
-    console.log("Apple Music token generated successfully");
     return token;
   } catch (error) {
     console.error("Failed to generate Apple Music token:", error);
@@ -176,7 +173,6 @@ router.get("/api/apple-music/search-playlists", async (req: Request, res: Respon
           const metaTotal = tracksData.meta?.total;
           const hasNext = !!tracksData.next;
           const dataLength = tracksData.data?.length || 0;
-          console.log(`Playlist "${playlist.attributes?.name}" (${playlist.id}): attr=${attrTrackCount}, meta=${JSON.stringify(tracksData.meta)}, dataLen=${dataLength}, hasNext=${hasNext}`);
           
           // Use meta.total if available, otherwise count based on pagination
           if (metaTotal && metaTotal > 0) {
@@ -190,7 +186,7 @@ router.get("/api/apple-music/search-playlists", async (req: Request, res: Respon
           }
         } else {
           const errorText = await tracksResponse.text();
-          console.log(`Failed to fetch tracks for ${playlist.id}: ${tracksResponse.status} - ${errorText.substring(0, 200)}`);
+          console.error(`Failed to fetch tracks for ${playlist.id}: ${tracksResponse.status}`);
         }
       } catch (e) {
         console.error(`Error fetching tracks for ${playlist.id}:`, e);
@@ -234,7 +230,6 @@ async function validateApiKey(apiKey: string | undefined) {
 async function fetchApplePlaylistDetails(playlistId: string) {
   const token = await getAppleMusicToken();
   if (!token) {
-    console.log("No Apple Music token available");
     return null;
   }
 
@@ -250,14 +245,13 @@ async function fetchApplePlaylistDetails(playlistId: string) {
     );
 
     if (!response.ok) {
-      console.log("Apple playlist fetch failed:", response.status, response.statusText);
+      console.error("Apple playlist fetch failed:", response.status);
       return null;
     }
 
     const data = await response.json();
     const playlist = data.data?.[0];
     if (!playlist) {
-      console.log("No playlist data returned");
       return null;
     }
 
@@ -277,7 +271,6 @@ async function fetchApplePlaylistDetails(playlistId: string) {
         const metaTotal = tracksData.meta?.total;
         const hasNext = !!tracksData.next;
         const dataLength = tracksData.data?.length || 0;
-        console.log(`fetchApplePlaylistDetails: attr=${attrCount}, meta=${JSON.stringify(tracksData.meta)}, dataLen=${dataLength}, hasNext=${hasNext}`);
         
         // Use meta.total if available, otherwise count based on pagination
         if (metaTotal && metaTotal > 0) {
@@ -297,12 +290,11 @@ async function fetchApplePlaylistDetails(playlistId: string) {
             if (totalCount > 1000) break; // Safety limit
           }
           trackCount = totalCount;
-          console.log(`fetchApplePlaylistDetails: counted ${totalCount} tracks via pagination`);
         } else if (dataLength > 0) {
           trackCount = dataLength;
         }
       } else {
-        console.log(`fetchApplePlaylistDetails tracks fetch failed: ${tracksResponse.status}`);
+        console.error(`Failed to fetch playlist tracks: ${tracksResponse.status}`);
       }
     } catch (e) {
       console.error("Failed to fetch track count from meta:", e);
@@ -311,14 +303,7 @@ async function fetchApplePlaylistDetails(playlistId: string) {
     // Final fallback to relationships.tracks.data.length if still 0
     if (!trackCount && playlist.relationships?.tracks?.data?.length) {
       trackCount = playlist.relationships.tracks.data.length;
-      console.log(`Track count from relationships: ${trackCount}`);
     }
-
-    console.log("Playlist details:", {
-      name: playlist.attributes?.name,
-      trackCount,
-      attrTrackCount: playlist.attributes?.trackCount
-    });
 
     return {
       name: playlist.attributes?.name || "Unknown Playlist",
@@ -1171,10 +1156,8 @@ router.post("/api/v1/venues/:code/auto-play", async (req: Request, res: Response
         const batchSize = data.data?.length || 0;
         tracks = tracks.concat(data.data || []);
         const hasNext = !!data.next;
-        console.log(`Playlist ${playlist.name} page ${pageNum}: fetched ${batchSize} tracks, total: ${tracks.length}, hasNext: ${hasNext}`);
         nextUrl = data.next ? `https://api.music.apple.com${data.next}` : null;
       }
-      console.log(`Playlist ${playlist.name}: TOTAL ${tracks.length} tracks fetched (db shows ${playlist.trackCount})`)
       
       if (tracks.length > 0) {
         playlistTracks.set(playlist.id, { playlist, tracks });
@@ -1696,8 +1679,6 @@ router.delete("/api/me/team/:memberId", isAuthenticated, async (req: any, res) =
 
 // Backup playlists for authenticated users
 router.post("/api/me/venues/:venueId/backup-playlists", isAuthenticated, async (req: any, res) => {
-  console.log("=== ADD BACKUP PLAYLIST ===");
-  console.log("Request body:", JSON.stringify(req.body));
   try {
     const userId = req.user?.claims?.sub;
     const userEmail = req.user?.claims?.email || "";
@@ -1743,13 +1724,10 @@ router.post("/api/me/venues/:venueId/backup-playlists", isAuthenticated, async (
       {
         // Always fetch from Apple Music API for catalog playlists
         // Search results don't include trackCount, so we need to fetch full details
-        console.log("Fetching catalog playlist details from Apple API:", applePlaylistId);
         const playlistDetails = await fetchApplePlaylistDetails(applePlaylistId);
-        console.log("Fetched playlist details:", playlistDetails);
         playlistName = playlistDetails?.name || name || "Apple Music Playlist";
         playlistTrackCount = playlistDetails?.trackCount || 0;
         playlistArtworkUrl = playlistDetails?.artworkUrl || artworkUrl || null;
-        console.log("Final values - name:", playlistName, "trackCount:", playlistTrackCount);
       }
     } else if (playlistUrl) {
       // Extract playlist ID from Apple Music URL
@@ -2934,7 +2912,6 @@ router.post("/api/venues/:code/sonos/control", isAuthenticated, async (req: any,
 // Sonos event webhook
 router.post("/api/sonos/events", async (req, res) => {
   // Handle Sonos webhook events (playback state changes, etc.)
-  console.log("Sonos event received:", JSON.stringify(req.body));
   res.status(200).send("OK");
 });
 

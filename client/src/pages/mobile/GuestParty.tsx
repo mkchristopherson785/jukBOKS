@@ -19,6 +19,7 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
   const [guestToken, setGuestToken] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
   const [showJoinForm, setShowJoinForm] = useState(true);
+  const [requestError, setRequestError] = useState<string | null>(null);
   const [userVotes, setUserVotes] = useState<Map<number, "up" | "down">>(new Map());
   const [isListening, setIsListening] = useState(false);
   const [listeningTrackId, setListeningTrackId] = useState<string | null>(null);
@@ -50,7 +51,7 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
 
   useEffect(() => {
     if (!venueCode || !isListening) return;
-    const savedName = localStorage.getItem(`jukboks_guest_name`) || "Anonymous";
+    const savedName = localStorage.getItem(`jukboks_guest_name_${venueCode}`) || "Anonymous";
     registerListener(venueCode, listenerId, savedName).catch(() => {});
     const interval = setInterval(() => {
       registerListener(venueCode, listenerId, savedName).catch(() => {});
@@ -75,7 +76,7 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
       if (data.sessionToken) {
         setGuestToken(data.sessionToken);
         localStorage.setItem(`jukboks_guest_${venueCode}`, data.sessionToken);
-        localStorage.setItem(`jukboks_guest_name`, guestName);
+        localStorage.setItem(`jukboks_guest_name_${venueCode}`, guestName);
         setShowJoinForm(false);
       }
     },
@@ -94,6 +95,11 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["party", venueCode] });
       setActiveTab("queue");
+      setRequestError(null);
+    },
+    onError: (error: Error) => {
+      setRequestError(error.message || "Failed to add song. Please try again.");
+      setTimeout(() => setRequestError(null), 5000);
     },
   });
 
@@ -244,6 +250,11 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
               submitSuccess={requestMutation.isSuccess}
               venueCode={venueCode}
             />
+            {requestError && (
+              <div className="mt-3 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-sm">
+                {requestError}
+              </div>
+            )}
           </div>
         )}
 

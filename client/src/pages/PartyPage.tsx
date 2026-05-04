@@ -15,6 +15,7 @@ export default function PartyPage() {
   const [guestToken, setGuestToken] = useState<string | null>(null);
   const [guestName, setGuestName] = useState("");
   const [showJoinForm, setShowJoinForm] = useState(true);
+  const [requestError, setRequestError] = useState<string | null>(null);
   const [userVotes, setUserVotes] = useState<Map<number, "up" | "down">>(new Map());
   const [isListening, setIsListening] = useState(false);
   const [listeningTrackId, setListeningTrackId] = useState<string | null>(null);
@@ -142,9 +143,11 @@ export default function PartyPage() {
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["party", code] });
+      setRequestError(null);
     },
     onError: (error: Error) => {
-      alert(error.message || "Failed to add song. Please try again.");
+      setRequestError(error.message || "Failed to add song. Please try again.");
+      setTimeout(() => setRequestError(null), 5000);
     },
   });
 
@@ -297,8 +300,10 @@ export default function PartyPage() {
             allowExplicit={party.venue?.allowExplicit || false}
             blockHolidayMusic={party.venue?.blockHolidayMusic || false}
           />
-          {requestMutation.isError && (
-            <p className="text-red-400 text-sm mt-2">Failed to add song. Please try again.</p>
+          {requestError && (
+            <div className="mt-3 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-sm">
+              {requestError}
+            </div>
           )}
         </div>
 
