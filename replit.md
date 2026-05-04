@@ -175,6 +175,29 @@ The app includes a mobile-optimized experience with dual-mode navigation:
 - App ID: `com.jukboks.app`
 - Web Dir: `dist/public`
 
+## Raspberry Pi Kiosk
+A Raspberry Pi can serve as a plug-and-play kiosk device. Setup script at `scripts/rpi-setup.sh`.
+
+**Setup:**
+```bash
+sudo bash rpi-setup.sh --venue-code YOUR_CODE --url https://your-app.replit.app
+```
+
+**Options:**
+- `--layout square` - Optimized for small square displays (default)
+- `--layout default` - Standard widescreen layout
+- `--audio hdmi|headphone|auto` - Audio output selection
+
+**URL Parameters (kiosk page):**
+- `?autostart=true` - Skip "Start Kiosk" button, auto-begin playback
+- `?layout=square` - Compact layout for small/square displays
+
+**Features:**
+- Auto-boots into kiosk on power-on (headless)
+- Browser auto-restarts if it crashes (watchdog service)
+- Management commands: `jukboks-status`, `jukboks-restart`, `jukboks-update-venue`
+- Remote management via SSH
+
 ## Kiosk Monitoring
 - **Heartbeat**: Kiosk sends heartbeat every 30 seconds with device ID, name, and playback status
 - **Lock System**: Only one device can control playback per venue (lock expires after 90 seconds)

@@ -87,10 +87,14 @@ const API_BASE = "";
 export default function KioskPage() {
   const { code } = useParams<{ code: string }>();
   const queryClient = useQueryClient();
+  const searchParams = new URLSearchParams(window.location.search);
+  const autostart = searchParams.get("autostart") === "true";
+  const layout = searchParams.get("layout") || "default";
+  const isSquareLayout = layout === "square";
   const [currentSong, setCurrentSong] = useState<any>(null);
   const [lastPlayedSong, setLastPlayedSong] = useState<{ title: string; artist: string; albumCover?: string } | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [isStarted, setIsStarted] = useState(false);
+  const [isStarted, setIsStarted] = useState(autostart);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [isPlayingAnnouncement, setIsPlayingAnnouncement] = useState(false);
   const [currentAnnouncement, setCurrentAnnouncement] = useState<{ id: number; name: string; audioUrl: string } | null>(null);
@@ -567,6 +571,101 @@ export default function KioskPage() {
             Start Kiosk
           </button>
           <p className="text-gray-500 text-sm mt-4 sm:mt-6">Tap to enable music playback</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isSquareLayout) {
+    return (
+      <div className="min-h-screen bg-transparent flex flex-col relative overflow-hidden">
+        <MusicKitPlayer
+          trackId={currentSong?.trackId || null}
+          previewUrl={displayPreview}
+          onEnded={handleSongEnded}
+          onSkip={handleSkip}
+          hideControls
+          onTogglePlay={(handler) => setTogglePlayHandler(() => handler)}
+          onSkipHandler={(handler) => setSkipHandler(() => handler)}
+          onPlayingChange={setIsPlaying}
+          trackName={currentSong?.title}
+          venueCode={code}
+          sonosEnabled={false}
+        />
+
+        <div className="flex-1 flex flex-col items-center justify-center p-4">
+          {isPlayingAnnouncement && currentAnnouncement ? (
+            <div className="text-center">
+              <div className="mb-4 flex justify-center">
+                <div className="w-40 h-40 rounded-2xl shadow-2xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
+                  <Volume2 className="w-20 h-20 text-white/80 animate-pulse" />
+                </div>
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-1">{currentAnnouncement.name}</h2>
+              <p className="text-lg text-gray-300">Announcement</p>
+            </div>
+          ) : (
+            <div className="text-center w-full">
+              {displayCover && (
+                <div className="mb-4 flex justify-center">
+                  <img 
+                    src={displayCover} 
+                    alt={displayTitle || "Album"} 
+                    className="w-40 h-40 rounded-2xl shadow-2xl object-cover"
+                  />
+                </div>
+              )}
+              <h2 className="text-xl font-bold text-white mb-1 line-clamp-2 flex items-center justify-center gap-2 px-2">
+                {displayTitle || "No song playing"}
+                {displayExplicit && (
+                  <span className="inline-flex items-center justify-center w-5 h-5 bg-gray-600 text-xs font-bold rounded text-gray-300 flex-shrink-0">
+                    E
+                  </span>
+                )}
+              </h2>
+              <p className="text-base text-gray-300 line-clamp-1 px-2">{displayArtist || "Request a song"}</p>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-black/40 backdrop-blur-lg border-t border-white/10 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-bold text-white">Up Next</h3>
+            {qrData?.qrCode && (
+              <img src={qrData.qrCode} alt="Scan to join" className="w-16 h-16 rounded" />
+            )}
+          </div>
+          <div className="space-y-1.5">
+            {upNextItems.slice(0, 3).map((item: any, index: number) => (
+              <div key={item.id} className="flex items-center gap-2 p-1.5 rounded-lg bg-white/5">
+                <div className="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-[10px] flex-shrink-0">
+                  {index + 1}
+                </div>
+                {item.albumCover ? (
+                  <img src={item.albumCover} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />
+                ) : (
+                  <div className="w-8 h-8 rounded bg-gray-700 flex items-center justify-center flex-shrink-0">
+                    <Music2 className="w-3 h-3 text-gray-500" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-medium truncate text-xs">{item.title}</p>
+                  <p className="text-gray-400 text-[10px] truncate">{item.artist}</p>
+                </div>
+              </div>
+            ))}
+            {upNextItems.length === 0 && (
+              <p className="text-gray-500 text-xs text-center py-2">No songs in queue</p>
+            )}
+          </div>
+        </div>
+
+        <div className="absolute bottom-2 left-2">
+          {venue?.logoUrl ? (
+            <img src={venue.logoUrl} alt="" className="h-6 w-auto opacity-50" />
+          ) : (
+            <img src="/assets/logo-app.png" alt="Jukboks" className="h-6 w-6 rounded opacity-50" />
+          )}
         </div>
       </div>
     );
