@@ -317,6 +317,15 @@ export async function fetchListeners(venueCode: string) {
   return res.json();
 }
 
+export async function clearQueue(venueCode: string) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/queue`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to clear queue");
+  return res.json();
+}
+
 // Announcements
 export interface Announcement {
   id: number;

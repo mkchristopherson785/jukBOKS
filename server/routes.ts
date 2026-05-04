@@ -613,6 +613,36 @@ router.post("/api/v1/venues/:code/played/:requestId", async (req: Request, res: 
   }
 });
 
+router.delete("/api/v1/venues/:code/queue", isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const org = await storage.getOrganization(venue.organizationId);
+    if (!org || org.ownerId !== req.user.id) {
+      const members = await storage.getOrganizationMembers(org?.id || 0);
+      const isMember = members.some((m: any) => m.authUserId === req.user.id);
+      if (!isMember) {
+        return res.status(403).json({ error: "FORBIDDEN", message: "Not authorized" });
+      }
+    }
+
+    const pendingRequests = await storage.getRequestsByVenue(venue.id, "pending");
+    const approvedRequests = await storage.getRequestsByVenue(venue.id, "approved");
+    const allToClear = [...pendingRequests, ...approvedRequests];
+
+    for (const request of allToClear) {
+      await storage.updateRequest(request.id, { status: "played", playedAt: new Date() });
+    }
+
+    res.json({ success: true, cleared: allToClear.length });
+  } catch (error) {
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
 router.post("/api/v1/venues/:code/request", async (req: Request, res: Response) => {
   try {
     const apiKey = req.headers["x-jukboks-api-key"] as string;

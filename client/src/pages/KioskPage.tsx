@@ -1,9 +1,9 @@
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, ThumbsUp, Play, User, Radio, Volume2, Maximize, Minimize, Clock, Pause, Speaker } from "lucide-react";
-import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnouncement, markAnnouncementPlayed, markSongFinished, fetchSonosStatus, sendKioskHeartbeat } from "../lib/api";
+import { Music2, ThumbsUp, Play, User, Radio, Volume2, Maximize, Minimize, Clock, Pause, Speaker, Headphones } from "lucide-react";
+import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnouncement, markAnnouncementPlayed, markSongFinished, fetchSonosStatus, sendKioskHeartbeat, fetchListeners } from "../lib/api";
 import { MusicKitPlayer } from "../components/MusicKitPlayer";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 type DaySchedule = { startTime: string; endTime: string };
 type DaySchedules = Record<string, DaySchedule>;
@@ -244,6 +244,37 @@ export default function KioskPage() {
     enabled: !!code,
     retry: false,
   });
+
+  const { data: listenersData } = useQuery({
+    queryKey: ["listeners", code],
+    queryFn: () => fetchListeners(code!),
+    enabled: !!code,
+    refetchInterval: 15000,
+  });
+
+  const [songFade, setSongFade] = useState<"in" | "out" | "visible">("visible");
+  const prevSongRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const currentId = currentSong?.trackId || nowPlaying?.trackId || null;
+    if (currentId && currentId !== prevSongRef.current) {
+      if (prevSongRef.current) {
+        setSongFade("out");
+        const timer = setTimeout(() => {
+          setSongFade("in");
+          prevSongRef.current = currentId;
+          const timer2 = setTimeout(() => setSongFade("visible"), 500);
+          return () => clearTimeout(timer2);
+        }, 300);
+        return () => clearTimeout(timer);
+      } else {
+        setSongFade("in");
+        prevSongRef.current = currentId;
+        const timer = setTimeout(() => setSongFade("visible"), 500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [currentSong?.trackId, nowPlaying?.trackId]);
 
   const playNextMutation = useMutation({
     mutationFn: async (requestId: number) => {
@@ -704,26 +735,33 @@ export default function KioskPage() {
             </>
           ) : (
             <>
-              {displayCover && (
-                <div className="mb-6 sm:mb-12 flex justify-center">
-                  <img 
-                    src={displayCover} 
-                    alt={displayTitle || "Album"} 
-                    className="w-48 h-48 sm:w-72 sm:h-72 lg:w-96 lg:h-96 rounded-2xl sm:rounded-3xl shadow-2xl object-cover"
-                  />
+              <div className={`transition-all duration-500 ease-in-out ${
+                songFade === "out" ? "opacity-0 scale-95" : songFade === "in" ? "opacity-0 scale-105 animate-kiosk-fade-in" : "opacity-100 scale-100"
+              }`}>
+                {displayCover && (
+                  <div className="mb-6 sm:mb-12 flex justify-center">
+                    <div className="relative">
+                      <div className="absolute inset-0 rounded-2xl sm:rounded-3xl blur-3xl opacity-30" style={{ background: `url(${displayCover}) center/cover` }} />
+                      <img 
+                        src={displayCover} 
+                        alt={displayTitle || "Album"} 
+                        className="relative w-48 h-48 sm:w-72 sm:h-72 lg:w-96 lg:h-96 rounded-2xl sm:rounded-3xl shadow-2xl object-cover"
+                      />
+                    </div>
+                  </div>
+                )}
+                
+                <div className="text-center px-2">
+                  <h2 className="text-xl sm:text-4xl lg:text-6xl font-bold text-white mb-2 sm:mb-4 line-clamp-2 flex items-center justify-center gap-2 sm:gap-3">
+                    {displayTitle || "No song playing"}
+                    {displayExplicit && (
+                      <span className="inline-flex items-center justify-center w-5 h-5 sm:w-7 sm:h-7 lg:w-9 lg:h-9 bg-gray-600 text-xs sm:text-sm lg:text-base font-bold rounded text-gray-300 flex-shrink-0">
+                        E
+                      </span>
+                    )}
+                  </h2>
+                  <p className="text-base sm:text-2xl lg:text-3xl text-gray-300 line-clamp-1">{displayArtist || "Request a song to get started"}</p>
                 </div>
-              )}
-              
-              <div className="text-center px-2">
-                <h2 className="text-xl sm:text-4xl lg:text-6xl font-bold text-white mb-2 sm:mb-4 line-clamp-2 flex items-center justify-center gap-2 sm:gap-3">
-                  {displayTitle || "No song playing"}
-                  {displayExplicit && (
-                    <span className="inline-flex items-center justify-center w-5 h-5 sm:w-7 sm:h-7 lg:w-9 lg:h-9 bg-gray-600 text-xs sm:text-sm lg:text-base font-bold rounded text-gray-300 flex-shrink-0">
-                      E
-                    </span>
-                  )}
-                </h2>
-                <p className="text-base sm:text-2xl lg:text-3xl text-gray-300 line-clamp-1">{displayArtist || "Request a song to get started"}</p>
               </div>
 
               <MusicKitPlayer
@@ -756,7 +794,15 @@ export default function KioskPage() {
       {/* Queue Sidebar - becomes bottom section on mobile */}
       <div className="lg:w-96 bg-black/30 backdrop-blur-lg border-t lg:border-t-0 lg:border-l border-white/10 p-4 sm:p-6 flex flex-col max-h-[40vh] lg:max-h-none">
         <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <h2 className="text-lg sm:text-xl font-bold text-white">Up Next</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg sm:text-xl font-bold text-white">Up Next</h2>
+            {listenersData?.count > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
+                <Headphones className="w-3.5 h-3.5 text-green-400" />
+                <span className="text-green-400 text-xs font-medium">{listenersData.count}</span>
+              </div>
+            )}
+          </div>
           {/* Mobile QR code - inline with header */}
           {qrData?.qrCode && (
             <div className="lg:hidden flex items-center gap-2">

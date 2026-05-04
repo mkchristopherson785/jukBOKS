@@ -166,9 +166,10 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
   const nowPlaying = party?.nowPlaying;
   const partyQueue = party?.queue;
   const queue = Array.isArray(partyQueue) ? partyQueue : (partyQueue?.items || []);
+  const brandColor = party?.branding?.primaryColor || "#6366f1";
 
   return (
-    <div className="flex flex-col h-screen bg-transparent">
+    <div className="flex flex-col h-screen bg-transparent" style={{ "--brand-color": brandColor } as React.CSSProperties}>
       <ConnectionStatus isError={partyError} isLoading={partyLoading} />
       {nowPlaying && activeTab !== "playing" && (
         <div className="p-4 bg-black/30 backdrop-blur-lg border-b border-white/10">
@@ -217,8 +218,9 @@ export default function GuestParty({ venueCode, onLeave }: GuestPartyProps) {
                   className={`mt-4 flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold transition-all ${
                     isListening
                       ? "bg-red-500/20 text-red-400 border border-red-500/40"
-                      : "bg-gradient-to-r from-indigo-600 to-purple-600 text-white"
+                      : "text-white hover:opacity-90"
                   }`}
+                  style={!isListening ? { background: `linear-gradient(to right, var(--brand-color), color-mix(in srgb, var(--brand-color) 70%, #7c3aed))` } : undefined}
                 >
                   <Headphones className="w-4 h-4" />
                   {isListening ? "Stop Listening" : "Listen Along"}

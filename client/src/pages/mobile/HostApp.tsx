@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, ListMusic, Settings, Building2, LogOut, ArrowLeft, Clock } from "lucide-react";
-import { fetchMyVenues, fetchVenue, fetchQueue, updateVenue, skipSong, fetchKioskStatus } from "../../lib/api";
+import { Music2, ListMusic, Settings, Building2, LogOut, ArrowLeft, Clock, SkipForward, Trash2, Users } from "lucide-react";
+import { fetchMyVenues, fetchVenue, fetchQueue, updateVenue, skipSong, fetchKioskStatus, clearQueue, fetchListeners } from "../../lib/api";
 import { useAuth } from "../../hooks/use-auth";
 
 type HostTab = "venues" | "queue" | "settings";
@@ -41,6 +41,36 @@ export default function HostApp({ onSwitchRole }: HostAppProps) {
     queryFn: () => fetchKioskStatus(selectedVenueCode!),
     enabled: !!selectedVenueCode,
     refetchInterval: 30000,
+  });
+
+  const { data: listenersData } = useQuery({
+    queryKey: ["listeners", selectedVenueCode],
+    queryFn: () => fetchListeners(selectedVenueCode!),
+    enabled: !!selectedVenueCode,
+    refetchInterval: 15000,
+  });
+
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  const skipMutation = useMutation({
+    mutationFn: () => {
+      const playingItem = queue.find((s: any) => s.status === "playing") || queue[0];
+      if (!playingItem) throw new Error("No song to skip");
+      return skipSong(selectedVenueCode!, playingItem.id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["queue", selectedVenueCode] });
+      queryClient.invalidateQueries({ queryKey: ["venue", selectedVenueCode] });
+    },
+  });
+
+  const clearQueueMutation = useMutation({
+    mutationFn: () => clearQueue(selectedVenueCode!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["queue", selectedVenueCode] });
+      queryClient.invalidateQueries({ queryKey: ["venue", selectedVenueCode] });
+      setShowClearConfirm(false);
+    },
   });
 
   useEffect(() => {
@@ -97,7 +127,7 @@ export default function HostApp({ onSwitchRole }: HostAppProps) {
             <button onClick={onSwitchRole} className="p-2 text-gray-400 hover:text-white">
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <button onClick={logout} className="p-2 text-gray-400 hover:text-white">
+            <button onClick={() => logout()} className="p-2 text-gray-400 hover:text-white">
               <LogOut className="w-5 h-5" />
             </button>
           </div>
@@ -175,6 +205,56 @@ export default function HostApp({ onSwitchRole }: HostAppProps) {
                     <p className="text-white font-bold truncate">{selectedVenue.currentlyPlayingTitle}</p>
                     <p className="text-gray-400 text-sm truncate">{selectedVenue.currentlyPlayingArtist}</p>
                   </div>
+                  <button
+                    onClick={() => skipMutation.mutate()}
+                    disabled={skipMutation.isPending}
+                    className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl transition-colors text-white disabled:opacity-50"
+                  >
+                    <SkipForward className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {(listenersData?.count > 0 || queue.length > 0) && (
+              <div className="flex gap-3">
+                {listenersData?.count > 0 && (
+                  <div className="flex-1 bg-white/5 rounded-xl p-3 border border-white/10 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-green-400" />
+                    <span className="text-white text-sm font-medium">{listenersData.count}</span>
+                    <span className="text-gray-400 text-xs">listening</span>
+                  </div>
+                )}
+                {queue.length > 0 && (
+                  <button
+                    onClick={() => setShowClearConfirm(true)}
+                    className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 flex items-center gap-2 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Clear Queue
+                  </button>
+                )}
+              </div>
+            )}
+
+            {showClearConfirm && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                <p className="text-white text-sm font-medium mb-1">Clear entire queue?</p>
+                <p className="text-gray-400 text-xs mb-3">This will remove all {queue.length} pending songs.</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => clearQueueMutation.mutate()}
+                    disabled={clearQueueMutation.isPending}
+                    className="flex-1 py-2 bg-red-600 rounded-lg text-white text-sm font-medium disabled:opacity-50"
+                  >
+                    {clearQueueMutation.isPending ? "Clearing..." : "Yes, Clear"}
+                  </button>
+                  <button
+                    onClick={() => setShowClearConfirm(false)}
+                    className="flex-1 py-2 bg-white/10 rounded-lg text-white text-sm font-medium"
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
             )}

@@ -3,6 +3,11 @@ import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, Radio, Pause, AlertCircle } from "lucide-react";
 import { fetchParty, joinParty, submitRequest, submitVote, registerListener, unregisterListener } from "../lib/api";
+
+function hexToRgb(hex: string): string {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? `${parseInt(result[1], 16)}, ${parseInt(result[2], 16)}, ${parseInt(result[3], 16)}` : "99, 102, 241";
+}
 import { SongSearch } from "../components/SongSearch";
 import { QueueList } from "../components/QueueList";
 import { NowPlaying } from "../components/NowPlaying";
@@ -227,8 +232,10 @@ export default function PartyPage() {
     );
   }
 
+  const brandColor = party?.branding?.primaryColor || "#6366f1";
+
   return (
-    <div className="min-h-screen pb-8 bg-transparent">
+    <div className="min-h-screen pb-8 bg-transparent" style={{ "--brand-color": brandColor, "--brand-color-rgb": hexToRgb(brandColor) } as React.CSSProperties}>
       <ConnectionStatus isError={!!error} isLoading={isLoading} />
       <header className="border-b border-white/10 backdrop-blur-lg bg-black/20 sticky top-0 z-40">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -264,8 +271,9 @@ export default function PartyPage() {
               className={`flex items-center gap-2 px-6 py-3 rounded-full font-semibold transition-all ${
                 isListening && isPlaying
                   ? "bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30"
-                  : "bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700"
+                  : "text-white hover:opacity-90"
               }`}
+              style={!(isListening && isPlaying) ? { background: `linear-gradient(to right, var(--brand-color), color-mix(in srgb, var(--brand-color) 70%, #7c3aed))` } : undefined}
             >
               {isListening && isPlaying ? (
                 <>
