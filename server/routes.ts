@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import { SignJWT, importPKCS8 } from "jose";
 import { storage } from "./storage";
 import type { InsertRequest, InsertVote } from "../shared/schema";
+import { getGuestRank } from "../shared/ranks";
 import { isVenueWithinSchedule } from "./schedule-utils";
 import { isAuthenticated } from "./replit_integrations/auth";
 
@@ -358,6 +359,20 @@ router.get("/api/v1/venues/:code/queue", async (req: Request, res: Response) => 
     }
     
     const queue = await storage.getQueueWithVotes(venue.id);
+    const rankingsMap = await storage.getGuestRankings(venue.id);
+    const lookupRank = (name: string | null | undefined) => {
+      if (!name) return null;
+      const lower = name.toLowerCase().trim();
+      let upvotes = rankingsMap.get(name);
+      if (upvotes === undefined) {
+        for (const [key, val] of rankingsMap.entries()) {
+          if (key.toLowerCase().trim() === lower) { upvotes = val; break; }
+        }
+      }
+      const totalUpvotes = upvotes || 0;
+      const rank = getGuestRank(totalUpvotes);
+      return { level: rank.level, name: rank.name, totalUpvotes };
+    };
     
     res.json({
       items: queue.map(item => ({
@@ -368,6 +383,7 @@ router.get("/api/v1/venues/:code/queue", async (req: Request, res: Response) => 
         albumCover: item.albumCover,
         previewUrl: item.previewUrl,
         requesterName: item.requesterName,
+        requesterRank: item.isAutoPlay ? null : lookupRank(item.requesterName),
         isAutoPlay: item.isAutoPlay,
         isExplicit: item.isExplicit,
         upvotes: item.upvotes,
@@ -1263,6 +1279,20 @@ router.get("/api/v1/venues/:code/history", async (req: Request, res: Response) =
 
     const limit = Math.max(1, Math.min(parseInt(req.query.limit as string) || 50, 100));
     const history = await storage.getPlayHistory(venue.id, limit);
+    const rankingsMap = await storage.getGuestRankings(venue.id);
+    const lookupRank = (name: string | null | undefined) => {
+      if (!name) return null;
+      const lower = name.toLowerCase().trim();
+      let upvotes = rankingsMap.get(name);
+      if (upvotes === undefined) {
+        for (const [key, val] of rankingsMap.entries()) {
+          if (key.toLowerCase().trim() === lower) { upvotes = val; break; }
+        }
+      }
+      const totalUpvotes = upvotes || 0;
+      const rank = getGuestRank(totalUpvotes);
+      return { level: rank.level, name: rank.name, totalUpvotes };
+    };
     const songs = history.map(r => ({
       id: r.id,
       trackId: r.trackId,
@@ -1271,6 +1301,7 @@ router.get("/api/v1/venues/:code/history", async (req: Request, res: Response) =
       album: r.album,
       albumCover: r.albumCover,
       requesterName: r.requesterName,
+      requesterRank: r.isAutoPlay ? null : lookupRank(r.requesterName),
       isAutoPlay: r.isAutoPlay,
       playedAt: r.playedAt,
     }));

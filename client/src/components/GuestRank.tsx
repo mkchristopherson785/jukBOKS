@@ -1,18 +1,5 @@
-interface GuestRankInfo {
-  level: number;
-  name: string;
-  color: string;
-  hat: string | null;
-}
-
-export function getGuestRank(totalUpvotes: number): GuestRankInfo {
-  if (totalUpvotes >= 100) return { level: 6, name: "Jukebox Hero", color: "#fbbf24", hat: "crown" };
-  if (totalUpvotes >= 50) return { level: 5, name: "Hitmaker", color: "#a78bfa", hat: "tophat" };
-  if (totalUpvotes >= 30) return { level: 4, name: "Beat Dropper", color: "#f472b6", hat: "backwards-cap" };
-  if (totalUpvotes >= 15) return { level: 3, name: "Vibe Curator", color: "#34d399", hat: "beret" };
-  if (totalUpvotes >= 5) return { level: 2, name: "Crowd Pleaser", color: "#60a5fa", hat: "party-hat" };
-  return { level: 1, name: "Wallflower", color: "#9ca3af", hat: null };
-}
+import { getGuestRank, getNextRank } from "@shared/ranks";
+export { getGuestRank } from "@shared/ranks";
 
 function HatIcon({ hat, size = 14 }: { hat: string; size?: number }) {
   const s = size;
@@ -159,13 +146,3 @@ export function GuestRankCard({ guestName, rankings }: GuestRankCardProps) {
   );
 }
 
-function getNextRank(currentLevel: number): { name: string; threshold: number; currentMin: number } | null {
-  const thresholds = [
-    { level: 2, name: "Crowd Pleaser", threshold: 5, currentMin: 0 },
-    { level: 3, name: "Vibe Curator", threshold: 15, currentMin: 5 },
-    { level: 4, name: "Beat Dropper", threshold: 30, currentMin: 15 },
-    { level: 5, name: "Hitmaker", threshold: 50, currentMin: 30 },
-    { level: 6, name: "Jukebox Hero", threshold: 100, currentMin: 50 },
-  ];
-  return thresholds.find(t => t.level === currentLevel + 1) || null;
-}

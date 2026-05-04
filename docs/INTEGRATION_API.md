@@ -73,6 +73,11 @@ GET /api/v1/venues/:code/queue
       "artist": "Ed Sheeran",
       "albumCover": "https://...",
       "requesterName": "John D.",
+      "requesterRank": {
+        "level": 3,
+        "name": "Vibe Curator",
+        "totalUpvotes": 42
+      },
       "isAutoPlay": false,
       "voteCount": 5,
       "status": "approved"
@@ -80,6 +85,17 @@ GET /api/v1/venues/:code/queue
   ]
 }
 ```
+
+**`requesterRank`** is included for guest-requested songs (`null` for autoplay). Levels:
+
+| Level | Name | Upvotes Required |
+|-------|------|------------------|
+| 1 | Wallflower | 0–9 |
+| 2 | Crowd Pleaser | 10–29 |
+| 3 | Vibe Curator | 30–74 |
+| 4 | Beat Dropper | 75–149 |
+| 5 | Hitmaker | 150–299 |
+| 6 | Jukebox Hero | 300+ |
 
 ### Get Now Playing
 ```
@@ -171,6 +187,11 @@ Headers:
       "album": "÷ (Divide)",
       "albumCover": "https://...",
       "requesterName": "John D.",
+      "requesterRank": {
+        "level": 3,
+        "name": "Vibe Curator",
+        "totalUpvotes": 42
+      },
       "isAutoPlay": false,
       "playedAt": "2025-01-27T10:30:00Z"
     }
