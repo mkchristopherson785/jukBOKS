@@ -393,6 +393,79 @@ export default function KioskPage() {
     }
   }, [queue?.items, currentSong, isTransitioning, playNextSong, isStarted, triggerAutoPlay]);
 
+  const playUrgentAnnouncement = useCallback(async (result: any): Promise<boolean> => {
+    if (!code || isPlayingAnnouncement) return false;
+
+    setIsPlayingAnnouncement(true);
+    setCurrentAnnouncement(result.announcement);
+
+    if (skipHandler) {
+      skipHandler();
+    }
+    setCurrentSong(null);
+
+    const onAnnouncementFinished = async () => {
+      await markAnnouncementPlayed(code, undefined, result.announcement.id, true, deviceId);
+      setIsPlayingAnnouncement(false);
+      setCurrentAnnouncement(null);
+      setAnnouncementAudio(null);
+      setIsTransitioning(false);
+      refetchQueue();
+    };
+
+    const onAnnouncementError = () => {
+      console.error("Error playing urgent announcement");
+      setIsPlayingAnnouncement(false);
+      setCurrentAnnouncement(null);
+      setAnnouncementAudio(null);
+      setIsTransitioning(false);
+      refetchQueue();
+    };
+
+    if (result.announcement.ttsText && !result.announcement.audioUrl) {
+      if ('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window) {
+        const utterance = new SpeechSynthesisUtterance(result.announcement.ttsText);
+        utterance.rate = 0.9;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        utterance.onend = () => { onAnnouncementFinished(); };
+        utterance.onerror = () => { onAnnouncementFinished(); };
+        speechSynthesis.speak(utterance);
+      } else {
+        console.warn("TTS not supported, skipping urgent announcement");
+        onAnnouncementFinished();
+      }
+    } else if (result.announcement.audioUrl) {
+      const audio = new Audio(result.announcement.audioUrl);
+      setAnnouncementAudio(audio);
+      audio.onended = () => { onAnnouncementFinished(); };
+      audio.onerror = () => { onAnnouncementError(); };
+      audio.play().catch(() => { onAnnouncementError(); });
+    } else {
+      onAnnouncementError();
+    }
+
+    return true;
+  }, [code, isPlayingAnnouncement, skipHandler, deviceId, refetchQueue]);
+
+  useEffect(() => {
+    if (!code || !isStarted || isPlayingAnnouncement) return;
+
+    const checkUrgent = async () => {
+      try {
+        const result = await fetchNextAnnouncement(code);
+        if (result.shouldPlay && result.urgent && result.announcement) {
+          playUrgentAnnouncement(result);
+        }
+      } catch (error) {
+        // Silent fail for urgent poll
+      }
+    };
+
+    const interval = setInterval(checkUrgent, 5000);
+    return () => clearInterval(interval);
+  }, [code, isStarted, isPlayingAnnouncement, playUrgentAnnouncement]);
+
   const checkAndPlayAnnouncement = useCallback(async (): Promise<boolean> => {
     if (!code || isPlayingAnnouncement) return false;
     
