@@ -17,7 +17,7 @@ export interface Track {
   previewUrl?: string;
 }
 
-const RESULTS_PER_PAGE = 20;
+const RESULTS_PER_PAGE = 50;
 
 export function useAppleMusic() {
   const [isSearching, setIsSearching] = useState(false);
