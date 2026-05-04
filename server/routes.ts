@@ -686,6 +686,54 @@ router.post("/api/v1/venues/:code/kiosk-heartbeat", async (req: Request, res: Re
   }
 });
 
+// Release kiosk lock - lets a different device take over playback for this venue.
+// Anyone with the venue code can call this (mirrors the heartbeat endpoint's
+// model). Useful when a kiosk is stuck/offline and the owner wants to start
+// playback elsewhere without waiting 90s for the lock to time out.
+//
+// If `newDeviceId` is provided, the lock is atomically transferred to that
+// device (instead of just being cleared). This avoids a race where the old
+// device's next heartbeat could re-claim the lock before the new device's
+// heartbeat arrives — by stamping `kioskLockHeartbeat = now` for the new
+// device, the old device will see `kioskLockId !== deviceId` and the lock as
+// not-yet-expired, so it loses.
+router.post("/api/v1/venues/:code/kiosk-release", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const { newDeviceId, newDeviceName } = req.body || {};
+    const now = new Date();
+
+    if (newDeviceId) {
+      await storage.updateVenue(venue.id, {
+        kioskLockId: newDeviceId,
+        kioskLockHeartbeat: now,
+        kioskPlaybackStatus: "idle",
+        kioskDeviceName: newDeviceName || "Unknown Device",
+      });
+    } else {
+      await storage.updateVenue(venue.id, {
+        kioskLockId: null,
+        kioskLockHeartbeat: null,
+        kioskPlaybackStatus: "idle",
+        kioskDeviceName: null,
+      });
+    }
+
+    res.json({
+      success: true,
+      transferredTo: newDeviceId || null,
+      releasedAt: now.toISOString(),
+    });
+  } catch (error) {
+    console.error("Kiosk release error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
 // Get kiosk status - check if kiosk is online
 router.get("/api/v1/venues/:code/kiosk-status", async (req: Request, res: Response) => {
   try {

@@ -1,7 +1,7 @@
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, ThumbsUp, Play, User, Radio, Volume2, Maximize, Minimize, Clock, Pause, Speaker, Headphones } from "lucide-react";
-import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnouncement, markAnnouncementPlayed, markSongFinished, fetchSonosStatus, sendKioskHeartbeat, fetchListeners } from "../lib/api";
+import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnouncement, markAnnouncementPlayed, markSongFinished, fetchSonosStatus, sendKioskHeartbeat, fetchListeners, releaseKioskLock } from "../lib/api";
 import { MusicKitPlayer } from "../components/MusicKitPlayer";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
@@ -639,13 +639,42 @@ export default function KioskPage() {
           <p className="text-gray-400 mb-6 max-w-md mx-auto">
             Another device is currently controlling playback for this venue.
           </p>
-          <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4 sm:p-6 max-w-sm mx-auto">
+          <div className="bg-white/10 backdrop-blur-lg rounded-xl border border-white/20 p-4 sm:p-6 max-w-sm mx-auto mb-4">
             <p className="text-white font-medium mb-1">Active Device</p>
             <p className="text-amber-400 text-lg font-semibold">{lockedByDevice}</p>
             <p className="text-gray-500 text-sm mt-2">
-              Close the kiosk on that device to take control here
+              Close the kiosk on that device, or take over here.
             </p>
           </div>
+          <button
+            onClick={async () => {
+              if (!code) return;
+              if (!confirm(`Stop playback on "${lockedByDevice}" and play here instead?`)) return;
+              try {
+                // Atomically transfer the lock to this device so the old
+                // device can't immediately re-claim it on its next heartbeat.
+                const result = await releaseKioskLock(code, {
+                  newDeviceId: deviceId,
+                  newDeviceName: deviceName,
+                });
+                if (result.transferredTo === deviceId) {
+                  setHasLock(true);
+                  setLockedByDevice(null);
+                } else {
+                  // Server didn't confirm us as the new holder — keep showing
+                  // the locked screen and let the next heartbeat reconcile.
+                  alert("Couldn't take over playback. Please try again.");
+                }
+              } catch (err) {
+                alert("Couldn't take over playback. Please try again.");
+              }
+            }}
+            className="px-6 py-3 bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 rounded-full text-white font-medium flex items-center gap-2 mx-auto transition-colors"
+            data-testid="button-take-over-kiosk"
+          >
+            <Speaker className="w-4 h-4" />
+            Play here instead
+          </button>
         </div>
       </div>
     );

@@ -38,6 +38,19 @@ export async function fetchKioskStatus(code: string) {
   return res.json();
 }
 
+export async function releaseKioskLock(code: string, options?: {
+  newDeviceId?: string;
+  newDeviceName?: string;
+}) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${code}/kiosk-release`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(options || {}),
+  });
+  if (!res.ok) throw new Error("Failed to release kiosk lock");
+  return res.json() as Promise<{ success: boolean; transferredTo: string | null; releasedAt: string }>;
+}
+
 export async function skipSong(venueCode: string, requestId: number) {
   const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/played/${requestId}`, {
     method: "POST",
