@@ -638,6 +638,21 @@ export async function superAdminDeleteOrganization(orgId: number) {
   return res.json();
 }
 
+export async function fetchApiKey(): Promise<{ apiKey: string | null; maskedKey: string | null }> {
+  const res = await fetch(`${API_BASE}/api/me/api-key`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to fetch API key");
+  return res.json();
+}
+
+export async function generateApiKey(): Promise<{ apiKey: string }> {
+  const res = await fetch(`${API_BASE}/api/me/api-key`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to generate API key");
+  return res.json();
+}
+
 export async function fetchVenueAnalytics(venueId: number, days: number = 30) {
   const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/analytics?days=${days}`, {
     credentials: "include",

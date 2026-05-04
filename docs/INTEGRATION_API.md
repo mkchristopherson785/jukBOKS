@@ -102,6 +102,82 @@ GET /api/v1/venues/:code/now-playing
 
 ## Authenticated Endpoints (API Key Required)
 
+### List Venues
+```
+GET /api/v1/venues
+Headers:
+  X-Jukboks-API-Key: your-api-key
+```
+
+**Response:**
+```json
+{
+  "venues": [
+    {
+      "id": 1,
+      "code": "pool-deck",
+      "name": "Pool Deck",
+      "isActive": true,
+      "allowExplicit": false,
+      "autoApprove": true,
+      "dailyRequestLimit": 5
+    }
+  ]
+}
+```
+
+### Search Songs
+```
+GET /api/v1/search?term=shape+of+you&limit=20&offset=0
+Headers:
+  X-Jukboks-API-Key: your-api-key
+```
+
+**Response:**
+```json
+{
+  "results": [
+    {
+      "trackId": "1234567890",
+      "title": "Shape of You",
+      "artist": "Ed Sheeran",
+      "album": "÷ (Divide)",
+      "albumCover": "https://...",
+      "duration": 234000,
+      "isExplicit": false,
+      "previewUrl": "https://..."
+    }
+  ],
+  "total": 20
+}
+```
+
+### Get Play History
+```
+GET /api/v1/venues/:code/history?limit=50
+Headers:
+  X-Jukboks-API-Key: your-api-key
+```
+
+**Response:**
+```json
+{
+  "history": [
+    {
+      "id": 123,
+      "trackId": "1234567890",
+      "title": "Shape of You",
+      "artist": "Ed Sheeran",
+      "album": "÷ (Divide)",
+      "albumCover": "https://...",
+      "requesterName": "John D.",
+      "isAutoPlay": false,
+      "playedAt": "2025-01-27T10:30:00Z"
+    }
+  ]
+}
+```
+
 ### Submit Song Request
 ```
 POST /api/v1/venues/:code/request

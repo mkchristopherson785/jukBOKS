@@ -1123,6 +1123,108 @@ router.post("/api/setup/demo", async (req: Request, res: Response) => {
   }
 });
 
+router.get("/api/v1/search", async (req: Request, res: Response) => {
+  try {
+    const apiKey = req.headers["x-jukboks-api-key"] as string;
+    const org = apiKey ? await validateApiKey(apiKey) : null;
+    if (!org) {
+      return res.status(401).json({ error: "INVALID_API_KEY", message: "Valid API key required" });
+    }
+
+    const { term } = req.query;
+    if (!term || typeof term !== "string") {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "Search term required" });
+    }
+
+    const searchLimit = Math.max(1, Math.min(parseInt(req.query.limit as string) || 20, 50));
+    const searchOffset = Math.max(0, parseInt(req.query.offset as string) || 0);
+
+    const response = await fetch(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&limit=${searchLimit}&offset=${searchOffset}`
+    );
+    const data = await response.json();
+
+    const songs = (data.results || []).map((r: any) => ({
+      trackId: String(r.trackId),
+      title: r.trackName,
+      artist: r.artistName,
+      album: r.collectionName,
+      albumCover: r.artworkUrl100?.replace("100x100", "300x300"),
+      duration: r.trackTimeMillis,
+      isExplicit: r.trackExplicitness === "explicit",
+      previewUrl: r.previewUrl,
+    }));
+
+    res.json({ results: songs, total: data.resultCount });
+  } catch (error) {
+    console.error("API search error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Search failed" });
+  }
+});
+
+router.get("/api/v1/venues", async (req: Request, res: Response) => {
+  try {
+    const apiKey = req.headers["x-jukboks-api-key"] as string;
+    const org = apiKey ? await validateApiKey(apiKey) : null;
+    if (!org) {
+      return res.status(401).json({ error: "INVALID_API_KEY", message: "Valid API key required" });
+    }
+
+    const orgVenues = await storage.getVenuesByOrganization(org.id);
+    const venueList = orgVenues.map(v => ({
+      id: v.id,
+      code: v.code,
+      name: v.name,
+      isActive: v.isActive,
+      allowExplicit: v.allowExplicit,
+      autoApprove: v.autoApprove,
+      dailyRequestLimit: v.dailyRequestLimit,
+    }));
+
+    res.json({ venues: venueList });
+  } catch (error) {
+    console.error("API venues error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+router.get("/api/v1/venues/:code/history", async (req: Request, res: Response) => {
+  try {
+    const apiKey = req.headers["x-jukboks-api-key"] as string;
+    const org = apiKey ? await validateApiKey(apiKey) : null;
+    if (!org) {
+      return res.status(401).json({ error: "INVALID_API_KEY", message: "Valid API key required" });
+    }
+
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+    if (venue.organizationId !== org.id) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "API key not authorized for this venue" });
+    }
+
+    const limit = Math.max(1, Math.min(parseInt(req.query.limit as string) || 50, 100));
+    const history = await storage.getPlayHistory(venue.id, limit);
+    const songs = history.map(r => ({
+      id: r.id,
+      trackId: r.trackId,
+      title: r.title,
+      artist: r.artist,
+      album: r.album,
+      albumCover: r.albumCover,
+      requesterName: r.requesterName,
+      isAutoPlay: r.isAutoPlay,
+      playedAt: r.playedAt,
+    }));
+
+    res.json({ history: songs });
+  } catch (error) {
+    console.error("API history error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
 router.patch("/api/v1/venues/:code/settings", async (req: Request, res: Response) => {
   try {
     const apiKey = req.headers["x-jukboks-api-key"] as string;
@@ -3173,6 +3275,48 @@ router.delete("/api/super-admin/venues/:venueId", isAuthenticated, async (req: a
   } catch (error) {
     console.error("Super admin delete venue error:", error);
     res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+router.get("/api/me/api-key", isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const org = await storage.getOrganizationByOwnerId(userId);
+    if (!org) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "No organization found" });
+    }
+
+    if (!org.apiKey) {
+      res.json({ apiKey: null, maskedKey: null });
+    } else {
+      const masked = org.apiKey.slice(0, 8) + "•".repeat(org.apiKey.length - 8);
+      res.json({ apiKey: null, maskedKey: masked });
+    }
+  } catch (error) {
+    console.error("Get API key error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+router.post("/api/me/api-key", isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const org = await storage.getOrganizationByOwnerId(userId);
+    if (!org) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "No organization found" });
+    }
+
+    const newKey = nanoid(32);
+    await storage.updateOrganization(org.id, { apiKey: newKey, apiKeyCreatedAt: new Date() });
+
+    res.json({ apiKey: newKey });
+  } catch (error) {
+    console.error("Generate API key error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }
 });
 

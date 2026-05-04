@@ -38,6 +38,8 @@ The system is built with a multi-tenant architecture:
 -   **Mobile Host Quick Actions**: Skip song, clear queue, view live listener count.
 -   **Venue Analytics**: Tracks key metrics like total songs played, unique guests, and peak hours.
 -   **Kiosk Monitoring**: Heartbeat system, device locking, scheduled playback, and offline alerts for Raspberry Pi kiosks.
+-   **Integration API**: API key management UI in Settings, with authenticated endpoints for external platforms (LivHOA). Endpoints: search songs, list venues, play history, request songs, vote. Keys are masked after generation (shown once, then hidden). Documented at `docs/INTEGRATION_API.md`.
+-   **Guest Favorites**: localStorage-based per-venue favorites with quick re-request from party page.
 
 ## External Dependencies
 -   **Apple Music API**: Utilized for song search, 30-second previews (iTunes API), and full playback via MusicKit JS.

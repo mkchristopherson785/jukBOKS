@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Music2, Settings, LogOut, Plus, Trash2, ListMusic, Volume2, Upload, Speaker, Shield, ArrowLeft, Search, User, Clock } from "lucide-react";
-import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, updateBackupPlaylistWeight, fetchAnnouncementGroups, createAnnouncementGroup, updateAnnouncementGroup, deleteAnnouncementGroup, addAnnouncementToGroup, deleteAnnouncement, updateAnnouncement, checkSuperAdmin, searchPlaylists, addBackupPlaylistById, fetchKioskStatus, type AnnouncementGroup, type Announcement } from "../lib/api";
+import { Music2, Settings, LogOut, Plus, Trash2, ListMusic, Volume2, Upload, Speaker, Shield, ArrowLeft, Search, User, Clock, Key, Copy, RefreshCw, Check, Code } from "lucide-react";
+import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, updateBackupPlaylistWeight, fetchAnnouncementGroups, createAnnouncementGroup, updateAnnouncementGroup, deleteAnnouncementGroup, addAnnouncementToGroup, deleteAnnouncement, updateAnnouncement, checkSuperAdmin, searchPlaylists, addBackupPlaylistById, fetchKioskStatus, fetchApiKey, generateApiKey, type AnnouncementGroup, type Announcement } from "../lib/api";
 import { useUpload } from "../hooks/use-upload";
 import { useAuth } from "../hooks/use-auth";
 import { useMusicKit } from "../hooks/useMusicKit";
@@ -35,6 +35,33 @@ export default function SettingsPage() {
   const [newGroupFrequencyType, setNewGroupFrequencyType] = useState("songs");
   const [newGroupFrequency, setNewGroupFrequency] = useState(5);
   const [newGroupPlayMode, setNewGroupPlayMode] = useState("sequential");
+  const [apiKeyCopied, setApiKeyCopied] = useState(false);
+  const [newlyGeneratedKey, setNewlyGeneratedKey] = useState<string | null>(null);
+
+  const { data: apiKeyData, refetch: refetchApiKey } = useQuery({
+    queryKey: ["apiKey"],
+    queryFn: fetchApiKey,
+    enabled: isAuthenticated,
+  });
+
+  const generateKeyMutation = useMutation({
+    mutationFn: generateApiKey,
+    onSuccess: (data) => {
+      setNewlyGeneratedKey(data.apiKey);
+      refetchApiKey();
+    },
+  });
+
+  const displayKey = newlyGeneratedKey || apiKeyData?.maskedKey;
+  const canCopy = !!newlyGeneratedKey;
+
+  const copyApiKey = useCallback(() => {
+    if (newlyGeneratedKey) {
+      navigator.clipboard.writeText(newlyGeneratedKey);
+      setApiKeyCopied(true);
+      setTimeout(() => setApiKeyCopied(false), 2000);
+    }
+  }, [newlyGeneratedKey]);
 
   const fetchLibraryPlaylists = useCallback(async () => {
     if (!musicKit || !musicKitAuthorized) return;
@@ -837,7 +864,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 opacity-60 lg:col-span-2">
+            <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4 opacity-60">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
                 <Speaker className="w-4 h-4" />
                 Sonos Speakers
@@ -846,6 +873,77 @@ export default function SettingsPage() {
               <p className="text-gray-400 text-xs mt-2">
                 Connect Sonos speakers to play music throughout your venue.
               </p>
+            </div>
+
+            <div className="bg-white/5 backdrop-blur-lg rounded-xl border border-white/10 p-4">
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <Code className="w-5 h-5 text-green-400" />
+                Integration API
+              </h3>
+              <p className="text-gray-400 text-xs mb-4">
+                Use your API key to integrate Jukboks with external platforms like LivHOA.
+              </p>
+
+              {displayKey ? (
+                <div className="space-y-3">
+                  {newlyGeneratedKey && (
+                    <div className="p-2.5 bg-green-500/10 border border-green-500/20 rounded-lg">
+                      <p className="text-green-400 text-xs font-medium mb-1">New API key generated — copy it now. It won't be shown again.</p>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 px-3 py-2.5 bg-black/30 border border-white/10 rounded-lg font-mono text-sm text-gray-300 overflow-hidden">
+                      {displayKey}
+                    </div>
+                    {canCopy && (
+                      <button
+                        onClick={copyApiKey}
+                        className="p-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-gray-400 hover:text-white transition-colors"
+                        title="Copy"
+                      >
+                        {apiKeyCopied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (confirm("Generate a new API key? The current key will stop working immediately.")) {
+                        setNewlyGeneratedKey(null);
+                        generateKeyMutation.mutate();
+                      }
+                    }}
+                    disabled={generateKeyMutation.isPending}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-amber-400 hover:text-amber-300 transition-colors"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${generateKeyMutation.isPending ? 'animate-spin' : ''}`} />
+                    Regenerate Key
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => generateKeyMutation.mutate()}
+                  disabled={generateKeyMutation.isPending}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
+                >
+                  <Key className="w-4 h-4" />
+                  {generateKeyMutation.isPending ? "Generating..." : "Generate API Key"}
+                </button>
+              )}
+
+              <div className="mt-4 p-3 bg-black/20 border border-white/5 rounded-lg">
+                <p className="text-gray-500 text-xs mb-2">Add this header to API requests:</p>
+                <code className="text-green-400 text-xs font-mono">X-Jukboks-API-Key: your-key-here</code>
+                <div className="mt-3 text-gray-500 text-xs space-y-1">
+                  <p>Available endpoints:</p>
+                  <p className="font-mono text-gray-400">GET /api/v1/venues - List your venues</p>
+                  <p className="font-mono text-gray-400">GET /api/v1/venues/:code/queue - Get queue</p>
+                  <p className="font-mono text-gray-400">GET /api/v1/venues/:code/now-playing - Now playing</p>
+                  <p className="font-mono text-gray-400">GET /api/v1/venues/:code/history - Play history</p>
+                  <p className="font-mono text-gray-400">GET /api/v1/search?term=... - Search songs</p>
+                  <p className="font-mono text-gray-400">POST /api/v1/venues/:code/request - Request song</p>
+                  <p className="font-mono text-gray-400">POST /api/v1/venues/:code/vote - Vote on song</p>
+                </div>
+              </div>
             </div>
             </div>
           </div>
