@@ -80,10 +80,13 @@ apt-get update -qq
 apt-get upgrade -y -qq
 
 echo "[2/8] Installing required packages..."
-if apt-cache show chromium-browser >/dev/null 2>&1; then
+if apt-cache policy chromium 2>/dev/null | grep -qE "Candidate: [0-9]"; then
+  CHROMIUM_PKG="chromium"
+elif apt-cache policy chromium-browser 2>/dev/null | grep -qE "Candidate: [0-9]"; then
   CHROMIUM_PKG="chromium-browser"
 else
-  CHROMIUM_PKG="chromium"
+  echo "Error: Neither 'chromium' nor 'chromium-browser' is installable on this system."
+  exit 1
 fi
 echo "Using Chromium package: $CHROMIUM_PKG"
 apt-get install -y -qq \
