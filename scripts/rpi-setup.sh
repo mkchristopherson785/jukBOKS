@@ -80,8 +80,14 @@ apt-get update -qq
 apt-get upgrade -y -qq
 
 echo "[2/8] Installing required packages..."
+if apt-cache show chromium-browser >/dev/null 2>&1; then
+  CHROMIUM_PKG="chromium-browser"
+else
+  CHROMIUM_PKG="chromium"
+fi
+echo "Using Chromium package: $CHROMIUM_PKG"
 apt-get install -y -qq \
-  chromium-browser \
+  $CHROMIUM_PKG \
   xdotool \
   xserver-xorg \
   x11-xserver-utils \
@@ -95,6 +101,10 @@ apt-get install -y -qq \
   dnsmasq \
   python3 \
   iptables
+
+if [ ! -x /usr/bin/chromium-browser ] && [ -x /usr/bin/chromium ]; then
+  ln -sf /usr/bin/chromium /usr/local/bin/chromium-browser
+fi
 
 systemctl unmask hostapd 2>/dev/null || true
 systemctl stop hostapd 2>/dev/null || true
@@ -266,7 +276,7 @@ if [ -f /etc/jukboks/config.json ]; then
 else
   echo "Configured: No"
 fi
-if pgrep -x chromium-browse > /dev/null; then
+if pgrep -f "chromium.*--kiosk" > /dev/null; then
   echo "Browser: Running"
 else
   echo "Browser: Stopped"
@@ -286,7 +296,9 @@ chmod +x /usr/local/bin/jukboks-status
 cat > /usr/local/bin/jukboks-restart << 'RESTART_EOF'
 #!/bin/bash
 echo "Restarting Jukboks kiosk..."
+pkill -f "chromium.*--kiosk" 2>/dev/null
 pkill chromium-browse 2>/dev/null
+pkill chromium 2>/dev/null
 sleep 2
 
 KIOSK_URL=$(python3 -c "
@@ -356,7 +368,7 @@ After=graphical.target
 Type=simple
 User=$REAL_USER
 Environment=DISPLAY=:0
-ExecStart=/bin/bash -c 'while true; do if [ -f /etc/jukboks/config.json ] && python3 -c "import json; c=json.load(open(\"/etc/jukboks/config.json\")); exit(0 if c.get(\"configured\") else 1)" 2>/dev/null; then if ! pgrep -x chromium-browse > /dev/null; then sleep 10; if ! pgrep -x chromium-browse > /dev/null; then /usr/local/bin/jukboks-restart; fi; fi; fi; sleep 30; done'
+ExecStart=/bin/bash -c 'while true; do if [ -f /etc/jukboks/config.json ] && python3 -c "import json; c=json.load(open(\"/etc/jukboks/config.json\")); exit(0 if c.get(\"configured\") else 1)" 2>/dev/null; then if ! pgrep -f "chromium.*--kiosk" > /dev/null; then sleep 10; if ! pgrep -f "chromium.*--kiosk" > /dev/null; then /usr/local/bin/jukboks-restart; fi; fi; fi; sleep 30; done'
 Restart=always
 RestartSec=10
 
