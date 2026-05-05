@@ -239,6 +239,8 @@ if [ -n "$KIOSK_URL" ]; then
     --overscroll-history-navigation=0 \
     --no-first-run \
     --disable-restore-session-state \
+    --password-store=basic \
+    --use-mock-keychain \
     --user-agent="Mozilla/5.0 (Linux; Raspberry Pi) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
     "$KIOSK_URL" &
 fi
@@ -346,6 +348,8 @@ if [ -n "$KIOSK_URL" ]; then
     --disable-infobars \
     --autoplay-policy=no-user-gesture-required \
     --no-first-run \
+    --password-store=basic \
+    --use-mock-keychain \
     --user-agent="Mozilla/5.0 (Linux; Raspberry Pi) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
     "$KIOSK_URL" &
   echo "Kiosk restarted."
