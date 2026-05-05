@@ -42,7 +42,21 @@ def load_config():
     except Exception:
         return {}
 
+def has_network_manager():
+    try:
+        subprocess.run(["nmcli", "--version"], capture_output=True, timeout=3, check=True)
+        return True
+    except Exception:
+        return False
+
 def configure_wifi(ssid, password):
+    if has_network_manager():
+        try:
+            subprocess.run(["nmcli", "connection", "delete", ssid],
+                           capture_output=True, timeout=10)
+        except Exception:
+            pass
+        return
     wpa_conf = f'''
 country=US
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
@@ -468,6 +482,7 @@ class SetupHandler(http.server.BaseHTTPRequestHandler):
 
                 config = {
                     "ssid": ssid,
+                    "password": password,
                     "url": url,
                     "venue_code": venue_code,
                     "layout": layout,
@@ -475,6 +490,10 @@ class SetupHandler(http.server.BaseHTTPRequestHandler):
                     "configured": True
                 }
                 save_config(config)
+                try:
+                    os.chmod(CONFIG_PATH, 0o600)
+                except Exception:
+                    pass
 
                 configure_wifi(ssid, password)
 

@@ -4,13 +4,29 @@ HOTSPOT_PASS="jukboks123"
 CONFIG_PATH="/etc/jukboks/config.json"
 AP_IP="192.168.4.1"
 
+has_nm() {
+  command -v nmcli >/dev/null 2>&1 && systemctl list-unit-files | grep -q "^NetworkManager.service"
+}
+
+stop_network_managers() {
+  if has_nm; then
+    echo "[WiFi Manager] Stopping NetworkManager (AP mode)..."
+    nmcli radio wifi off 2>/dev/null || true
+    systemctl stop NetworkManager 2>/dev/null || true
+  fi
+  systemctl stop wpa_supplicant 2>/dev/null || true
+  systemctl stop dhcpcd 2>/dev/null || true
+  rfkill unblock wifi 2>/dev/null || true
+  sleep 1
+}
+
 start_hotspot() {
   echo "[WiFi Manager] Starting setup hotspot: $HOTSPOT_SSID"
 
-  systemctl stop wpa_supplicant 2>/dev/null || true
-  systemctl stop dhcpcd 2>/dev/null || true
-  ip link set wlan0 down
-  ip addr flush dev wlan0
+  stop_network_managers
+
+  ip link set wlan0 down 2>/dev/null || true
+  ip addr flush dev wlan0 2>/dev/null || true
   ip link set wlan0 up
   ip addr add ${AP_IP}/24 dev wlan0
 
@@ -38,6 +54,7 @@ address=/#/${AP_IP}
 EOF
 
   hostapd -B /tmp/hostapd.conf
+  sleep 2
   dnsmasq -C /tmp/dnsmasq-portal.conf
 
   iptables -t nat -A PREROUTING -i wlan0 -p tcp --dport 80 -j DNAT --to-destination ${AP_IP}:80
@@ -58,7 +75,7 @@ stop_hotspot() {
   killall hostapd 2>/dev/null || true
   killall dnsmasq 2>/dev/null || true
   iptables -t nat -F 2>/dev/null || true
-  ip addr flush dev wlan0
+  ip addr flush dev wlan0 2>/dev/null || true
 }
 
 check_wifi_connection() {
@@ -71,13 +88,41 @@ check_wifi_connection() {
   return 1
 }
 
+connect_via_nm() {
+  local ssid="$1"
+  local password="$2"
+  echo "[WiFi Manager] Connecting via NetworkManager to '$ssid'..."
+  systemctl start NetworkManager 2>/dev/null || true
+  sleep 3
+  nmcli radio wifi on 2>/dev/null || true
+  sleep 2
+  nmcli connection delete "$ssid" 2>/dev/null || true
+  if [ -n "$password" ]; then
+    nmcli device wifi connect "$ssid" password "$password" ifname wlan0 2>&1 || true
+  else
+    nmcli device wifi connect "$ssid" ifname wlan0 2>&1 || true
+  fi
+}
+
+connect_legacy() {
+  echo "[WiFi Manager] Connecting via wpa_supplicant/dhcpcd..."
+  systemctl start wpa_supplicant 2>/dev/null || true
+  systemctl start dhcpcd 2>/dev/null || true
+}
+
 main() {
   echo "[WiFi Manager] Jukboks WiFi Manager starting..."
 
   if [ -f "$CONFIG_PATH" ] && python3 -c "import json; c=json.load(open('$CONFIG_PATH')); exit(0 if c.get('configured') else 1)" 2>/dev/null; then
     echo "[WiFi Manager] Configuration found, attempting WiFi connection..."
-    systemctl start wpa_supplicant 2>/dev/null || true
-    systemctl start dhcpcd 2>/dev/null || true
+    SAVED_SSID=$(python3 -c "import json; print(json.load(open('$CONFIG_PATH')).get('ssid',''))" 2>/dev/null)
+    SAVED_PASS=$(python3 -c "import json; print(json.load(open('$CONFIG_PATH')).get('password',''))" 2>/dev/null)
+
+    if has_nm && [ -n "$SAVED_SSID" ]; then
+      connect_via_nm "$SAVED_SSID" "$SAVED_PASS"
+    else
+      connect_legacy
+    fi
 
     if check_wifi_connection; then
       echo "[WiFi Manager] WiFi connected successfully!"
