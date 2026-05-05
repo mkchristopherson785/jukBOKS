@@ -279,13 +279,10 @@ select option { background: #1a1a2e; color: #fff; }
 
     <div id="page2" style="display:none">
       <div class="card">
-        <h2>2. Venue Settings</h2>
-        <label>Jukboks URL</label>
-        <input type="text" id="appUrl" name="url" placeholder="https://your-app.replit.app">
-        <p class="field-hint">Your published Jukboks app URL</p>
+        <h2>2. Venue Code</h2>
         <label>Venue Code</label>
-        <input type="text" id="venueCode" name="venue_code" placeholder="e.g. MYBAR">
-        <p class="field-hint">Found in your venue settings</p>
+        <input type="text" id="venueCode" name="venue_code" placeholder="e.g. MYBAR" autocapitalize="off" autocorrect="off">
+        <p class="field-hint">Found in your venue settings on jukboks.com</p>
       </div>
       <button type="button" class="btn" onclick="nextPage(3)">Next</button>
     </div>
@@ -356,9 +353,8 @@ function nextPage(page) {
     document.getElementById('wifiError').style.display = 'none';
   }
   if (page === 3) {
-    const url = document.getElementById('appUrl').value.trim();
     const code = document.getElementById('venueCode').value.trim();
-    if (!url || !code) { alert('Please fill in both fields'); return; }
+    if (!code) { alert('Please enter your venue code'); return; }
   }
   document.getElementById('page1').style.display = page === 1 ? 'block' : 'none';
   document.getElementById('page2').style.display = page === 2 ? 'block' : 'none';
@@ -391,7 +387,7 @@ function submitSetup() {
   const data = {
     ssid: document.getElementById('wifiNetwork').value,
     password: document.getElementById('wifiPassword').value,
-    url: document.getElementById('appUrl').value.trim().replace(/\/$/, ''),
+    url: 'https://jukboks.com',
     venue_code: document.getElementById('venueCode').value.trim(),
     layout: selectedLayout,
     audio: selectedAudio
@@ -471,12 +467,12 @@ class SetupHandler(http.server.BaseHTTPRequestHandler):
                 data = json.loads(body)
                 ssid = data.get("ssid", "")
                 password = data.get("password", "")
-                url = data.get("url", "").rstrip("/")
+                url = (data.get("url") or "https://jukboks.com").rstrip("/")
                 venue_code = data.get("venue_code", "")
                 layout = data.get("layout", "square")
                 audio = data.get("audio", "auto")
 
-                if not ssid or not url or not venue_code:
+                if not ssid or not venue_code:
                     self.send_json({"success": False, "error": "Missing required fields"})
                     return
 
