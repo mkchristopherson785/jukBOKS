@@ -103,7 +103,8 @@ apt-get install -y -qq \
   hostapd \
   dnsmasq \
   python3 \
-  iptables
+  iptables \
+  qrencode
 
 if [ ! -x /usr/bin/chromium-browser ] && [ -x /usr/bin/chromium ]; then
   ln -sf /usr/bin/chromium /usr/local/bin/chromium-browser
@@ -137,6 +138,25 @@ else
 fi
 chmod +x /opt/jukboks/portal.py
 chmod +x /opt/jukboks/wifi-manager.sh
+
+if [ -f "$SCRIPT_DIR/rpi-portal/setup.html.template" ]; then
+  python3 - "$SCRIPT_DIR/rpi-portal/setup.html.template" /opt/jukboks/setup.html << PYEOF
+import sys
+src, dst = sys.argv[1], sys.argv[2]
+import subprocess
+svg = subprocess.run(["qrencode","-t","SVG","-o","-","WIFI:T:WPA;S:Jukboks-Setup;P:jukboks123;;"], capture_output=True, text=True).stdout
+# Strip XML/DOCTYPE prologue so SVG embeds cleanly inside HTML body.
+svg_start = svg.find("<svg")
+if svg_start > 0:
+    svg = svg[svg_start:]
+with open(src) as f:
+    html = f.read()
+html = html.replace("{{QR_SVG}}", svg)
+with open(dst, "w") as f:
+    f.write(html)
+PYEOF
+  chmod 644 /opt/jukboks/setup.html
+fi
 
 if [ "$HOTSPOT_ONLY" = false ]; then
   cat > /etc/jukboks/config.json << EOF
@@ -199,6 +219,10 @@ try:
 except:
     print('')
 " 2>/dev/null)
+
+if [ -z "$KIOSK_URL" ] && [ -f /opt/jukboks/setup.html ]; then
+  KIOSK_URL="file:///opt/jukboks/setup.html"
+fi
 
 if [ -n "$KIOSK_URL" ]; then
   chromium-browser \

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jukboks Kiosk Setup</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 50%, #16213e 100%);
+  color: #fff;
+}
+.wrap {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4vh 4vw;
+}
+.card {
+  width: 100%;
+  max-width: 1100px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6vw;
+  align-items: center;
+}
+@media (max-aspect-ratio: 1/1) {
+  .card { grid-template-columns: 1fr; gap: 4vh; }
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+.logo {
+  width: 64px; height: 64px;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px;
+}
+.brand h1 { font-size: 36px; font-weight: 800; letter-spacing: -0.5px; }
+.brand p { color: #a3a3c2; font-size: 16px; margin-top: 2px; }
+h2 { font-size: 28px; font-weight: 700; margin-bottom: 16px; line-height: 1.2; }
+.steps { list-style: none; margin-bottom: 24px; }
+.steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 12px 0;
+  font-size: 17px;
+  line-height: 1.5;
+  color: #d4d4e7;
+}
+.num {
+  flex-shrink: 0;
+  width: 32px; height: 32px;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+}
+.creds {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-top: 8px;
+  font-size: 14px;
+  color: #a3a3c2;
+}
+.creds strong { color: #fff; font-family: ui-monospace, Menlo, monospace; }
+.qr-panel {
+  background: #fff;
+  border-radius: 24px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+.qr-panel svg {
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  display: block;
+}
+.qr-label {
+  color: #1a1a2e;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+.qr-hint {
+  color: #6b7280;
+  font-size: 13px;
+  text-align: center;
+  line-height: 1.4;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="text-side">
+      <div class="brand">
+        <div class="logo">&#9835;</div>
+        <div>
+          <h1>Jukboks</h1>
+          <p>Kiosk awaiting setup</p>
+        </div>
+      </div>
+      <h2>Scan to set up this kiosk</h2>
+      <ul class="steps">
+        <li><div class="num">1</div><div>Scan the QR code with your phone &mdash; you&rsquo;ll join the setup Wi-Fi automatically.</div></li>
+        <li><div class="num">2</div><div>The setup wizard opens on your phone (or visit <strong style="color:#fff">http://192.168.4.1</strong>).</div></li>
+        <li><div class="num">3</div><div>Pick the venue&rsquo;s Wi-Fi, enter your venue code, and tap Complete.</div></li>
+      </ul>
+      <div class="creds">
+        Manual join: network <strong>Jukboks-Setup</strong> &middot; password <strong>jukboks123</strong>
+      </div>
+    </div>
+    <div class="qr-side">
+      <div class="qr-panel">
+        {{QR_SVG}}
+        <div class="qr-label">Scan to join setup Wi-Fi</div>
+        <div class="qr-hint">iPhone &amp; Android both supported</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
