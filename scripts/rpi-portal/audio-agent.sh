@@ -16,6 +16,15 @@ DEVICE_ID_FILE="$HOME/.config/jukboks/device-id"
 INTERVAL=10
 TAB="$(printf '\t')"
 
+# When Chromium RSS exceeds this many MB, kill it so the kiosk autostart can
+# relaunch a fresh tab. Prevents OOM crashes during service from fast leaks.
+# Override via CHROMIUM_MAX_MB env var if needed.
+CHROMIUM_MAX_MB="${CHROMIUM_MAX_MB:-1200}"
+# Don't restart Chromium more often than this many seconds (avoids restart
+# loops if the leak is extremely fast or threshold is misconfigured).
+CHROMIUM_RESTART_COOLDOWN=300
+LAST_CHROMIUM_RESTART=0
+
 mkdir -p "$(dirname "$DEVICE_ID_FILE")"
 
 # Stable device ID for this Pi.
@@ -229,7 +238,8 @@ except Exception:
   fi
 
   # 5. Report system health every 3 ticks (~30s) — enough granularity
-  #    without flooding the DB with writes.
+  #    without flooding the DB with writes. Also use the same data to
+  #    auto-restart Chromium if it's leaking memory fast.
   HEALTH_TICK=$((HEALTH_TICK + 1))
   if [ "$HEALTH_TICK" -ge 3 ]; then
     HEALTH_TICK=0
@@ -246,6 +256,26 @@ print(json.dumps(d))
         -H "Content-Type: application/json" \
         -d "$PAYLOAD" \
         "$SERVER_URL/api/v1/venues/$VENUE_CODE/health" >/dev/null 2>&1 || true
+
+      # Auto-restart Chromium if it's exceeded the memory ceiling. The
+      # kiosk autostart entry will relaunch it with a fresh tab.
+      CHROME_MB="$(echo "$HEALTH_JSON" | python3 -c "
+import json, sys
+try:
+  d = json.load(sys.stdin)
+  v = d.get('chromiumMemMb')
+  print(int(v) if isinstance(v, (int, float)) else 0)
+except Exception:
+  print(0)
+" 2>/dev/null)"
+      [ -z "$CHROME_MB" ] && CHROME_MB=0
+      NOW="$(date +%s)"
+      SINCE_LAST=$((NOW - LAST_CHROMIUM_RESTART))
+      if [ "$CHROME_MB" -ge "$CHROMIUM_MAX_MB" ] && [ "$SINCE_LAST" -ge "$CHROMIUM_RESTART_COOLDOWN" ]; then
+        echo "[jukboks-audio-agent] Chromium at ${CHROME_MB} MB (>= ${CHROMIUM_MAX_MB} MB threshold). Restarting." >&2
+        pkill -f chromium 2>/dev/null || true
+        LAST_CHROMIUM_RESTART="$NOW"
+      fi
     fi
   fi
 
