@@ -872,20 +872,18 @@ router.get("/scripts/install-audio-agent.sh", async (_req: Request, res: Respons
   }
 });
 
-// Pi reports its detected audio output devices. Lock-protected so only the
-// active kiosk for this venue can publish sinks.
+// Pi reports its detected audio output devices. The audio agent runs as a
+// separate process from the kiosk Chromium and therefore has its own deviceId
+// that does not match the kiosk lock holder, so we don't enforce the lock
+// here. Sink names are non-sensitive metadata; the venue code itself is the
+// gate (same trust model as the party page).
 router.post("/api/v1/venues/:code/audio-devices", async (req: Request, res: Response) => {
   try {
     const venue = await storage.getVenueByCode(req.params.code);
     if (!venue) return res.status(404).json({ error: "VENUE_NOT_FOUND" });
-    const { deviceId, devices } = (req.body || {}) as { deviceId?: string; devices?: any[] };
-    if (!deviceId || !Array.isArray(devices)) {
-      return res.status(400).json({ error: "BAD_REQUEST", message: "Missing deviceId or devices[]" });
-    }
-    const heartbeatAge = venue.kioskLockHeartbeat ? Date.now() - venue.kioskLockHeartbeat.getTime() : Infinity;
-    const lockHeldByCaller = venue.kioskLockId === deviceId && heartbeatAge < 90000;
-    if (!lockHeldByCaller) {
-      return res.status(403).json({ error: "NOT_KIOSK_LOCK_HOLDER" });
+    const { devices } = (req.body || {}) as { devices?: any[] };
+    if (!Array.isArray(devices)) {
+      return res.status(400).json({ error: "BAD_REQUEST", message: "Missing devices[]" });
     }
     // Sanitize: keep only { name, description } string pairs, cap at 20 devices.
     const safe = devices.slice(0, 20).map((d) => ({
@@ -903,17 +901,12 @@ router.post("/api/v1/venues/:code/audio-devices", async (req: Request, res: Resp
   }
 });
 
-// Pi polls for the currently selected audio sink. Lock-protected.
+// Pi polls for the currently selected audio sink. Public (sink name is not
+// sensitive; venue code is the gate).
 router.get("/api/v1/venues/:code/audio-sink", async (req: Request, res: Response) => {
   try {
     const venue = await storage.getVenueByCode(req.params.code);
     if (!venue) return res.status(404).json({ error: "VENUE_NOT_FOUND" });
-    const deviceId = (req.query.deviceId as string || "").trim();
-    const heartbeatAge = venue.kioskLockHeartbeat ? Date.now() - venue.kioskLockHeartbeat.getTime() : Infinity;
-    const lockHeldByCaller = !!deviceId && venue.kioskLockId === deviceId && heartbeatAge < 90000;
-    if (!lockHeldByCaller) {
-      return res.status(403).json({ error: "NOT_KIOSK_LOCK_HOLDER" });
-    }
     res.json({ sink: venue.kioskAudioSink || null });
   } catch (error) {
     console.error("audio-sink error:", error);
