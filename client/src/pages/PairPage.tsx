@@ -221,7 +221,7 @@ export default function PairPage() {
               <h2 className="text-sm font-semibold text-gray-300 mb-3">Your venues</h2>
               <div className="space-y-2">
                 {myVenues.map((v) => {
-                  const connected = !!v.appleMusicUserToken;
+                  const connected = v.appleMusicConnected;
                   return (
                     <div key={v.id} className="flex items-center justify-between bg-black/20 rounded-xl p-3">
                       <div className="min-w-0">

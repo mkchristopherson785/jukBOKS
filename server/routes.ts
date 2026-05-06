@@ -843,6 +843,33 @@ router.post("/api/me/pair", isAuthenticated, async (req: any, res) => {
   }
 });
 
+// Owner connects Apple Music directly from the admin dashboard (no pairing code needed).
+router.post("/api/me/venues/:venueId/apple-music-token", isAuthenticated, async (req: any, res) => {
+  try {
+    const { musicUserToken } = req.body || {};
+    if (!musicUserToken || typeof musicUserToken !== "string") {
+      return res.status(400).json({ error: "BAD_REQUEST", message: "Missing musicUserToken" });
+    }
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) return res.status(404).json({ error: "NOT_FOUND" });
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "NOT_FOUND" });
+    }
+    await storage.updateVenue(venue.id, {
+      appleMusicUserToken: musicUserToken,
+      appleMusicUserTokenUpdatedAt: new Date(),
+    });
+    res.json({ success: true });
+  } catch (error) {
+    console.error("connect apple music error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
 // Owner disconnects Apple Music from a venue.
 router.delete("/api/me/venues/:venueId/apple-music-token", isAuthenticated, async (req: any, res) => {
   try {
@@ -2264,7 +2291,13 @@ router.get("/api/me/venues", isAuthenticated, async (req: any, res) => {
     }
 
     const venues = await storage.getVenuesByOrganization(org.id);
-    res.json(venues);
+    // Strip the raw Apple Music user token from API responses — clients only
+    // need to know whether a token is set, not its value (which is a credential).
+    const safe = venues.map((v: any) => {
+      const { appleMusicUserToken, ...rest } = v;
+      return { ...rest, appleMusicConnected: !!appleMusicUserToken };
+    });
+    res.json(safe);
   } catch (error) {
     console.error("Error getting venues:", error);
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });

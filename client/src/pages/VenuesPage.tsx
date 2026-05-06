@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { MapPin, Plus, Trash2, Settings, QrCode, Tv, Copy, Check, LogOut, User, Shield, ArrowLeft } from "lucide-react";
-import { fetchMyVenues, createVenue, deleteVenue, fetchVenue, updateVenue, fetchQRCode, fetchListeners, fetchTeam, checkSuperAdmin } from "../lib/api";
+import { MapPin, Plus, Trash2, Settings, QrCode, Tv, Copy, Check, LogOut, User, Shield, ArrowLeft, Music2, Unplug, Loader2 } from "lucide-react";
+import { fetchMyVenues, createVenue, deleteVenue, fetchVenue, updateVenue, fetchQRCode, fetchListeners, fetchTeam, checkSuperAdmin, connectAppleMusic, disconnectAppleMusic } from "../lib/api";
 import { useAuth } from "../hooks/use-auth";
+import { useMusicKit } from "../hooks/useMusicKit";
 
 export default function VenuesPage() {
   const queryClient = useQueryClient();
@@ -21,6 +22,9 @@ export default function VenuesPage() {
   const [selectedVenueCode, setSelectedVenueCode] = useState<string | null>(null);
   const [showSettingsPopover, setShowSettingsPopover] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [appleMusicBusyVenueId, setAppleMusicBusyVenueId] = useState<number | null>(null);
+  const [appleMusicError, setAppleMusicError] = useState<string>("");
+  const { isConfigured: musicKitReady, authorize, getMusicUserToken } = useMusicKit();
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -100,6 +104,43 @@ export default function VenuesPage() {
   const handleDeleteVenue = (venueId: number, venueName: string) => {
     if (confirm(`Are you sure you want to delete "${venueName}"? This will permanently remove all requests, playlists, and party data for this venue.`)) {
       deleteVenueMutation.mutate(venueId);
+    }
+  };
+
+  const handleConnectAppleMusic = async (venueId: number) => {
+    setAppleMusicError("");
+    setAppleMusicBusyVenueId(venueId);
+    try {
+      const ok = await authorize();
+      if (!ok) {
+        setAppleMusicError("Apple Music sign-in was cancelled or failed.");
+        return;
+      }
+      const token = getMusicUserToken();
+      if (!token) {
+        setAppleMusicError("Could not retrieve Apple Music token. Try again.");
+        return;
+      }
+      await connectAppleMusic(venueId, token);
+      queryClient.invalidateQueries({ queryKey: ["myVenues"] });
+    } catch (err: any) {
+      setAppleMusicError(err.message || "Connect failed");
+    } finally {
+      setAppleMusicBusyVenueId(null);
+    }
+  };
+
+  const handleDisconnectAppleMusic = async (venueId: number, venueName: string) => {
+    if (!confirm(`Disconnect Apple Music from "${venueName}"? The kiosk will show a new pairing code.`)) return;
+    setAppleMusicError("");
+    setAppleMusicBusyVenueId(venueId);
+    try {
+      await disconnectAppleMusic(venueId);
+      queryClient.invalidateQueries({ queryKey: ["myVenues"] });
+    } catch (err: any) {
+      setAppleMusicError(err.message || "Disconnect failed");
+    } finally {
+      setAppleMusicBusyVenueId(null);
     }
   };
 
@@ -243,6 +284,56 @@ export default function VenuesPage() {
                     {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     Copy Link
                   </button>
+                </div>
+
+                <div className="mb-3 p-3 bg-black/20 rounded-lg border border-white/5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Music2 className="w-4 h-4 text-pink-400 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-xs font-medium text-white">Apple Music</div>
+                        <div className="text-xs text-gray-400">
+                          {venue.appleMusicConnected ? (
+                            <span className="text-green-400">● Connected</span>
+                          ) : (
+                            <span className="text-gray-500">○ Not connected</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {venue.appleMusicConnected ? (
+                      <button
+                        onClick={() => handleDisconnectAppleMusic(venue.id, venue.name)}
+                        disabled={appleMusicBusyVenueId === venue.id}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-white/10 hover:bg-red-500/20 hover:text-red-300 rounded-lg text-gray-300 disabled:opacity-50"
+                        data-testid={`button-disconnect-am-${venue.code}`}
+                      >
+                        {appleMusicBusyVenueId === venue.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Unplug className="w-3 h-3" />
+                        )}
+                        Disconnect
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleConnectAppleMusic(venue.id)}
+                        disabled={!musicKitReady || appleMusicBusyVenueId === venue.id}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs bg-pink-600/80 hover:bg-pink-600 rounded-lg text-white disabled:opacity-50"
+                        data-testid={`button-connect-am-${venue.code}`}
+                      >
+                        {appleMusicBusyVenueId === venue.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Music2 className="w-3 h-3" />
+                        )}
+                        Connect
+                      </button>
+                    )}
+                  </div>
+                  {appleMusicBusyVenueId === venue.id && appleMusicError && (
+                    <div className="text-xs text-red-400 mt-2">{appleMusicError}</div>
+                  )}
                 </div>
 
                 <button

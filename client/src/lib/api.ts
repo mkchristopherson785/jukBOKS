@@ -89,12 +89,26 @@ export async function listMyVenues() {
     id: string;
     code: string;
     name: string;
-    appleMusicUserToken: string | null;
+    appleMusicConnected: boolean;
     appleMusicUserTokenUpdatedAt: string | null;
   }>>;
 }
 
-export async function disconnectAppleMusic(venueId: string) {
+export async function connectAppleMusic(venueId: string | number, musicUserToken: string) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/apple-music-token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ musicUserToken }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Connect failed");
+  }
+  return res.json();
+}
+
+export async function disconnectAppleMusic(venueId: string | number) {
   const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/apple-music-token`, {
     method: "DELETE",
     credentials: "include",
