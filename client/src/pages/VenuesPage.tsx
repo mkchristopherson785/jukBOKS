@@ -286,8 +286,8 @@ export default function VenuesPage() {
                   </button>
                 </div>
 
-                <div className="mb-3 p-3 bg-black/20 rounded-lg border border-white/5">
-                  <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="mb-3 p-3 bg-black/20 rounded-lg border border-white/5 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <Tv className="w-4 h-4 text-blue-400 flex-shrink-0" />
                       <div className="text-xs font-medium text-white">Display Layout</div>
@@ -301,6 +301,30 @@ export default function VenuesPage() {
                       <option value="default">Landscape (16:9)</option>
                       <option value="square">Square (1:1)</option>
                     </select>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Music2 className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                      <div className="text-xs font-medium text-white">Audio Output</div>
+                    </div>
+                    {Array.isArray(venue.kioskAudioDevices) && venue.kioskAudioDevices.length > 0 ? (
+                      <select
+                        value={(venue.kioskAudioSink as string) || ""}
+                        onChange={(e) => updateVenueMutation.mutate({ venueId: venue.id, data: { kioskAudioSink: e.target.value || null } })}
+                        className="text-xs bg-black/40 border border-white/10 rounded-lg text-white px-2 py-1 focus:outline-none focus:border-blue-500 max-w-[180px]"
+                        data-testid={`select-audio-${venue.code}`}
+                      >
+                        <option value="">Auto</option>
+                        {venue.kioskAudioDevices.map((d: { name: string; description: string }) => (
+                          <option key={d.name} value={d.name}>{d.description || d.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs text-gray-500" title="The Pi audio agent hasn't reported any devices yet. Install it on the Pi to enable this dropdown.">
+                        Agent not installed
+                      </span>
+                    )}
                   </div>
                 </div>
 

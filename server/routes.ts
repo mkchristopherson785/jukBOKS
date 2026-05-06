@@ -844,6 +844,83 @@ router.post("/api/me/pair", isAuthenticated, async (req: any, res) => {
   }
 });
 
+// Serve the Pi audio-agent install scripts as plain text so they can be
+// `curl`-ed onto a Raspberry Pi.
+router.get("/scripts/audio-agent.sh", async (_req: Request, res: Response) => {
+  try {
+    const fs = await import("fs/promises");
+    const path = await import("path");
+    const p = path.resolve(process.cwd(), "scripts/rpi-portal/audio-agent.sh");
+    const body = await fs.readFile(p, "utf-8");
+    res.setHeader("Content-Type", "text/x-shellscript; charset=utf-8");
+    res.send(body);
+  } catch {
+    res.status(404).send("not found");
+  }
+});
+
+router.get("/scripts/install-audio-agent.sh", async (_req: Request, res: Response) => {
+  try {
+    const fs = await import("fs/promises");
+    const path = await import("path");
+    const p = path.resolve(process.cwd(), "scripts/install-audio-agent.sh");
+    const body = await fs.readFile(p, "utf-8");
+    res.setHeader("Content-Type", "text/x-shellscript; charset=utf-8");
+    res.send(body);
+  } catch {
+    res.status(404).send("not found");
+  }
+});
+
+// Pi reports its detected audio output devices. Lock-protected so only the
+// active kiosk for this venue can publish sinks.
+router.post("/api/v1/venues/:code/audio-devices", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) return res.status(404).json({ error: "VENUE_NOT_FOUND" });
+    const { deviceId, devices } = (req.body || {}) as { deviceId?: string; devices?: any[] };
+    if (!deviceId || !Array.isArray(devices)) {
+      return res.status(400).json({ error: "BAD_REQUEST", message: "Missing deviceId or devices[]" });
+    }
+    const heartbeatAge = venue.kioskLockHeartbeat ? Date.now() - venue.kioskLockHeartbeat.getTime() : Infinity;
+    const lockHeldByCaller = venue.kioskLockId === deviceId && heartbeatAge < 90000;
+    if (!lockHeldByCaller) {
+      return res.status(403).json({ error: "NOT_KIOSK_LOCK_HOLDER" });
+    }
+    // Sanitize: keep only { name, description } string pairs, cap at 20 devices.
+    const safe = devices.slice(0, 20).map((d) => ({
+      name: String(d?.name || "").slice(0, 200),
+      description: String(d?.description || d?.name || "").slice(0, 200),
+    })).filter((d) => d.name);
+    await storage.updateVenue(venue.id, {
+      kioskAudioDevices: safe,
+      kioskAudioDevicesUpdatedAt: new Date(),
+    });
+    res.json({ success: true, count: safe.length });
+  } catch (error) {
+    console.error("audio-devices error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// Pi polls for the currently selected audio sink. Lock-protected.
+router.get("/api/v1/venues/:code/audio-sink", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) return res.status(404).json({ error: "VENUE_NOT_FOUND" });
+    const deviceId = (req.query.deviceId as string || "").trim();
+    const heartbeatAge = venue.kioskLockHeartbeat ? Date.now() - venue.kioskLockHeartbeat.getTime() : Infinity;
+    const lockHeldByCaller = !!deviceId && venue.kioskLockId === deviceId && heartbeatAge < 90000;
+    if (!lockHeldByCaller) {
+      return res.status(403).json({ error: "NOT_KIOSK_LOCK_HOLDER" });
+    }
+    res.json({ sink: venue.kioskAudioSink || null });
+  } catch (error) {
+    console.error("audio-sink error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 // Owner connects Apple Music directly from the admin dashboard (no pairing code needed).
 router.post("/api/me/venues/:venueId/apple-music-token", isAuthenticated, async (req: any, res) => {
   try {
@@ -2387,7 +2464,7 @@ router.patch("/api/me/venues/:venueId", isAuthenticated, async (req: any, res) =
       return res.status(404).json({ error: "NOT_FOUND", message: "Venue not found" });
     }
 
-    const { name, allowExplicit, blockHolidayMusic, autoApprove, dailyRequestLimit, isActive, songCooldownMinutes, artistCooldownMinutes, artistMaxPlaysPerHour, kioskLayout } = req.body;
+    const { name, allowExplicit, blockHolidayMusic, autoApprove, dailyRequestLimit, isActive, songCooldownMinutes, artistCooldownMinutes, artistMaxPlaysPerHour, kioskLayout, kioskAudioSink } = req.body;
     const allowedLayouts = new Set(["default", "square"]);
 
     const updatedVenue = await storage.updateVenue(venueId, {
@@ -2401,6 +2478,7 @@ router.patch("/api/me/venues/:venueId", isAuthenticated, async (req: any, res) =
       ...(artistCooldownMinutes !== undefined && typeof artistCooldownMinutes === "number" && artistCooldownMinutes >= 0 && artistCooldownMinutes <= 1440 && { artistCooldownMinutes }),
       ...(artistMaxPlaysPerHour !== undefined && typeof artistMaxPlaysPerHour === "number" && artistMaxPlaysPerHour >= 0 && artistMaxPlaysPerHour <= 20 && { artistMaxPlaysPerHour }),
       ...(typeof kioskLayout === "string" && allowedLayouts.has(kioskLayout) && { kioskLayout }),
+      ...((kioskAudioSink === null || (typeof kioskAudioSink === "string" && kioskAudioSink.length <= 200)) && { kioskAudioSink: kioskAudioSink || null }),
     });
 
     res.json(updatedVenue);

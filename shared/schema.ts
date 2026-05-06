@@ -98,6 +98,9 @@ export const venues = pgTable("venues", {
   appleMusicUserToken: text("apple_music_user_token"),
   appleMusicUserTokenUpdatedAt: timestamp("apple_music_user_token_updated_at"),
   kioskLayout: text("kiosk_layout").default("default"),
+  kioskAudioSink: text("kiosk_audio_sink"),
+  kioskAudioDevices: jsonb("kiosk_audio_devices").default([]),
+  kioskAudioDevicesUpdatedAt: timestamp("kiosk_audio_devices_updated_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
