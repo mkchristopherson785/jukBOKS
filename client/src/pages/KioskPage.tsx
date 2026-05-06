@@ -1,7 +1,7 @@
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, ThumbsUp, Play, User, Radio, Volume2, Maximize, Minimize, Clock, Pause, Speaker, Headphones } from "lucide-react";
-import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnouncement, markAnnouncementPlayed, markSongFinished, fetchSonosStatus, sendKioskHeartbeat, fetchListeners, releaseKioskLock, fetchAppleMusicToken, requestPairingCode } from "../lib/api";
+import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnouncement, markAnnouncementPlayed, markSongFinished, sendKioskHeartbeat, fetchListeners, releaseKioskLock, fetchAppleMusicToken, requestPairingCode } from "../lib/api";
 import { MusicKitPlayer } from "../components/MusicKitPlayer";
 import { useMusicKit } from "../hooks/useMusicKit";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
@@ -363,15 +363,6 @@ export default function KioskPage() {
     // QR code for a venue never changes during a session — disable the
     // global 5s refetch default to cut ~12 wasted requests/min on the kiosk.
     refetchInterval: false,
-  });
-
-  const { data: sonosStatus } = useQuery({
-    queryKey: ["sonos-kiosk", code],
-    queryFn: () => fetchSonosStatus(code!),
-    enabled: !!code,
-    retry: false,
-    // Sonos status changes are infrequent; 30s is plenty.
-    refetchInterval: 30_000,
   });
 
   const { data: listenersData } = useQuery({
