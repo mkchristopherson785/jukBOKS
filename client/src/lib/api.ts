@@ -82,6 +82,30 @@ export async function submitPairing(pairingCode: string, musicUserToken: string)
   return res.json() as Promise<{ success: true; venueName: string }>;
 }
 
+export async function listMyVenues() {
+  const res = await fetch(`${API_BASE}/api/me/venues`, { credentials: "include" });
+  if (!res.ok) throw new Error("Failed to load venues");
+  return res.json() as Promise<Array<{
+    id: string;
+    code: string;
+    name: string;
+    appleMusicUserToken: string | null;
+    appleMusicUserTokenUpdatedAt: string | null;
+  }>>;
+}
+
+export async function disconnectAppleMusic(venueId: string) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/apple-music-token`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Disconnect failed");
+  }
+  return res.json();
+}
+
 export async function releaseKioskLock(code: string, options?: {
   newDeviceId?: string;
   newDeviceName?: string;

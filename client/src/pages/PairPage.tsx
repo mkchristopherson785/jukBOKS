@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { Music2, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Music2, Loader2, CheckCircle2, AlertCircle, Unplug } from "lucide-react";
 import { useAuth } from "../hooks/use-auth";
 import { useMusicKit } from "../hooks/useMusicKit";
-import { lookupPairingCode, submitPairing } from "../lib/api";
+import { lookupPairingCode, submitPairing, listMyVenues, disconnectAppleMusic } from "../lib/api";
 
 export default function PairPage() {
   const [, setLocation] = useLocation();
@@ -14,6 +14,37 @@ export default function PairPage() {
   const [stage, setStage] = useState<"enter" | "confirm" | "authorizing" | "saving" | "done" | "error">("enter");
   const [venueName, setVenueName] = useState<string>("");
   const [error, setError] = useState<string>("");
+
+  type MyVenue = Awaited<ReturnType<typeof listMyVenues>>[number];
+  const [myVenues, setMyVenues] = useState<MyVenue[] | null>(null);
+  const [disconnectingId, setDisconnectingId] = useState<string | null>(null);
+  const [disconnectError, setDisconnectError] = useState<string>("");
+
+  async function refreshMyVenues() {
+    if (!user) { setMyVenues(null); return; }
+    try {
+      const vs = await listMyVenues();
+      setMyVenues(vs);
+    } catch {
+      setMyVenues([]);
+    }
+  }
+
+  useEffect(() => { refreshMyVenues(); }, [user]);
+
+  async function handleDisconnect(v: MyVenue) {
+    if (!confirm(`Disconnect Apple Music from "${v.name}"? The kiosk will show a new pairing code.`)) return;
+    setDisconnectError("");
+    setDisconnectingId(v.id);
+    try {
+      await disconnectAppleMusic(v.id);
+      await refreshMyVenues();
+    } catch (err: any) {
+      setDisconnectError(err.message || "Disconnect failed");
+    } finally {
+      setDisconnectingId(null);
+    }
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -182,6 +213,52 @@ export default function PairPage() {
               >
                 Done
               </button>
+            </div>
+          )}
+
+          {stage === "enter" && user && myVenues && myVenues.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-white/10">
+              <h2 className="text-sm font-semibold text-gray-300 mb-3">Your venues</h2>
+              <div className="space-y-2">
+                {myVenues.map((v) => {
+                  const connected = !!v.appleMusicUserToken;
+                  return (
+                    <div key={v.id} className="flex items-center justify-between bg-black/20 rounded-xl p-3">
+                      <div className="min-w-0">
+                        <div className="text-white font-medium truncate" data-testid={`venue-name-${v.code}`}>{v.name}</div>
+                        <div className="text-xs text-gray-400">
+                          {connected ? (
+                            <span className="text-green-400">● Apple Music connected</span>
+                          ) : (
+                            <span className="text-gray-500">○ Not connected</span>
+                          )}
+                        </div>
+                      </div>
+                      {connected && (
+                        <button
+                          onClick={() => handleDisconnect(v)}
+                          disabled={disconnectingId === v.id}
+                          className="ml-2 inline-flex items-center gap-1 px-3 py-1.5 text-xs bg-white/10 hover:bg-red-500/20 hover:text-red-300 rounded-lg text-gray-300 disabled:opacity-50"
+                          data-testid={`button-disconnect-${v.code}`}
+                        >
+                          {disconnectingId === v.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Unplug className="w-3 h-3" />
+                          )}
+                          Disconnect
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {disconnectError && (
+                <div className="flex items-start gap-2 text-red-400 text-sm mt-3">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>{disconnectError}</span>
+                </div>
+              )}
             </div>
           )}
 
