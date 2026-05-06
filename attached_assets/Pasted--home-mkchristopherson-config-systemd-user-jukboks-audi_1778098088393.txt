@@ -1,0 +1,35 @@
+/home/mkchristopherson/.config/systemd/user/jukboks-audio-agent.service
+/home/mkchristopherson/.config/openbox/autostart
+/home/mkchristopherson/.config/chromium/segmentation_platform/ukm_db
+/home/mkchristopherson/.config/chromium/Default/Favicons
+/home/mkchristopherson/.config/chromium/Default/Session Storage/000003.log
+/home/mkchristopherson/.config/chromium/Default/.org.chromium.Chromium.UGUOkZ
+/home/mkchristopherson/.config/chromium/Default/Cookies
+/home/mkchristopherson/.config/chromium/Default/.org.chromium.Chromium.F2u1Qe
+/home/mkchristopherson/.config/chromium/Default/Local Storage/leveldb/000003.log
+/home/mkchristopherson/.config/chromium/Default/History
+/home/mkchristopherson/.config/chromium/Default/Network Persistent State
+/home/mkchristopherson/.config/chromium/Default/.org.chromium.Chromium.vTlDqP
+/home/mkchristopherson/.config/chromium/Default/Preferences
+/home/mkchristopherson/.config/chromium/Default/CdmStorage.db
+/home/mkchristopherson/.config/chromium/Default/.org.chromium.Chromium.ROn2c9
+/home/mkchristopherson/.config/chromium/Default/.org.chromium.Chromium.NdUZn8
+/home/mkchristopherson/.config/chromium/Default/Network Action Predictor
+/home/mkchristopherson/.config/chromium/Default/Sessions/Tabs_13422571496610803
+/home/mkchristopherson/.config/chromium/Default/Sessions/Tabs_13422571313937408
+/home/mkchristopherson/.config/chromium/Default/Sessions/Session_13422571286074861
+/home/mkchristopherson/.config/chromium/Default/Sessions/Session_13422571496557826
+/home/mkchristopherson/.config/chromium/Crash Reports/pending/977ace76-aab1-4c27-9c5a-e3a6db468e60.dmp
+/home/mkchristopherson/.config/chromium/Crash Reports/pending/790a259a-a4a2-4e2e-ae1c-50b8e3b340a1.dmp
+/home/mkchristopherson/.config/chromium/Crash Reports/pending/db18a5f4-1047-4cbf-8b8c-308a9a2425e8.dmp
+/home/mkchristopherson/.config/chromium/Crash Reports/pending/3d1aa717-4633-49d0-a120-ab0e45c2b7bf.dmp
+/home/mkchristopherson/.config/chromium/Crash Reports/pending/553c5571-8af1-49d9-9081-eea7bc0b7360.dmp
+/home/mkchristopherson/.config/chromium/Crash Reports/pending/b7c8473f-a843-482c-83f1-e9d3dad4c91f.dmp
+/home/mkchristopherson/.config/chromium/Crash Reports/pending/0c052c05-bafc-41ed-beb3-3d448c13ef15.dmp
+/home/mkchristopherson/.config/chromium/Crash Reports/pending/e097c4a7-8b87-41a7-8a1e-a878d93519e0.dmp
+/home/mkchristopherson/.config/chromium/Crash Reports/pending/818edc77-f1fa-4448-9b2b-328d47896d3b.dmp
+/home/mkchristopherson/.config/chromium/Crash Reports/pending/17ce82b0-1e9a-47d3-a4a5-68f583d79657.dmp
+/home/mkchristopherson/.config/chromium/Crash Reports/pending/5da88e3c-6341-46f9-b436-ea27d52c7fea.dmp
+/home/mkchristopherson/.config/chromium/Crash Reports/pending/44a0d7ca-d408-4805-8f9d-e5c56d23c5ae.dmp
+/home/mkchristopherson/.config/chromium/Crash Reports/pending/c3e4f35f-c72b-4a5f-a9f4-e7624ed24a89.dmp
+/home/mkchristopherson/.config/chromium/Crash Reports/pending/634b6cce-c906-4f91-ae6a-653a733e485b.dmp
