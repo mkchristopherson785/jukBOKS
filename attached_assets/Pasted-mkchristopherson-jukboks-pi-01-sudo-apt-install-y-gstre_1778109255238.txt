@@ -1,0 +1,57 @@
+mkchristopherson@jukboks-pi-01:~$ sudo apt install -y gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav
+systemctl list-units --type=service --state=running | grep -iE "lightdm|sddm|gdm|display-manager"
+loginctl list-sessions
+groups | tr ' ' '\n' | grep -E "^(video|render|audio|input)$"
+gstreamer1.0-plugins-bad is already the newest version (1.26.2-3+rpt3+deb13u1).
+gstreamer1.0-plugins-bad set to manually installed.
+gstreamer1.0-libav is already the newest version (1.26.2-1).
+gstreamer1.0-libav set to manually installed.
+Installing:
+  gstreamer1.0-plugins-ugly
+
+Installing dependencies:
+  liba52-0.7.4  libmpeg2-4  libsidplay1v5
+
+Suggested packages:
+  sidplay-base
+
+Summary:
+  Upgrading: 0, Installing: 4, Removing: 0, Not Upgrading: 0
+  Download size: 297 kB
+  Space needed: 1,695 kB / 6,263 MB available
+
+Get:1 http://deb.debian.org/debian trixie/main arm64 liba52-0.7.4 arm64 0.7.4-20+b3 [30.3 kB]
+Get:2 http://deb.debian.org/debian trixie/main arm64 libmpeg2-4 arm64 0.5.1-9+b3 [43.0 kB]
+Get:3 http://deb.debian.org/debian trixie/main arm64 libsidplay1v5 arm64 1.36.60-1+b2 [58.0 kB]
+Get:4 http://deb.debian.org/debian-security trixie-security/main arm64 gstreamer1.0-plugins-ugly arm64 1.26.3-4+deb13u1 [165 kB]
+Fetched 297 kB in 0s (1,457 kB/s)                  
+
+Selecting previously unselected package liba52-0.7.4:arm64.
+(Reading database ... 121266 files and directories currently installed.)
+Preparing to unpack .../liba52-0.7.4_0.7.4-20+b3_arm64.deb ...
+Unpacking liba52-0.7.4:arm64 (0.7.4-20+b3) ...
+Selecting previously unselected package libmpeg2-4:arm64.
+Preparing to unpack .../libmpeg2-4_0.5.1-9+b3_arm64.deb ...
+Unpacking libmpeg2-4:arm64 (0.5.1-9+b3) ...
+Selecting previously unselected package libsidplay1v5:arm64.
+Preparing to unpack .../libsidplay1v5_1.36.60-1+b2_arm64.deb ...
+Unpacking libsidplay1v5:arm64 (1.36.60-1+b2) ...
+Selecting previously unselected package gstreamer1.0-plugins-ugly:arm64.
+Preparing to unpack .../gstreamer1.0-plugins-ugly_1.26.3-4+deb13u1_arm64.deb ...
+Unpacking gstreamer1.0-plugins-ugly:arm64 (1.26.3-4+deb13u1) ...
+Setting up libsidplay1v5:arm64 (1.36.60-1+b2) ...
+Setting up libmpeg2-4:arm64 (0.5.1-9+b3) ...
+Setting up liba52-0.7.4:arm64 (0.7.4-20+b3) ...
+Setting up gstreamer1.0-plugins-ugly:arm64 (1.26.3-4+deb13u1) ...
+Processing triggers for libc-bin (2.41-12+rpt1+deb13u2) ...
+SESSION  UID USER             SEAT  LEADER CLASS   TTY  IDLE SINCE
+      1 1000 mkchristopherson -     1277   manager -    no   -    
+      2 1000 mkchristopherson seat0 1288   user    tty1 yes  -
+      4 1000 mkchristopherson -     2927   user    -    no   -    
+      8 1000 mkchristopherson -     25338  user    -    no   -    
+
+4 sessions listed.
+audio
+video
+render
+input
