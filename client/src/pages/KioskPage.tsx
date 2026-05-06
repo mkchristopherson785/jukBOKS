@@ -341,18 +341,21 @@ export default function KioskPage() {
     }
   }, []);
 
+  // 8s instead of 5s: 38% fewer requests with no UX change. The kiosk reacts
+  // to song-end via MusicKit events anyway; this poll just covers admin edits
+  // (skip/clear/approve) and new requests, where 8s lag is imperceptible.
   const { data: nowPlaying } = useQuery({
     queryKey: ["nowPlaying", code],
     queryFn: () => fetchNowPlaying(code!),
     enabled: !!code,
-    refetchInterval: 5000,
+    refetchInterval: 8000,
   });
 
   const { data: queue, refetch: refetchQueue } = useQuery({
     queryKey: ["queue", code],
     queryFn: () => fetchQueue(code!),
     enabled: !!code,
-    refetchInterval: 5000,
+    refetchInterval: 8000,
   });
 
   const { data: qrData } = useQuery({

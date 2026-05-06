@@ -118,10 +118,13 @@ export function useMusicKit() {
   // This way <MusicKitPlayer/>'s hook picks up a token applied from KioskPage.
   useEffect(() => {
     if (!state.isConfigured) return;
+    // 5s is plenty: this is a defensive reconciliation loop for a token that
+    // changes at most once per pairing event (which itself takes >5s end to
+    // end). Was 1s, which fired 60×/min forever on every long-running kiosk.
     const interval = setInterval(() => {
       const live = !!musicKitRef.current?.isAuthorized;
       setState(prev => (prev.isAuthorized === live ? prev : { ...prev, isAuthorized: live }));
-    }, 1000);
+    }, 5000);
     return () => clearInterval(interval);
   }, [state.isConfigured]);
 
