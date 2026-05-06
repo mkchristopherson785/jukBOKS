@@ -21,6 +21,12 @@ TAB="$(printf '\t')"
 # never just because of a normal-sized leak. Override via env if needed.
 # Set to 0 to disable the auto-restart entirely.
 CHROMIUM_MAX_MB="${CHROMIUM_MAX_MB:-2500}"
+# Hard ceiling: above this, restart even if music is currently playing. This
+# prevents the "renderer OOM crash mid-set" failure mode that happens when
+# songs play back-to-back and the polite "between-songs" guard never gets a
+# chance to fire. Should be high enough to almost never trigger in normal use.
+# Set to 0 to disable the hard ceiling and rely on the polite restart only.
+CHROMIUM_HARD_MAX_MB="${CHROMIUM_HARD_MAX_MB:-3000}"
 # Cooldown between restarts (seconds). Long, because a restart kills music.
 CHROMIUM_RESTART_COOLDOWN=1800
 LAST_CHROMIUM_RESTART=0
@@ -287,7 +293,11 @@ except Exception:
       [ -z "$CHROME_MB" ] && CHROME_MB=0
       NOW="$(date +%s)"
       SINCE_LAST=$((NOW - LAST_CHROMIUM_RESTART))
-      if [ "$CHROMIUM_MAX_MB" -gt 0 ] && [ "$CHROME_MB" -ge "$CHROMIUM_MAX_MB" ] && [ "$SINCE_LAST" -ge "$CHROMIUM_RESTART_COOLDOWN" ]; then
+      if [ "$CHROMIUM_HARD_MAX_MB" -gt 0 ] && [ "$CHROME_MB" -ge "$CHROMIUM_HARD_MAX_MB" ] && [ "$SINCE_LAST" -ge "$CHROMIUM_RESTART_COOLDOWN" ]; then
+        echo "[jukboks-audio-agent] Chromium at ${CHROME_MB} MB (>= ${CHROMIUM_HARD_MAX_MB} MB HARD ceiling). Force restarting (may interrupt music)." >&2
+        pkill -f chromium 2>/dev/null || true
+        LAST_CHROMIUM_RESTART="$NOW"
+      elif [ "$CHROMIUM_MAX_MB" -gt 0 ] && [ "$CHROME_MB" -ge "$CHROMIUM_MAX_MB" ] && [ "$SINCE_LAST" -ge "$CHROMIUM_RESTART_COOLDOWN" ]; then
         if chromium_safe_to_restart; then
           echo "[jukboks-audio-agent] Chromium at ${CHROME_MB} MB (>= ${CHROMIUM_MAX_MB} MB threshold), no audio playing. Restarting." >&2
           pkill -f chromium 2>/dev/null || true

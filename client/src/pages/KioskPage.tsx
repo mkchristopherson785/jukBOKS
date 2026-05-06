@@ -230,23 +230,33 @@ export default function KioskPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [togglePlayHandler, isDisplayOnly]);
 
-  // Memory-leak watchdog: reload the page every PAGE_RELOAD_MINUTES (default 30)
-  // when no song is currently playing. Belt-and-suspenders for MusicKit JS leaks
-  // that can crash the renderer ("Aw Snap") on long-running headless kiosks.
-  // Disabled when ?reload=0 is in the URL.
+  // Memory-leak watchdog: reload the page every ?reload=N minutes (default 30).
+  // Polite reload waits until no song is playing. Hard reload (?hardReload=N,
+  // default 2x reload) fires regardless of playback state, so back-to-back
+  // sets can't pin the page open forever and OOM the renderer ("Aw Snap").
+  // Disable polite reloads with ?reload=0; disable hard reloads with ?hardReload=0.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get("reload") === "0") return;
-    const minutes = Math.max(5, parseInt(params.get("reload") || "30", 10) || 30);
+    const politeMin = params.get("reload") === "0"
+      ? 0
+      : Math.max(5, parseInt(params.get("reload") || "30", 10) || 30);
+    const hardMin = params.get("hardReload") === "0"
+      ? 0
+      : Math.max(politeMin || 10, parseInt(params.get("hardReload") || "", 10) || (politeMin ? politeMin * 2 : 60));
+    if (!politeMin && !hardMin) return;
     const startedAt = Date.now();
     const interval = setInterval(() => {
       const ageMs = Date.now() - startedAt;
-      if (ageMs < minutes * 60 * 1000) return;
-      // Only reload between songs to avoid interrupting playback.
-      if (isPlaying || isPlayingAnnouncement) return;
-      console.log(`[kiosk] Page uptime ${Math.round(ageMs / 60000)}min, reloading to free memory.`);
-      window.location.reload();
+      if (hardMin && ageMs >= hardMin * 60 * 1000) {
+        console.log(`[kiosk] Page uptime ${Math.round(ageMs / 60000)}min hit HARD reload ceiling, reloading now.`);
+        window.location.reload();
+        return;
+      }
+      if (politeMin && ageMs >= politeMin * 60 * 1000 && !isPlaying && !isPlayingAnnouncement) {
+        console.log(`[kiosk] Page uptime ${Math.round(ageMs / 60000)}min, reloading between songs to free memory.`);
+        window.location.reload();
+      }
     }, 30 * 1000);
     return () => clearInterval(interval);
   }, [isPlaying, isPlayingAnnouncement]);
