@@ -17,13 +17,29 @@ INTERVAL=10
 TAB="$(printf '\t')"
 
 # When Chromium RSS exceeds this many MB, kill it so the kiosk autostart can
-# relaunch a fresh tab. Prevents OOM crashes during service from fast leaks.
-# Override via CHROMIUM_MAX_MB env var if needed.
-CHROMIUM_MAX_MB="${CHROMIUM_MAX_MB:-1200}"
-# Don't restart Chromium more often than this many seconds (avoids restart
-# loops if the leak is extremely fast or threshold is misconfigured).
-CHROMIUM_RESTART_COOLDOWN=300
+# relaunch a fresh tab. Set high so we ONLY restart when truly close to OOM,
+# never just because of a normal-sized leak. Override via env if needed.
+# Set to 0 to disable the auto-restart entirely.
+CHROMIUM_MAX_MB="${CHROMIUM_MAX_MB:-2500}"
+# Cooldown between restarts (seconds). Long, because a restart kills music.
+CHROMIUM_RESTART_COOLDOWN=1800
 LAST_CHROMIUM_RESTART=0
+
+# Skip the restart if a sink is currently PLAYING (i.e. music is on). We'd
+# rather let Chromium creep a bit higher than interrupt a song mid-play. The
+# next health tick (~30s later) will retry; if it's still over threshold and
+# no longer playing, the restart fires then.
+chromium_safe_to_restart() {
+  local sinks
+  sinks="$(pactl list short sinks 2>/dev/null)" || return 0
+  while IFS=$'\t' read -r _ name _ _ state; do
+    [ -z "$name" ] && continue
+    if [ "$state" = "RUNNING" ]; then
+      return 1
+    fi
+  done <<< "$sinks"
+  return 0
+}
 
 mkdir -p "$(dirname "$DEVICE_ID_FILE")"
 
@@ -271,10 +287,14 @@ except Exception:
       [ -z "$CHROME_MB" ] && CHROME_MB=0
       NOW="$(date +%s)"
       SINCE_LAST=$((NOW - LAST_CHROMIUM_RESTART))
-      if [ "$CHROME_MB" -ge "$CHROMIUM_MAX_MB" ] && [ "$SINCE_LAST" -ge "$CHROMIUM_RESTART_COOLDOWN" ]; then
-        echo "[jukboks-audio-agent] Chromium at ${CHROME_MB} MB (>= ${CHROMIUM_MAX_MB} MB threshold). Restarting." >&2
-        pkill -f chromium 2>/dev/null || true
-        LAST_CHROMIUM_RESTART="$NOW"
+      if [ "$CHROMIUM_MAX_MB" -gt 0 ] && [ "$CHROME_MB" -ge "$CHROMIUM_MAX_MB" ] && [ "$SINCE_LAST" -ge "$CHROMIUM_RESTART_COOLDOWN" ]; then
+        if chromium_safe_to_restart; then
+          echo "[jukboks-audio-agent] Chromium at ${CHROME_MB} MB (>= ${CHROMIUM_MAX_MB} MB threshold), no audio playing. Restarting." >&2
+          pkill -f chromium 2>/dev/null || true
+          LAST_CHROMIUM_RESTART="$NOW"
+        else
+          echo "[jukboks-audio-agent] Chromium at ${CHROME_MB} MB but music is playing — deferring restart." >&2
+        fi
       fi
     fi
   fi
