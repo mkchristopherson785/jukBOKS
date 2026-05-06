@@ -872,6 +872,19 @@ router.get("/scripts/install-audio-agent.sh", async (_req: Request, res: Respons
   }
 });
 
+router.get("/scripts/install-nightly-restart.sh", async (_req: Request, res: Response) => {
+  try {
+    const fs = await import("fs/promises");
+    const path = await import("path");
+    const p = path.resolve(process.cwd(), "scripts/install-nightly-restart.sh");
+    const body = await fs.readFile(p, "utf-8");
+    res.setHeader("Content-Type", "text/x-shellscript; charset=utf-8");
+    res.send(body);
+  } catch {
+    res.status(404).send("not found");
+  }
+});
+
 // Pi reports its detected audio output devices. The audio agent runs as a
 // separate process from the kiosk Chromium and therefore has its own deviceId
 // that does not match the kiosk lock holder, so we don't enforce the lock
@@ -1855,9 +1868,15 @@ router.post("/api/v1/venues/:code/announce", async (req: Request, res: Response)
       }
     }
 
+    const { imageUrl } = req.body || {};
+    if (imageUrl !== undefined && imageUrl !== null && (typeof imageUrl !== "string" || imageUrl.length > 2000)) {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "'imageUrl' must be a string (max 2000 chars)" });
+    }
+
     await storage.updateVenue(venue.id, {
       urgentAnnouncementText: message || null,
       urgentAnnouncementAudioUrl: audioUrl || null,
+      urgentAnnouncementImageUrl: imageUrl || null,
       urgentAnnouncementTriggeredAt: new Date(),
     });
 
@@ -1890,18 +1909,22 @@ router.post("/api/me/venues/:code/test-announce", isAuthenticated, async (req: a
       }
     }
 
-    const { message, audioUrl } = req.body || {};
+    const { message, audioUrl, imageUrl } = req.body || {};
     const finalMessage = (message && typeof message === "string" && message.trim())
       ? message.trim().slice(0, 500)
       : "This is a test announcement from Jukboks. If you can hear this, your kiosk is connected and ready to receive urgent alerts.";
 
-    if (audioUrl && (typeof audioUrl !== "string" || !audioUrl.startsWith("https://") || audioUrl.length > 2000)) {
-      return res.status(400).json({ error: "INVALID_REQUEST", message: "'audioUrl' must be an HTTPS URL (max 2000 chars)" });
+    if (audioUrl && (typeof audioUrl !== "string" || audioUrl.length > 2000)) {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "'audioUrl' must be a string (max 2000 chars)" });
+    }
+    if (imageUrl && (typeof imageUrl !== "string" || imageUrl.length > 2000)) {
+      return res.status(400).json({ error: "INVALID_REQUEST", message: "'imageUrl' must be a string (max 2000 chars)" });
     }
 
     await storage.updateVenue(venue.id, {
       urgentAnnouncementText: audioUrl ? null : finalMessage,
       urgentAnnouncementAudioUrl: audioUrl || null,
+      urgentAnnouncementImageUrl: imageUrl || null,
       urgentAnnouncementTriggeredAt: new Date(),
     });
 
@@ -3083,6 +3106,42 @@ router.patch("/api/me/venues/:venueId/announcements/:announcementId", isAuthenti
     res.json({ success: true, announcement: updated });
   } catch (error) {
     console.error("Update announcement error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Play a specific announcement on the kiosk RIGHT NOW (uses urgent flow).
+router.post("/api/me/venues/:venueId/announcements/:announcementId/test", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    if (!userId) return res.status(401).json({ error: "Unauthorized" });
+
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) return res.status(403).json({ error: "FORBIDDEN", message: "No organization found" });
+
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+
+    const announcementId = parseInt(req.params.announcementId);
+    const announcement = await storage.getAnnouncement(announcementId);
+    if (!announcement || announcement.venueId !== venue.id) {
+      return res.status(404).json({ error: "ANNOUNCEMENT_NOT_FOUND", message: "Announcement not found" });
+    }
+
+    await storage.updateVenue(venue.id, {
+      urgentAnnouncementText: null,
+      urgentAnnouncementAudioUrl: announcement.audioUrl,
+      urgentAnnouncementImageUrl: announcement.imageUrl || null,
+      urgentAnnouncementTriggeredAt: new Date(),
+    });
+
+    res.json({ success: true, message: `"${announcement.name}" queued — it will play on the kiosk within ~5 seconds.` });
+  } catch (error) {
+    console.error("Test announcement error:", error);
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }
 });

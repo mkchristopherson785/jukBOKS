@@ -439,6 +439,7 @@ export interface Announcement {
   venueId: number;
   name: string;
   audioUrl: string;
+  imageUrl?: string | null;
   duration: number | null;
   isActive: boolean;
   position: number;
@@ -751,7 +752,7 @@ export async function generateApiKey(): Promise<{ apiKey: string }> {
 
 export async function triggerTestAnnouncement(
   venueCode: string,
-  payload: { message?: string; audioUrl?: string }
+  payload: { message?: string; audioUrl?: string; imageUrl?: string | null }
 ): Promise<{ success: boolean; message: string; preview: string }> {
   const res = await fetch(`${API_BASE}/api/me/venues/${venueCode}/test-announce`, {
     method: "POST",
@@ -762,6 +763,18 @@ export async function triggerTestAnnouncement(
   if (!res.ok) {
     const err = await res.json().catch(() => ({ message: "Failed to send test announcement" }));
     throw new Error(err.message || "Failed to send test announcement");
+  }
+  return res.json();
+}
+
+export async function testAnnouncementOnKiosk(venueId: number, announcementId: number) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/announcements/${announcementId}/test`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: "Failed to test announcement" }));
+    throw new Error(err.message || "Failed to test announcement");
   }
   return res.json();
 }

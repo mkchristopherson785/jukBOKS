@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, Settings, LogOut, Plus, Trash2, ListMusic, Volume2, Upload, Speaker, Shield, ArrowLeft, Search, User, Clock, Key, Copy, RefreshCw, Check, Code, AlertTriangle, Send } from "lucide-react";
-import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, updateBackupPlaylistWeight, fetchAnnouncementGroups, createAnnouncementGroup, updateAnnouncementGroup, deleteAnnouncementGroup, addAnnouncementToGroup, deleteAnnouncement, updateAnnouncement, checkSuperAdmin, searchPlaylists, addBackupPlaylistById, fetchKioskStatus, fetchApiKey, generateApiKey, triggerTestAnnouncement, type AnnouncementGroup, type Announcement } from "../lib/api";
+import { fetchVenue, fetchMyVenues, updateVenue, fetchBackupPlaylists, addBackupPlaylist, removeBackupPlaylist, updateBackupPlaylistWeight, fetchAnnouncementGroups, createAnnouncementGroup, updateAnnouncementGroup, deleteAnnouncementGroup, addAnnouncementToGroup, deleteAnnouncement, updateAnnouncement, checkSuperAdmin, searchPlaylists, addBackupPlaylistById, fetchKioskStatus, fetchApiKey, generateApiKey, triggerTestAnnouncement, testAnnouncementOnKiosk, type AnnouncementGroup, type Announcement } from "../lib/api";
 import { useUpload } from "../hooks/use-upload";
 import { useAuth } from "../hooks/use-auth";
 import { useMusicKit } from "../hooks/useMusicKit";
@@ -47,11 +47,14 @@ export default function SettingsPage() {
   const [apiKeyCopied, setApiKeyCopied] = useState(false);
   const [newlyGeneratedKey, setNewlyGeneratedKey] = useState<string | null>(null);
   const [testAnnounceMessage, setTestAnnounceMessage] = useState("This is a test announcement from Jukboks. If you can hear this, your kiosk is ready for urgent alerts.");
+  const [testAnnounceImageUrl, setTestAnnounceImageUrl] = useState<string>("");
+  const [isUploadingTestImage, setIsUploadingTestImage] = useState(false);
+  const [testingAnnouncementId, setTestingAnnouncementId] = useState<number | null>(null);
   const [testAnnounceResult, setTestAnnounceResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   const testAnnounceMutation = useMutation({
-    mutationFn: ({ code, message }: { code: string; message: string }) =>
-      triggerTestAnnouncement(code, { message }),
+    mutationFn: ({ code, message, imageUrl }: { code: string; message: string; imageUrl?: string | null }) =>
+      triggerTestAnnouncement(code, { message, imageUrl }),
     onSuccess: (data) => {
       setTestAnnounceResult({ ok: true, text: data.message });
       setTimeout(() => setTestAnnounceResult(null), 8000);
@@ -890,6 +893,24 @@ export default function SettingsPage() {
                               )}
                               <p className="text-white text-xs flex-1 truncate">{announcement.name}</p>
                               <button
+                                onClick={async () => {
+                                  if (!selectedVenue) return;
+                                  setTestingAnnouncementId(announcement.id);
+                                  try {
+                                    await testAnnouncementOnKiosk(selectedVenue.id, announcement.id);
+                                  } catch (err) {
+                                    console.error("Test failed", err);
+                                  } finally {
+                                    setTimeout(() => setTestingAnnouncementId((id) => (id === announcement.id ? null : id)), 2000);
+                                  }
+                                }}
+                                disabled={testingAnnouncementId === announcement.id}
+                                className="px-1.5 py-0.5 text-xs rounded bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 disabled:opacity-50 transition-colors"
+                                title="Play this on the kiosk now (interrupts current song)"
+                              >
+                                {testingAnnouncementId === announcement.id ? "Sent" : "Test"}
+                              </button>
+                              <button
                                 onClick={() => toggleAnnouncementMutation.mutate({ id: announcement.id, isActive: !announcement.isActive })}
                                 className={`px-1.5 py-0.5 text-xs rounded ${announcement.isActive ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}
                               >
@@ -1009,12 +1030,55 @@ export default function SettingsPage() {
                   placeholder="Enter announcement text..."
                   data-testid="input-test-announcement"
                 />
+                <div className="flex items-center gap-2 mt-2">
+                  {testAnnounceImageUrl ? (
+                    <img src={testAnnounceImageUrl} alt="" className="w-10 h-10 rounded object-cover border border-white/10" />
+                  ) : (
+                    <div className="w-10 h-10 rounded bg-white/5 border border-dashed border-white/20 flex items-center justify-center text-[8px] text-gray-500 text-center">No img</div>
+                  )}
+                  <label className={cn(
+                    "flex items-center gap-1.5 px-2 py-1 bg-white/5 border border-white/10 rounded text-xs text-gray-300 hover:bg-white/10 cursor-pointer transition-colors",
+                    isUploadingTestImage && "opacity-50 pointer-events-none"
+                  )}>
+                    <Upload className="w-3 h-3" />
+                    {isUploadingTestImage ? "Uploading..." : (testAnnounceImageUrl ? "Change image" : "Add image (optional)")}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      disabled={isUploadingTestImage}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!file) return;
+                        if (!file.type.startsWith("image/")) return;
+                        if (file.size > 10 * 1024 * 1024) return;
+                        setIsUploadingTestImage(true);
+                        try {
+                          const result = await uploadFile(file);
+                          if (result?.objectPath) setTestAnnounceImageUrl(result.objectPath);
+                        } finally {
+                          setIsUploadingTestImage(false);
+                        }
+                      }}
+                    />
+                  </label>
+                  {testAnnounceImageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setTestAnnounceImageUrl("")}
+                      className="text-xs text-gray-400 hover:text-red-400 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-[10px] text-gray-500">{testAnnounceMessage.length}/500</span>
                   <button
                     onClick={() => {
                       if (!selectedVenueCode || !testAnnounceMessage.trim()) return;
-                      testAnnounceMutation.mutate({ code: selectedVenueCode, message: testAnnounceMessage });
+                      testAnnounceMutation.mutate({ code: selectedVenueCode, message: testAnnounceMessage, imageUrl: testAnnounceImageUrl || null });
                     }}
                     disabled={!selectedVenueCode || !testAnnounceMessage.trim() || testAnnounceMutation.isPending}
                     className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
