@@ -37,11 +37,12 @@ friendly_label() {
   case "$name" in
     *hdmi*|*HDMI*) echo "HDMI" ;;
     *Headphones*|*headphone*|*analog-stereo*) echo "3.5mm Headphone Jack" ;;
-    *hifiberry*|*HiFiBerry*|*HifiBerry*) echo "HiFiBerry HAT" ;;
+    *hifiberry*|*HiFiBerry*|*HifiBerry*) echo "HiFiBerry DAC" ;;
     *iqaudio*|*IQaudio*|*IQAudio*) echo "IQaudio HAT" ;;
     *justboom*|*JustBoom*) echo "JustBoom HAT" ;;
     *allo*|*Allo*) echo "Allo HAT" ;;
     *pisound*|*Pisound*) echo "Pisound HAT" ;;
+    *soc_*sound*|*soc-sound*|*107c000000_sound*) echo "DAC HAT (RCA / 3.5mm)" ;;
     *bluez*|*bluetooth*) echo "Bluetooth Speaker" ;;
     *usb*|*USB*) echo "USB Audio" ;;
     *auto_null*|*dummy*) echo "(no audio device detected)" ;;
