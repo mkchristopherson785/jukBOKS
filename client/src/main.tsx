@@ -9,6 +9,10 @@ const queryClient = new QueryClient({
     queries: {
       refetchInterval: 5000,
       staleTime: 2000,
+      // Drop unused query data after 60s instead of the React Query default
+      // of 5min. Keeps the long-running kiosk page from accumulating stale
+      // fetched data in the cache.
+      gcTime: 60_000,
     },
   },
 });

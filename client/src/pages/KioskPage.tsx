@@ -230,6 +230,17 @@ export default function KioskPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [togglePlayHandler, isDisplayOnly]);
 
+  // Shared guard: ensures only one watchdog (song-count, polite, or hard) can
+  // call window.location.reload() per page lifetime. Prevents race conditions
+  // where multiple effects fire in the same tick.
+  const reloadTriggeredRef = useRef(false);
+  const triggerReload = useCallback((reason: string) => {
+    if (reloadTriggeredRef.current) return;
+    reloadTriggeredRef.current = true;
+    console.log(`[kiosk] ${reason}, reloading.`);
+    window.location.reload();
+  }, []);
+
   // Song-count reload: after every ?songsPerReload=N song changes, reload the
   // page. Fires naturally between songs (when the trackId changes), so it
   // never cuts off a song. Default 0 = off; opt in via URL param.
@@ -245,16 +256,27 @@ export default function KioskPage() {
     songReloadIdRef.current = currentId;
     songCountRef.current += 1;
     if (songCountRef.current >= n) {
-      console.log(`[kiosk] Played ${n} songs, reloading to free memory.`);
-      window.location.reload();
+      triggerReload(`Played ${n} songs`);
     }
-  }, [currentSong?.trackId, nowPlaying?.trackId]);
+  }, [currentSong?.trackId, nowPlaying?.trackId, triggerReload]);
 
   // Memory-leak watchdog: reload the page every ?reload=N minutes (default 30).
   // Polite reload waits until no song is playing. Hard reload (?hardReload=N,
   // default 2x reload) fires regardless of playback state, so back-to-back
   // sets can't pin the page open forever and OOM the renderer ("Aw Snap").
   // Disable polite reloads with ?reload=0; disable hard reloads with ?hardReload=0.
+  //
+  // Implementation note: the interval MUST live for the entire page lifetime,
+  // not be torn down on every song-start/song-end. We use refs for the latest
+  // playback state so the long-lived interval can read fresh values without
+  // resetting its `startedAt` clock. Earlier version had the interval in
+  // [isPlaying, isPlayingAnnouncement]'s deps, which made hardReload never
+  // actually fire on a busy night because uptime kept restarting per song.
+  const playbackStateRef = useRef({ isPlaying: false, isPlayingAnnouncement: false });
+  useEffect(() => {
+    playbackStateRef.current = { isPlaying, isPlayingAnnouncement };
+  }, [isPlaying, isPlayingAnnouncement]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -268,18 +290,18 @@ export default function KioskPage() {
     const startedAt = Date.now();
     const interval = setInterval(() => {
       const ageMs = Date.now() - startedAt;
+      const ageMin = Math.round(ageMs / 60000);
+      const { isPlaying: playing, isPlayingAnnouncement: announcing } = playbackStateRef.current;
       if (hardMin && ageMs >= hardMin * 60 * 1000) {
-        console.log(`[kiosk] Page uptime ${Math.round(ageMs / 60000)}min hit HARD reload ceiling, reloading now.`);
-        window.location.reload();
+        triggerReload(`Page uptime ${ageMin}min hit HARD reload ceiling`);
         return;
       }
-      if (politeMin && ageMs >= politeMin * 60 * 1000 && !isPlaying && !isPlayingAnnouncement) {
-        console.log(`[kiosk] Page uptime ${Math.round(ageMs / 60000)}min, reloading between songs to free memory.`);
-        window.location.reload();
+      if (politeMin && ageMs >= politeMin * 60 * 1000 && !playing && !announcing) {
+        triggerReload(`Page uptime ${ageMin}min, between songs`);
       }
     }, 30 * 1000);
     return () => clearInterval(interval);
-  }, [isPlaying, isPlayingAnnouncement]);
+  }, [triggerReload]);
 
   // Send heartbeat every 30 seconds when kiosk is running
   useEffect(() => {
@@ -338,6 +360,9 @@ export default function KioskPage() {
     queryFn: () => fetchQRCode(code!),
     enabled: !!code,
     staleTime: 1000 * 60 * 60,
+    // QR code for a venue never changes during a session — disable the
+    // global 5s refetch default to cut ~12 wasted requests/min on the kiosk.
+    refetchInterval: false,
   });
 
   const { data: sonosStatus } = useQuery({
@@ -345,6 +370,8 @@ export default function KioskPage() {
     queryFn: () => fetchSonosStatus(code!),
     enabled: !!code,
     retry: false,
+    // Sonos status changes are infrequent; 30s is plenty.
+    refetchInterval: 30_000,
   });
 
   const { data: listenersData } = useQuery({
