@@ -1,0 +1,12 @@
+mkchristopherson@jukboks-pi-01:~$ ls -la ~/.config/chromium/Crash\ Reports/pending/ | tail -5
+journalctl --user -u jukboks-audio-agent --since "30 min ago" | tail -40
+pgrep -af chromium | head -2
+-rw------- 1 mkchristopherson mkchristopherson     32 May  6 15:01 c3e4f35f-c72b-4a5f-a9f4-e7624ed24a89.meta
+-rw------- 1 mkchristopherson mkchristopherson 169232 May  6 14:28 db18a5f4-1047-4cbf-8b8c-308a9a2425e8.dmp
+-rw------- 1 mkchristopherson mkchristopherson     32 May  6 14:28 db18a5f4-1047-4cbf-8b8c-308a9a2425e8.meta
+-rw------- 1 mkchristopherson mkchristopherson 169952 May  6 08:12 e097c4a7-8b87-41a7-8a1e-a878d93519e0.dmp
+-rw------- 1 mkchristopherson mkchristopherson     32 May  6 08:12 e097c4a7-8b87-41a7-8a1e-a878d93519e0.meta
+No journal files were found.
+-- No entries --
+11495 /usr/lib/chromium/chromium --js-flags=--no-decommit-pooled-pages --force-renderer-accessibility --enable-remote-extensions --show-component-extension-options --enable-gpu-rasterization --no-default-browser-check --disable-pings --media-router=0 --enable-remote-extensions --load-extension --use-angle=gles --kiosk --noerrdialogs --disable-infobars --disable-translate --disable-features=TranslateUI --disable-session-crashed-bubble --disable-component-update --autoplay-policy=no-user-gesture-required --check-for-update-interval=31536000 --disable-pinch --overscroll-history-navigation=0 --no-first-run --disable-restore-session-state --password-store=basic --use-mock-keychain --user-agent=Mozilla/5.0 (Linux; Raspberry Pi) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 https://jukboks.com/kiosk/will-s-B5yA5h?autostart=true&layout=square
+11513 /usr/lib/chromium/chrome_crashpad_handler --monitor-self --monitor-self-annotation=ptype=crashpad-handler --database=/home/mkchristopherson/.config/chromium/Crash Reports --annotation=channel=built on Debian GNU/Linux 13 (trixie) --annotation=lsb-release=Debian GNU/Linux 13 (trixie) --annotation=plat=Linux --annotation=prod=Chrome_Linux --annotation=ver=147.0.7727.101 --initial-client-fd=5 --shared-client-connection
