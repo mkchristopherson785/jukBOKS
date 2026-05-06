@@ -38,6 +38,50 @@ export async function fetchKioskStatus(code: string) {
   return res.json();
 }
 
+export async function requestPairingCode(venueCode: string) {
+  const res = await fetch(`${API_BASE}/api/v1/venues/${venueCode}/pairing-code`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) throw new Error("Failed to request pairing code");
+  return res.json() as Promise<{ code: string; expiresAt: string }>;
+}
+
+export async function fetchAppleMusicToken(venueCode: string, deviceId: string) {
+  const res = await fetch(
+    `${API_BASE}/api/v1/venues/${venueCode}/apple-music-token?deviceId=${encodeURIComponent(deviceId)}`,
+  );
+  // 403 = we don't currently hold the kiosk lock. Treat as "no token available
+  // to us right now" so the kiosk UI can keep polling and show the pairing
+  // code instead of getting stuck in a query-error state.
+  if (res.status === 403) return { token: null, updatedAt: null };
+  if (!res.ok) throw new Error("Failed to fetch apple music token");
+  return res.json() as Promise<{ token: string | null; updatedAt: string | null }>;
+}
+
+export async function lookupPairingCode(pairingCode: string) {
+  const res = await fetch(`${API_BASE}/api/me/pair/lookup?code=${encodeURIComponent(pairingCode)}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Pairing code not found");
+  }
+  return res.json() as Promise<{ venueCode: string; venueName: string }>;
+}
+
+export async function submitPairing(pairingCode: string, musicUserToken: string) {
+  const res = await fetch(`${API_BASE}/api/me/pair`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pairingCode, musicUserToken }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Pairing failed");
+  }
+  return res.json() as Promise<{ success: true; venueName: string }>;
+}
+
 export async function releaseKioskLock(code: string, options?: {
   newDeviceId?: string;
   newDeviceName?: string;

@@ -1,8 +1,9 @@
 import { useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Music2, ThumbsUp, Play, User, Radio, Volume2, Maximize, Minimize, Clock, Pause, Speaker, Headphones } from "lucide-react";
-import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnouncement, markAnnouncementPlayed, markSongFinished, fetchSonosStatus, sendKioskHeartbeat, fetchListeners, releaseKioskLock } from "../lib/api";
+import { fetchVenue, fetchNowPlaying, fetchQueue, fetchQRCode, fetchNextAnnouncement, markAnnouncementPlayed, markSongFinished, fetchSonosStatus, sendKioskHeartbeat, fetchListeners, releaseKioskLock, fetchAppleMusicToken, requestPairingCode } from "../lib/api";
 import { MusicKitPlayer } from "../components/MusicKitPlayer";
+import { useMusicKit } from "../hooks/useMusicKit";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 type DaySchedule = { startTime: string; endTime: string };
@@ -109,6 +110,10 @@ export default function KioskPage() {
   const [hasLock, setHasLock] = useState(true);
   const [lockedByDevice, setLockedByDevice] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
+  const [isPaired, setIsPaired] = useState<boolean>(false);
+  const tokenAppliedRef = useRef<string | null>(null);
+  const { isConfigured: musicKitReady, applyMusicUserToken } = useMusicKit();
   
   // Generate or retrieve persistent device ID
   const deviceId = useMemo(() => {
@@ -136,6 +141,44 @@ export default function KioskPage() {
     queryFn: () => fetchVenue(code!),
     enabled: !!code,
   });
+
+  // Apple Music kiosk pairing: fetch saved Music User Token from server.
+  // If present, apply it to MusicKit silently so the headless kiosk can stream
+  // full songs without anyone tapping a sign-in button. If absent, request a
+  // 6-digit pairing code so the owner can connect from their phone at /pair.
+  // Only request the token after we hold the kiosk lock (server enforces this).
+  const { data: appleTokenData } = useQuery({
+    queryKey: ["apple-music-token", code, deviceId],
+    queryFn: () => fetchAppleMusicToken(code!, deviceId),
+    enabled: !!code && !isDisplayOnly && hasLock,
+    refetchInterval: 30000,
+    retry: false,
+  });
+
+  useEffect(() => {
+    const token = appleTokenData?.token;
+    if (token && musicKitReady && tokenAppliedRef.current !== token) {
+      applyMusicUserToken(token).then((ok) => {
+        if (ok) {
+          tokenAppliedRef.current = token;
+          setIsPaired(true);
+          setPairingCode(null);
+        }
+      });
+    } else if (appleTokenData && !appleTokenData.token) {
+      setIsPaired(false);
+    }
+  }, [appleTokenData, musicKitReady, applyMusicUserToken]);
+
+  useEffect(() => {
+    if (isDisplayOnly || !code || isPaired) return;
+    if (appleTokenData === undefined) return; // wait for first fetch
+    if (appleTokenData?.token) return;
+    if (pairingCode) return;
+    requestPairingCode(code)
+      .then((res) => setPairingCode(res.code))
+      .catch((err) => console.warn("Failed to request pairing code:", err));
+  }, [code, isDisplayOnly, appleTokenData, isPaired, pairingCode]);
 
   useEffect(() => {
     if (!venue) return;
@@ -791,9 +834,22 @@ export default function KioskPage() {
     );
   }
 
+  const pairingBanner = !isDisplayOnly && !isPaired && pairingCode ? (
+    <div className="absolute top-0 left-0 right-0 z-40 bg-gradient-to-b from-indigo-600/95 to-purple-700/95 backdrop-blur-sm text-white px-4 py-3 flex items-center justify-center gap-4 shadow-lg">
+      <div className="text-sm sm:text-base">
+        <span className="font-semibold">Connect Apple Music:</span>{" "}
+        <span className="text-white/80">visit jukboks.com/pair · code </span>
+      </div>
+      <div className="text-2xl sm:text-3xl font-mono font-bold tracking-[0.3em] bg-black/30 px-3 py-1 rounded-lg">
+        {pairingCode}
+      </div>
+    </div>
+  ) : null;
+
   if (isSquareLayout) {
     return (
       <div className="min-h-screen bg-transparent flex flex-col relative overflow-hidden">
+        {pairingBanner}
         {!isDisplayOnly && (
           <MusicKitPlayer
             trackId={currentSong?.trackId || null}
@@ -893,6 +949,7 @@ export default function KioskPage() {
 
   return (
     <div className="min-h-screen bg-transparent flex flex-col lg:flex-row relative">
+      {pairingBanner}
       {!isFullscreen && (
         <button
           onClick={toggleFullscreen}

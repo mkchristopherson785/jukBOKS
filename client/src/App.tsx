@@ -4,6 +4,7 @@ import { useIsMobile, isCapacitor } from "./hooks/useCapacitor";
 import HomePage from "./pages/HomePage";
 import PartyPage from "./pages/PartyPage";
 import KioskPage from "./pages/KioskPage";
+import PairPage from "./pages/PairPage";
 import AdminPage from "./pages/AdminPage";
 import VenuesPage from "./pages/VenuesPage";
 import QueuePage from "./pages/QueuePage";
@@ -24,6 +25,7 @@ function App() {
         <Switch>
           <Route path="/party/:code" component={PartyPage} />
           <Route path="/kiosk/:code" component={KioskPage} />
+          <Route path="/pair" component={PairPage} />
           <Route>
             <MobileApp />
           </Route>
@@ -41,6 +43,7 @@ function App() {
         <Route path="/mobile" component={MobileApp} />
         <Route path="/party/:code" component={PartyPage} />
         <Route path="/kiosk/:code" component={KioskPage} />
+        <Route path="/pair" component={PairPage} />
         <Route path="/admin" component={AdminPage} />
         <Route path="/admin/venues" component={VenuesPage} />
         <Route path="/admin/queue" component={QueuePage} />

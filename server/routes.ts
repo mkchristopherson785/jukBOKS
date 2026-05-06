@@ -7,6 +7,7 @@ import type { InsertRequest, InsertVote } from "../shared/schema";
 import { getGuestRank } from "../shared/ranks";
 import { isVenueWithinSchedule } from "./schedule-utils";
 import { isAuthenticated } from "./replit_integrations/auth";
+import { issuePairingCode, consumePairingCode, peekPairingCode } from "./pairing-codes";
 
 const router = Router();
 
@@ -730,6 +731,137 @@ router.post("/api/v1/venues/:code/kiosk-release", async (req: Request, res: Resp
     });
   } catch (error) {
     console.error("Kiosk release error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// --- Apple Music kiosk pairing ---------------------------------------------
+// Kiosk requests a short-lived 6-digit code that the venue owner enters on
+// their phone (at /pair) to push their Apple Music user token to this venue.
+router.post("/api/v1/venues/:code/pairing-code", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+    const { code, expiresAt } = issuePairingCode(venue.id, venue.code);
+    res.json({ code, expiresAt: new Date(expiresAt).toISOString() });
+  } catch (error) {
+    console.error("pairing-code error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Kiosk fetches the saved Apple Music user token for this venue.
+// SECURITY: the Apple Music user token is a credential to the owner's Apple
+// Music account, so we do NOT expose it to anyone with just the venue code
+// (unlike queue/favorites). The caller must prove they are the device that
+// currently holds the kiosk lock by passing `?deviceId=` matching
+// `venues.kioskLockId` with a fresh heartbeat (≤ 90s). Without an active
+// matching lock we return 403 and never echo the token.
+router.get("/api/v1/venues/:code/apple-music-token", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) {
+      return res.status(404).json({ error: "VENUE_NOT_FOUND", message: "Venue not found" });
+    }
+    const deviceId = (req.query.deviceId as string || "").trim();
+    const now = Date.now();
+    const heartbeatAge = venue.kioskLockHeartbeat ? now - venue.kioskLockHeartbeat.getTime() : Infinity;
+    const lockHeldByCaller =
+      !!deviceId && venue.kioskLockId === deviceId && heartbeatAge < 90000;
+    if (!lockHeldByCaller) {
+      return res.status(403).json({
+        error: "NOT_KIOSK_LOCK_HOLDER",
+        message: "Only the device currently holding the kiosk lock can read the Apple Music token",
+      });
+    }
+    res.json({
+      token: venue.appleMusicUserToken || null,
+      updatedAt: venue.appleMusicUserTokenUpdatedAt ? venue.appleMusicUserTokenUpdatedAt.toISOString() : null,
+    });
+  } catch (error) {
+    console.error("apple-music-token error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Phone owner looks up which venue a pairing code corresponds to (so the UI
+// can confirm "Pair with Acme Bar?" before the user authorizes Apple Music).
+router.get("/api/me/pair/lookup", isAuthenticated, async (req: any, res) => {
+  try {
+    const code = (req.query.code as string || "").trim();
+    if (!code) {
+      return res.status(400).json({ error: "BAD_REQUEST", message: "Missing code" });
+    }
+    const entry = peekPairingCode(code);
+    if (!entry) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Pairing code not found or expired" });
+    }
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    const { org } = await getUserOrganization(userId, userEmail);
+    const venue = await storage.getVenue(entry.venueId);
+    if (!venue || !org || venue.organizationId !== org.id) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "This kiosk belongs to a different account" });
+    }
+    res.json({ venueCode: venue.code, venueName: venue.name });
+  } catch (error) {
+    console.error("pair lookup error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Phone owner submits the 6-digit code + their just-acquired Music User Token.
+// Server verifies they own the venue then saves the token.
+router.post("/api/me/pair", isAuthenticated, async (req: any, res) => {
+  try {
+    const { pairingCode, musicUserToken } = req.body || {};
+    if (!pairingCode || !musicUserToken) {
+      return res.status(400).json({ error: "BAD_REQUEST", message: "Missing pairingCode or musicUserToken" });
+    }
+    const entry = peekPairingCode(String(pairingCode).trim());
+    if (!entry) {
+      return res.status(404).json({ error: "NOT_FOUND", message: "Pairing code not found or expired" });
+    }
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    const { org } = await getUserOrganization(userId, userEmail);
+    const venue = await storage.getVenue(entry.venueId);
+    if (!venue || !org || venue.organizationId !== org.id) {
+      return res.status(403).json({ error: "FORBIDDEN", message: "This kiosk belongs to a different account" });
+    }
+    await storage.updateVenue(venue.id, {
+      appleMusicUserToken: String(musicUserToken),
+      appleMusicUserTokenUpdatedAt: new Date(),
+    });
+    consumePairingCode(String(pairingCode).trim());
+    res.json({ success: true, venueName: venue.name });
+  } catch (error) {
+    console.error("pair error:", error);
+    res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
+  }
+});
+
+// Owner disconnects Apple Music from a venue.
+router.delete("/api/me/venues/:venueId/apple-music-token", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) return res.status(404).json({ error: "NOT_FOUND" });
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "NOT_FOUND" });
+    }
+    await storage.updateVenue(venue.id, {
+      appleMusicUserToken: null,
+      appleMusicUserTokenUpdatedAt: null,
+    });
+    res.json({ success: true });
+  } catch (error) {
+    console.error("disconnect apple music error:", error);
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
   }
 });

@@ -87,6 +87,44 @@ export function useMusicKit() {
     }
   }, []);
 
+  // Apply a Music User Token that was previously obtained on another device
+  // (e.g. paired from the venue owner's phone). Setting the token directly
+  // marks the MusicKit instance as authorized without showing Apple's sign-in
+  // popup, so a headless kiosk can stream full songs.
+  const applyMusicUserToken = useCallback(async (token: string): Promise<boolean> => {
+    try {
+      // Wait for MusicKit to be configured (up to ~5s)
+      for (let i = 0; i < 50 && !musicKitRef.current; i++) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+      if (!musicKitRef.current || !token) return false;
+      musicKitRef.current.musicUserToken = token;
+      setState(prev => ({ ...prev, isAuthorized: true, error: null }));
+      return true;
+    } catch (error: any) {
+      console.error("Failed to apply music user token:", error);
+      return false;
+    }
+  }, []);
+
+  const getMusicUserToken = useCallback((): string | null => {
+    return musicKitRef.current?.musicUserToken || null;
+  }, []);
+
+  // MusicKit is a global singleton (window.MusicKit.getInstance()), so a token
+  // applied via one hook instance also authorizes other instances on the page.
+  // Each hook instance keeps its own React `isAuthorized` state though, so we
+  // poll the singleton's `isAuthorized` and reconcile state when it flips.
+  // This way <MusicKitPlayer/>'s hook picks up a token applied from KioskPage.
+  useEffect(() => {
+    if (!state.isConfigured) return;
+    const interval = setInterval(() => {
+      const live = !!musicKitRef.current?.isAuthorized;
+      setState(prev => (prev.isAuthorized === live ? prev : { ...prev, isAuthorized: live }));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [state.isConfigured]);
+
   const playSong = useCallback(async (trackId: string, options?: { startPositionMs?: number }) => {
     if (!musicKitRef.current) {
       console.error("MusicKit not configured");
@@ -197,6 +235,8 @@ export function useMusicKit() {
     musicKit: musicKitRef.current,
     configure,
     authorize,
+    applyMusicUserToken,
+    getMusicUserToken,
     playSong,
     pause,
     stop,
