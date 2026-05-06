@@ -1,0 +1,13 @@
+[Unit]
+Description=Jukboks kiosk hidden-hotkey exit watcher (qqqqq)
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/jukboks/kiosk-exit-watcher.py
+Restart=always
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target
