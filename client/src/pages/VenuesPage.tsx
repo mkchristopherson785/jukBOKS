@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { MapPin, Plus, Trash2, Settings, QrCode, Tv, Copy, Check, LogOut, User, Shield, ArrowLeft, Music2, Unplug, Loader2 } from "lucide-react";
+import { MapPin, Plus, Trash2, Settings, QrCode, Tv, Copy, Check, LogOut, User, Shield, ArrowLeft, Music2, Unplug, Loader2, RefreshCw } from "lucide-react";
 import { fetchMyVenues, createVenue, deleteVenue, fetchVenue, updateVenue, fetchQRCode, fetchListeners, fetchTeam, checkSuperAdmin, connectAppleMusic, disconnectAppleMusic } from "../lib/api";
 import { useAuth } from "../hooks/use-auth";
 import { useMusicKit } from "../hooks/useMusicKit";
@@ -24,6 +24,7 @@ export default function VenuesPage() {
   const [copied, setCopied] = useState(false);
   const [appleMusicBusyVenueId, setAppleMusicBusyVenueId] = useState<number | null>(null);
   const [appleMusicError, setAppleMusicError] = useState<string>("");
+  const [syncedVenueCode, setSyncedVenueCode] = useState<string | null>(null);
   const { isConfigured: musicKitReady, authorize, getMusicUserToken } = useMusicKit();
 
   useEffect(() => {
@@ -346,6 +347,29 @@ export default function VenuesPage() {
                       {(venue.kioskAudioVolume as number | undefined) ?? 65}%
                     </span>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      queryClient.invalidateQueries({ queryKey: ["myVenues"] });
+                      setSyncedVenueCode(venue.code);
+                      setTimeout(() => setSyncedVenueCode((c) => (c === venue.code ? null : c)), 3000);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 text-xs px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 rounded-lg text-blue-200 transition-colors"
+                    data-testid={`button-sync-${venue.code}`}
+                  >
+                    {syncedVenueCode === venue.code ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        Pi will apply within 10s
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        Sync to Pi now
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 <div className="mb-3 p-3 bg-black/20 rounded-lg border border-white/5">

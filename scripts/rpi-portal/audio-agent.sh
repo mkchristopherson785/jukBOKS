@@ -12,7 +12,7 @@ set -u
 
 CONFIG_FILE="/etc/jukboks/config.json"
 DEVICE_ID_FILE="$HOME/.config/jukboks/device-id"
-INTERVAL=60
+INTERVAL=10
 TAB="$(printf '\t')"
 
 mkdir -p "$(dirname "$DEVICE_ID_FILE")"
