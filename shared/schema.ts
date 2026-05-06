@@ -105,6 +105,10 @@ export const venues = pgTable("venues", {
   kioskAudioDevicesUpdatedAt: timestamp("kiosk_audio_devices_updated_at"),
   kioskHealth: jsonb("kiosk_health").default({}),
   kioskHealthUpdatedAt: timestamp("kiosk_health_updated_at"),
+  // When set, the audio agent will pkill chromium on its next poll (auto-cleared
+  // by the agent via /restart-ack). Stale values past 2min are ignored server-side
+  // so a missed/offline agent can't restart Chromium hours later.
+  kioskRestartRequestedAt: timestamp("kiosk_restart_requested_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({

@@ -962,9 +962,61 @@ router.get("/api/v1/venues/:code/audio-sink", async (req: Request, res: Response
   try {
     const venue = await storage.getVenueByCode(req.params.code);
     if (!venue) return res.status(404).json({ error: "VENUE_NOT_FOUND" });
-    res.json({ sink: venue.kioskAudioSink || null, volume: venue.kioskAudioVolume ?? 65 });
+    // Restart flag piggybacks on the existing 10s audio-sink poll so we don't
+    // add another round-trip. Only honored if requested in the last 2min — past
+    // that, an offline-then-back-online agent would otherwise restart Chromium
+    // hours after the admin clicked the button.
+    const restartRequestedAt = (venue as any).kioskRestartRequestedAt as Date | null;
+    const restartRequested = !!restartRequestedAt
+      && (Date.now() - new Date(restartRequestedAt).getTime()) < 2 * 60 * 1000;
+    res.json({
+      sink: venue.kioskAudioSink || null,
+      volume: venue.kioskAudioVolume ?? 65,
+      restartRequested,
+    });
   } catch (error) {
     console.error("audio-sink error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// Owner clicks "Restart Kiosk Browser" on the admin page. We just stamp a
+// timestamp; the audio agent picks it up on its next /audio-sink poll
+// (within 10s) and pkill's chromium, then ack's to clear the stamp.
+router.post("/api/me/venues/:venueId/restart-kiosk", isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user?.claims?.sub;
+    const userEmail = req.user?.claims?.email || "";
+    const { org } = await getUserOrganization(userId, userEmail);
+    if (!org) return res.status(404).json({ error: "NOT_FOUND" });
+    const venueId = parseInt(req.params.venueId);
+    const venue = await storage.getVenue(venueId);
+    if (!venue || venue.organizationId !== org.id) {
+      return res.status(404).json({ error: "NOT_FOUND" });
+    }
+    await storage.updateVenue(venue.id, {
+      kioskRestartRequestedAt: new Date(),
+    } as any);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("restart-kiosk error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+// Audio agent calls this immediately after acting on a restart request so the
+// flag clears even before chromium dies. Public — venue code is the gate
+// (same trust model as audio-sink/audio-devices).
+router.post("/api/v1/venues/:code/restart-ack", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) return res.status(404).json({ error: "VENUE_NOT_FOUND" });
+    await storage.updateVenue(venue.id, {
+      kioskRestartRequestedAt: null,
+    } as any);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("restart-ack error:", error);
     res.status(500).json({ error: "SERVER_ERROR" });
   }
 });

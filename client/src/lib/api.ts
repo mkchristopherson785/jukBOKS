@@ -120,6 +120,20 @@ export async function disconnectAppleMusic(venueId: string | number) {
   return res.json();
 }
 
+// Asks the audio agent on the Pi to pkill chromium, freeing its memory.
+// The kiosk autostart relaunches a fresh Chromium tab within seconds.
+export async function restartKiosk(venueId: string | number) {
+  const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/restart-kiosk`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || "Restart request failed");
+  }
+  return res.json();
+}
+
 export async function releaseKioskLock(code: string, options?: {
   newDeviceId?: string;
   newDeviceName?: string;

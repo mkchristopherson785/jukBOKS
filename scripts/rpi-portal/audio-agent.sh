@@ -246,6 +246,27 @@ except Exception:
 " 2>/dev/null)"
   [ -z "$VOLUME" ] && VOLUME=65
 
+  # Restart-Chromium request from the admin "Restart Kiosk Browser" button.
+  # We ack BEFORE killing chromium so the flag clears even if pkill takes a
+  # moment, preventing a second restart on the next poll.
+  RESTART_FLAG="$(echo "$RESP" | python3 -c "
+import json, sys
+try:
+  d = json.load(sys.stdin)
+  print('1' if d.get('restartRequested') else '0')
+except Exception:
+  print('0')
+" 2>/dev/null)"
+  if [ "$RESTART_FLAG" = "1" ]; then
+    echo "[jukboks-audio-agent] Admin requested kiosk browser restart, acking and killing chromium." >&2
+    curl -fsS -m 10 -X POST \
+      -H "Content-Type: application/json" \
+      -d "{\"deviceId\":\"$DEVICE_ID\"}" \
+      "$SERVER_URL/api/v1/venues/$VENUE_CODE/restart-ack" >/dev/null 2>&1 || true
+    pkill -f chromium 2>/dev/null || true
+    LAST_CHROMIUM_RESTART="$(date +%s)"
+  fi
+
   # 4. Apply default sink if changed.
   if [ -n "$TARGET" ]; then
     CURRENT="$(pactl get-default-sink 2>/dev/null || echo '')"

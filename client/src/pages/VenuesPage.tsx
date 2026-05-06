@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { MapPin, Plus, Trash2, Settings, QrCode, Tv, Copy, Check, LogOut, User, Shield, ArrowLeft, Music2, Unplug, Loader2, RefreshCw, Activity, Thermometer, MemoryStick, HardDrive, AlertTriangle } from "lucide-react";
-import { fetchMyVenues, createVenue, deleteVenue, fetchVenue, updateVenue, fetchQRCode, fetchListeners, fetchTeam, checkSuperAdmin, connectAppleMusic, disconnectAppleMusic } from "../lib/api";
+import { MapPin, Plus, Trash2, Settings, QrCode, Tv, Copy, Check, LogOut, User, Shield, ArrowLeft, Music2, Unplug, Loader2, RefreshCw, Activity, Thermometer, MemoryStick, HardDrive, AlertTriangle, RotateCw } from "lucide-react";
+import { fetchMyVenues, createVenue, deleteVenue, fetchVenue, updateVenue, fetchQRCode, fetchListeners, fetchTeam, checkSuperAdmin, connectAppleMusic, disconnectAppleMusic, restartKiosk } from "../lib/api";
 import { useAuth } from "../hooks/use-auth";
 import { useMusicKit } from "../hooks/useMusicKit";
 
@@ -93,6 +93,15 @@ export default function VenuesPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["venue", selectedVenueCode] });
       queryClient.invalidateQueries({ queryKey: ["myVenues"] });
+    },
+  });
+
+  const [restartedVenueCode, setRestartedVenueCode] = useState<string | null>(null);
+  const restartKioskMutation = useMutation({
+    mutationFn: ({ venueId }: { venueId: number; code: string }) => restartKiosk(venueId),
+    onSuccess: (_data, vars) => {
+      setRestartedVenueCode(vars.code);
+      setTimeout(() => setRestartedVenueCode((c) => (c === vars.code ? null : c)), 15000);
     },
   });
 
@@ -367,6 +376,31 @@ export default function VenuesPage() {
                       <>
                         <RefreshCw className="w-3.5 h-3.5" />
                         Sync to Pi now
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (restartKioskMutation.isPending) return;
+                      if (!confirm("Restart the kiosk browser? Music will stop for ~10 seconds while it relaunches.")) return;
+                      restartKioskMutation.mutate({ venueId: venue.id, code: venue.code });
+                    }}
+                    disabled={restartKioskMutation.isPending && restartKioskMutation.variables?.code === venue.code}
+                    className="w-full flex items-center justify-center gap-2 text-xs px-3 py-2 bg-amber-600/20 hover:bg-amber-600/30 disabled:opacity-50 border border-amber-500/30 rounded-lg text-amber-200 transition-colors"
+                    data-testid={`button-restart-kiosk-${venue.code}`}
+                    title="Sends a kill-Chromium signal to the Pi audio agent. Frees all browser memory and relaunches a fresh tab. Music stops for ~10s."
+                  >
+                    {restartedVenueCode === venue.code ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        Restart sent — Pi will pick up within 10s
+                      </>
+                    ) : (
+                      <>
+                        <RotateCw className={`w-3.5 h-3.5 ${restartKioskMutation.isPending && restartKioskMutation.variables?.code === venue.code ? "animate-spin" : ""}`} />
+                        Restart Kiosk Browser
                       </>
                     )}
                   </button>
