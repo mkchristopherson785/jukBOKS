@@ -103,7 +103,7 @@ export default function HostApp({ onSwitchRole }: HostAppProps) {
         <h1 className="text-2xl font-bold text-white mb-2">Host Login</h1>
         <p className="text-gray-400 mb-8 text-center text-sm">Sign in to manage your venues</p>
         <a
-          href="/__repl_auth/login"
+          href="/api/login"
           className="w-full max-w-sm py-4 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl text-white font-bold text-lg text-center block active:scale-[0.98] transition-transform"
         >
           Sign In
