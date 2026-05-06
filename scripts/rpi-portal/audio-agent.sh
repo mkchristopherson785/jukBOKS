@@ -91,7 +91,7 @@ print(json.dumps(out))
     -d "{\"deviceId\":\"$DEVICE_ID\",\"devices\":$SINKS_JSON}" \
     "$SERVER_URL/api/v1/venues/$VENUE_CODE/audio-devices" >/dev/null 2>&1 || true
 
-  # 3. Poll for admin-selected sink.
+  # 3. Poll for admin-selected sink + volume.
   RESP="$(curl -fsS -m 10 "$SERVER_URL/api/v1/venues/$VENUE_CODE/audio-sink?deviceId=$DEVICE_ID" 2>/dev/null || echo '')"
   TARGET="$(echo "$RESP" | python3 -c "
 import json, sys
@@ -101,16 +101,30 @@ try:
 except Exception:
   print('')
 " 2>/dev/null)"
+  VOLUME="$(echo "$RESP" | python3 -c "
+import json, sys
+try:
+  d = json.load(sys.stdin)
+  v = d.get('volume')
+  print(int(v) if isinstance(v, (int, float)) and 0 <= v <= 100 else 65)
+except Exception:
+  print(65)
+" 2>/dev/null)"
+  [ -z "$VOLUME" ] && VOLUME=65
 
-  # 4. Apply if different from current default.
+  # 4. Apply default sink if changed.
   if [ -n "$TARGET" ]; then
     CURRENT="$(pactl get-default-sink 2>/dev/null || echo '')"
     if [ "$CURRENT" != "$TARGET" ]; then
-      pactl set-default-sink "$TARGET" 2>/dev/null && \
-        pactl set-sink-mute "$TARGET" 0 2>/dev/null && \
-        pactl set-sink-volume "$TARGET" 80% 2>/dev/null
+      pactl set-default-sink "$TARGET" 2>/dev/null
     fi
+    pactl set-sink-mute "$TARGET" 0 2>/dev/null
+    pactl set-sink-volume "$TARGET" "${VOLUME}%" 2>/dev/null
+  else
+    DEFAULT_SINK="$(pactl get-default-sink 2>/dev/null || echo '')"
+    [ -n "$DEFAULT_SINK" ] && pactl set-sink-volume "$DEFAULT_SINK" "${VOLUME}%" 2>/dev/null
   fi
+
 
   sleep "$INTERVAL"
 done

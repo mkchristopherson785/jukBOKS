@@ -907,7 +907,7 @@ router.get("/api/v1/venues/:code/audio-sink", async (req: Request, res: Response
   try {
     const venue = await storage.getVenueByCode(req.params.code);
     if (!venue) return res.status(404).json({ error: "VENUE_NOT_FOUND" });
-    res.json({ sink: venue.kioskAudioSink || null });
+    res.json({ sink: venue.kioskAudioSink || null, volume: venue.kioskAudioVolume ?? 65 });
   } catch (error) {
     console.error("audio-sink error:", error);
     res.status(500).json({ error: "SERVER_ERROR" });
@@ -2472,6 +2472,7 @@ router.patch("/api/me/venues/:venueId", isAuthenticated, async (req: any, res) =
       ...(artistMaxPlaysPerHour !== undefined && typeof artistMaxPlaysPerHour === "number" && artistMaxPlaysPerHour >= 0 && artistMaxPlaysPerHour <= 20 && { artistMaxPlaysPerHour }),
       ...(typeof kioskLayout === "string" && allowedLayouts.has(kioskLayout) && { kioskLayout }),
       ...((kioskAudioSink === null || (typeof kioskAudioSink === "string" && kioskAudioSink.length <= 200)) && { kioskAudioSink: kioskAudioSink || null }),
+      ...(typeof req.body.kioskAudioVolume === "number" && req.body.kioskAudioVolume >= 0 && req.body.kioskAudioVolume <= 100 && { kioskAudioVolume: Math.round(req.body.kioskAudioVolume) }),
     });
 
     res.json(updatedVenue);

@@ -326,6 +326,26 @@ export default function VenuesPage() {
                       </span>
                     )}
                   </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0 w-[100px]">
+                      <span className="text-xs font-medium text-white">Volume</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={5}
+                      defaultValue={(venue.kioskAudioVolume as number | undefined) ?? 65}
+                      onMouseUp={(e) => updateVenueMutation.mutate({ venueId: venue.id, data: { kioskAudioVolume: Number((e.target as HTMLInputElement).value) } })}
+                      onTouchEnd={(e) => updateVenueMutation.mutate({ venueId: venue.id, data: { kioskAudioVolume: Number((e.target as HTMLInputElement).value) } })}
+                      className="flex-1 accent-blue-500"
+                      data-testid={`slider-volume-${venue.code}`}
+                    />
+                    <span className="text-xs text-gray-300 w-10 text-right tabular-nums">
+                      {(venue.kioskAudioVolume as number | undefined) ?? 65}%
+                    </span>
+                  </div>
                 </div>
 
                 <div className="mb-3 p-3 bg-black/20 rounded-lg border border-white/5">
