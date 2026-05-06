@@ -79,7 +79,8 @@ stop_hotspot() {
 }
 
 check_wifi_connection() {
-  for i in $(seq 1 30); do
+  local timeout="${1:-30}"
+  for i in $(seq 1 "$timeout"); do
     if ping -c 1 -W 2 8.8.8.8 > /dev/null 2>&1; then
       return 0
     fi
@@ -96,12 +97,15 @@ connect_via_nm() {
   sleep 3
   nmcli radio wifi on 2>/dev/null || true
   sleep 2
-  nmcli connection delete "$ssid" 2>/dev/null || true
-  if [ -n "$password" ]; then
-    nmcli device wifi connect "$ssid" password "$password" ifname wlan0 2>&1 || true
-  else
-    nmcli device wifi connect "$ssid" ifname wlan0 2>&1 || true
+  if [ -z "$password" ]; then
+    echo "[WiFi Manager] No password saved for '$ssid', skipping nmcli connect."
+    return 1
   fi
+  nmcli connection delete "$ssid" 2>/dev/null || true
+  if nmcli device wifi connect "$ssid" password "$password" ifname wlan0 2>&1; then
+    return 0
+  fi
+  return 1
 }
 
 connect_legacy() {
@@ -113,33 +117,50 @@ connect_legacy() {
 main() {
   echo "[WiFi Manager] Jukboks WiFi Manager starting..."
 
+  CONFIGURED=false
+  SAVED_SSID=""
+  SAVED_PASS=""
   if [ -f "$CONFIG_PATH" ] && python3 -c "import json; c=json.load(open('$CONFIG_PATH')); exit(0 if c.get('configured') else 1)" 2>/dev/null; then
-    echo "[WiFi Manager] Configuration found, attempting WiFi connection..."
+    CONFIGURED=true
     SAVED_SSID=$(python3 -c "import json; print(json.load(open('$CONFIG_PATH')).get('ssid',''))" 2>/dev/null)
     SAVED_PASS=$(python3 -c "import json; print(json.load(open('$CONFIG_PATH')).get('password',''))" 2>/dev/null)
+  fi
 
-    if has_nm && [ -n "$SAVED_SSID" ]; then
+  if [ "$CONFIGURED" = false ]; then
+    echo "[WiFi Manager] No configuration found, starting setup hotspot..."
+    stop_hotspot
+    start_hotspot
+    while true; do sleep 60; done
+  fi
+
+  # Let NetworkManager auto-connect to any saved profile first.
+  if has_nm; then
+    systemctl start NetworkManager 2>/dev/null || true
+    nmcli radio wifi on 2>/dev/null || true
+    echo "[WiFi Manager] Waiting up to 20s for NetworkManager to auto-connect..."
+    if check_wifi_connection 20; then
+      echo "[WiFi Manager] Already online via saved network, done."
+      exit 0
+    fi
+  fi
+
+  # Not online yet — try our saved Jukboks credentials.
+  if [ -n "$SAVED_SSID" ]; then
+    if has_nm; then
       connect_via_nm "$SAVED_SSID" "$SAVED_PASS"
     else
       connect_legacy
     fi
-
-    if check_wifi_connection; then
+    if check_wifi_connection 20; then
       echo "[WiFi Manager] WiFi connected successfully!"
       exit 0
-    else
-      echo "[WiFi Manager] WiFi connection failed, starting setup hotspot..."
     fi
-  else
-    echo "[WiFi Manager] No configuration found, starting setup hotspot..."
   fi
 
+  echo "[WiFi Manager] Could not get online, falling back to setup hotspot..."
   stop_hotspot
   start_hotspot
-
-  while true; do
-    sleep 60
-  done
+  while true; do sleep 60; done
 }
 
 main "$@"
