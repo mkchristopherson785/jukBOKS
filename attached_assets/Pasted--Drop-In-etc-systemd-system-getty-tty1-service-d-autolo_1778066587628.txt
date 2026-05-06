@@ -1,0 +1,156 @@
+    Drop-In: /etc/systemd/system/getty@tty1.service.d
+             └─autologin.conf
+     Active: active (running) since Wed 2026-05-06 07:19:37 EDT; 2min 8s ago
+ Invocation: 00def484db664f7ea0b1542ea037b576
+       Docs: man:agetty(8)
+             man:systemd-getty-generator(8)
+             https://0pointer.de/blog/projects/serial-console.html
+   Main PID: 1299 (login)
+      Tasks: 0 (limit: 9570)
+        CPU: 19ms
+     CGroup: /system.slice/system-getty.slice/getty@tty1.service
+             ‣ 1299 "login -- mkchristopherson"
+
+May 06 07:19:37 jukboks-pi-01 systemd[1]: Started getty@tty1.service - Getty on tty1.
+May 06 07:19:42 jukboks-pi-01 login[1299]: pam_unix(login:session): session opened for user mkchristopherson(uid=1000) by mkchristopherson(uid=0)
+---
+total 12
+drwxr-xr-x  2 root root 4096 Apr 20 20:08 .
+drwxr-xr-x 21 root root 4096 May  5 22:19 ..
+-rw-r--r--  1 root root   93 May  5 22:20 autologin.conf
+---
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin mkchristopherson --noclear %I $TERM
+---
+[[ -z $DISPLAY && $XDG_VTNR -eq 1 ]] && startx -- -nocursor
+mkchristopherson@jukboks-pi-01:~$ echo "=== xinitrc ==="
+cat ~/.xinitrc 2>/dev/null || echo "(none)"
+echo "=== openbox autostart ==="
+cat ~/.config/openbox/autostart 2>/dev/null || echo "(none)"
+echo "=== last X log ==="
+tail -40 ~/.local/share/xorg/Xorg.0.log 2>/dev/null || tail -40 /var/log/Xorg.0.log 2>/dev/null || echo "(no X log)"
+echo "=== startx output ==="
+tail -30 ~/.xsession-errors 2>/dev/null || echo "(no xsession-errors)"
+=== xinitrc ===
+exec openbox-session
+=== openbox autostart ===
+xset s off
+xset s noblank
+xset -dpms
+
+unclutter -idle 0.5 -root &
+
+sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' \
+  "$HOME/.config/chromium/Default/Preferences" 2>/dev/null || true
+sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' \
+  "$HOME/.config/chromium/Default/Preferences" 2>/dev/null || true
+
+sleep 5
+
+KIOSK_URL=$(python3 -c "
+import json
+try:
+    c = json.load(open('/etc/jukboks/config.json'))
+    if c.get('configured') and c.get('url') and c.get('venue_code'):
+        layout = c.get('layout', 'square')
+        print(f\"{c['url']}/kiosk/{c['venue_code']}?autostart=true&layout={layout}\")
+    else:
+        print('')
+except:
+    print('')
+" 2>/dev/null)
+
+if [ -z "$KIOSK_URL" ] && [ -f /opt/jukboks/setup.html ]; then
+  KIOSK_URL="file:///opt/jukboks/setup.html"
+fi
+
+if [ -n "$KIOSK_URL" ]; then
+  chromium-browser \
+    --kiosk \
+    --noerrdialogs \
+    --disable-infobars \
+    --disable-translate \
+    --disable-features=TranslateUI \
+    --disable-session-crashed-bubble \
+    --disable-component-update \
+    --autoplay-policy=no-user-gesture-required \
+    --check-for-update-interval=31536000 \
+    --disable-pinch \
+    --overscroll-history-navigation=0 \
+    --no-first-run \
+    --disable-restore-session-state \
+    --password-store=basic \
+    --use-mock-keychain \
+    --user-agent="Mozilla/5.0 (Linux; Raspberry Pi) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+    "$KIOSK_URL" &
+fi
+=== last X log ===
+[    25.918] (**) Option "config_info" "udev:/sys/devices/platform/soc@107c000000/107c701400.hdmi/rc/rc0/input0/event0"
+[    25.918] (II) XINPUT: Adding extended input device "vc4-hdmi-0" (type: KEYBOARD, id 15)
+[    25.918] (**) Option "xkb_model" "pc105"
+[    25.918] (**) Option "xkb_layout" "us"
+[    25.919] (**) vc4-hdmi-1: Applying InputClass "libinput keyboard catchall"
+[    25.919] (II) Using input driver 'libinput' for 'vc4-hdmi-1'
+[    25.919] (II) systemd-logind: returning pre-existing fd for /dev/input/event2 13:66
+[    25.919] (**) vc4-hdmi-1: always reports core events
+[    25.919] (**) Option "Device" "/dev/input/event2"
+[    25.919] (II) libinput: vc4-hdmi-1: is a virtual subdevice
+[    25.919] (II) libinput: vc4-hdmi-1: Step value 0 was provided, libinput Fallback acceleration function is used.
+[    25.919] (II) libinput: vc4-hdmi-1: Step value 0 was provided, libinput Fallback acceleration function is used.
+[    25.919] (II) libinput: vc4-hdmi-1: Step value 0 was provided, libinput Fallback acceleration function is used.
+[    25.919] (**) Option "config_info" "udev:/sys/devices/platform/soc@107c000000/107c706400.hdmi/rc/rc1/input2/event2"
+[    25.919] (II) XINPUT: Adding extended input device "vc4-hdmi-1" (type: KEYBOARD, id 16)
+[    25.919] (**) Option "xkb_model" "pc105"
+[    25.919] (**) Option "xkb_layout" "us"
+[    29.575] (**) Option "fd" "22"
+[    29.575] (**) Option "fd" "25"
+[    29.575] (**) Option "fd" "26"
+[    29.576] (**) Option "fd" "27"
+[    29.576] (II) event5  - pwr_button: device removed
+[    29.576] (**) Option "fd" "28"
+[    29.576] (**) Option "fd" "29"
+[    29.576] (**) Option "fd" "22"
+[    29.576] (II) event4  - Logitech K400 Plus: device removed
+[    29.576] (**) Option "fd" "25"
+[    29.576] (II) event6  - Logitech K780: device removed
+[    29.577] (**) Option "fd" "26"
+[    29.577] (II) event7  - Logitech M720 Triathlon: device removed
+[    29.577] (**) Option "fd" "28"
+[    29.577] (II) event0  - vc4-hdmi-0: device removed
+[    29.577] (**) Option "fd" "29"
+[    29.577] (II) event2  - vc4-hdmi-1: device removed
+[    29.643] (II) systemd-logind: got pause for 13:69
+[    29.643] (II) systemd-logind: got pause for 13:64
+[    29.643] (II) systemd-logind: got pause for 13:66
+[    29.643] (II) systemd-logind: got pause for 13:70
+[    29.643] (II) systemd-logind: got pause for 13:68
+[    29.643] (II) systemd-logind: got pause for 13:71
+=== startx output ===
+Xsession: X session started for mkchristopherson at Wed  6 May 07:19:37 EDT 2026
+dbus-update-activation-environment: setting DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+xrdb: Can't open display ''
+xhost:  unable to open display ""
+/usr/bin/unclutter: could not open display
+dbus-update-activation-environment: setting USER=mkchristopherson
+dbus-update-activation-environment: setting TEXTDOMAIN=pam_chksshpwd
+dbus-update-activation-environment: setting XDG_SESSION_TYPE=wayland
+dbus-update-activation-environment: setting HOME=/home/mkchristopherson
+dbus-update-activation-environment: setting DESKTOP_SESSION=rpd-labwc
+dbus-update-activation-environment: setting DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+dbus-update-activation-environment: setting LOGNAME=mkchristopherson
+dbus-update-activation-environment: setting XDG_SESSION_CLASS=user
+dbus-update-activation-environment: setting PATH=/home/mkchristopherson/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games
+dbus-update-activation-environment: setting XDG_RUNTIME_DIR=/run/user/1000
+dbus-update-activation-environment: setting LANG=en_GB.UTF-8
+dbus-update-activation-environment: setting XDG_SESSION_DESKTOP=rpd-labwc
+dbus-update-activation-environment: setting XDG_GREETER_DATA_DIR=/var/lib/lightdm/data/mkchristopherson
+dbus-update-activation-environment: setting SHELL=/bin/bash
+dbus-update-activation-environment: setting GDMSESSION=rpd-labwc
+dbus-update-activation-environment: setting NO_AT_BRIDGE=1
+dbus-update-activation-environment: setting GPG_AGENT_INFO=/run/user/1000/gnupg/S.gpg-agent:0:1
+dbus-update-activation-environment: setting PWD=/home/mkchristopherson
+00:00:09.137 [ERROR] [backend/libinput/backend.c:111] libinput initialization failed, no input devices
+00:00:09.137 [ERROR] [backend/libinput/backend.c:112] Set WLR_LIBINPUT_NO_DEVICES=1 to suppress this check
+00:00:09.137 [ERROR] [backend/multi/backend.c:32] Failed to initialize backend.
+00:00:09.137 [ERROR] [../src/server.c:781] unable to start the wlroots backend
