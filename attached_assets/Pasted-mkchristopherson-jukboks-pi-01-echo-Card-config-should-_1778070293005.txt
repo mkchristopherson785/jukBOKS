@@ -1,0 +1,49 @@
+mkchristopherson@jukboks-pi-01:~$ echo "=== Card config (should mention dacplus now) ==="
+aplay -l | grep -A1 hifiberry
+echo "=== Mixer controls (5122 should have Digital) ==="
+amixer -c 2 scontrols
+echo "=== PipeWire rate config (Fix 1 from earlier) ==="
+cat ~/.config/pipewire/pipewire.conf.d/10-jukboks-rate.conf 2>/dev/null || echo "NOT APPLIED — Fix 1 was skipped"
+echo "=== Power/undervoltage warnings (very common cause) ==="
+vcgencmd get_throttled
+dmesg | grep -i -E "under-?volt|throttl|hwmon" | tail -10
+echo "=== Direct ALSA test, bypass PipeWire entirely ==="
+systemctl --user stop pipewire pipewire-pulse wireplumber 2>/dev/null
+sleep 1
+aplay -D plughw:CARD=sndrpihifiberry /usr/share/sounds/alsa/Front_Center.wav
+systemctl --user start pipewire pipewire-pulse wireplumber
+=== Card config (should mention dacplus now) ===
+card 2: sndrpihifiberry [snd_rpi_hifiberry_dacplus], device 0: HiFiBerry DAC+ Pro HiFi pcm512x-hifi-0 [HiFiBerry DAC+ Pro HiFi pcm512x-hifi-0]
+  Subdevices: 0/1
+=== Mixer controls (5122 should have Digital) ===
+Simple mixer control 'DSP Program',0
+Simple mixer control 'Analogue',0
+Simple mixer control 'Analogue Playback Boost',0
+Simple mixer control 'Auto Mute',0
+Simple mixer control 'Auto Mute Mono',0
+Simple mixer control 'Auto Mute Time Left',0
+Simple mixer control 'Auto Mute Time Right',0
+Simple mixer control 'Clock Missing Period',0
+Simple mixer control 'Deemphasis',0
+Simple mixer control 'Digital',0
+Simple mixer control 'Max Overclock DAC',0
+Simple mixer control 'Max Overclock DSP',0
+Simple mixer control 'Max Overclock PLL',0
+Simple mixer control 'Volume Ramp Down Emergency Rate',0
+Simple mixer control 'Volume Ramp Down Emergency Step',0
+Simple mixer control 'Volume Ramp Down Rate',0
+Simple mixer control 'Volume Ramp Down Step',0
+Simple mixer control 'Volume Ramp Up Rate',0
+Simple mixer control 'Volume Ramp Up Step',0
+=== PipeWire rate config (Fix 1 from earlier) ===
+context.properties = {
+  default.clock.rate          = 48000
+  default.clock.allowed-rates = [ 44100 48000 ]
+  default.clock.quantum       = 1024
+  default.clock.min-quantum   = 256
+  default.clock.max-quantum   = 8192
+}
+=== Power/undervoltage warnings (very common cause) ===
+throttled=0x0
+=== Direct ALSA test, bypass PipeWire entirely ===
+Playing WAVE '/usr/share/sounds/alsa/Front_Center.wav' : Signed 16 bit Little Endian, Rate 48000 Hz, Mono
