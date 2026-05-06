@@ -230,6 +230,27 @@ export default function KioskPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [togglePlayHandler, isDisplayOnly]);
 
+  // Memory-leak watchdog: reload the page every PAGE_RELOAD_MINUTES (default 30)
+  // when no song is currently playing. Belt-and-suspenders for MusicKit JS leaks
+  // that can crash the renderer ("Aw Snap") on long-running headless kiosks.
+  // Disabled when ?reload=0 is in the URL.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("reload") === "0") return;
+    const minutes = Math.max(5, parseInt(params.get("reload") || "30", 10) || 30);
+    const startedAt = Date.now();
+    const interval = setInterval(() => {
+      const ageMs = Date.now() - startedAt;
+      if (ageMs < minutes * 60 * 1000) return;
+      // Only reload between songs to avoid interrupting playback.
+      if (isPlaying || isPlayingAnnouncement) return;
+      console.log(`[kiosk] Page uptime ${Math.round(ageMs / 60000)}min, reloading to free memory.`);
+      window.location.reload();
+    }, 30 * 1000);
+    return () => clearInterval(interval);
+  }, [isPlaying, isPlayingAnnouncement]);
+
   // Send heartbeat every 30 seconds when kiosk is running
   useEffect(() => {
     if (!code || isDisplayOnly) return;
