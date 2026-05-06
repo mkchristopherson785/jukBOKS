@@ -266,6 +266,7 @@ export async function updateVenue(venueId: number, data: {
   songCooldownMinutes?: number;
   artistCooldownMinutes?: number;
   artistMaxPlaysPerHour?: number;
+  kioskLayout?: "default" | "square";
 }) {
   const res = await fetch(`${API_BASE}/api/me/venues/${venueId}`, {
     method: "PATCH",

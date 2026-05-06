@@ -90,8 +90,7 @@ export default function KioskPage() {
   const queryClient = useQueryClient();
   const searchParams = new URLSearchParams(window.location.search);
   const autostart = searchParams.get("autostart") === "true";
-  const layout = searchParams.get("layout") || "default";
-  const isSquareLayout = layout === "square";
+  const urlLayout = searchParams.get("layout");
   const isDisplayOnly = searchParams.get("display") === "true";
   const [currentSong, setCurrentSong] = useState<any>(null);
   const [lastPlayedSong, setLastPlayedSong] = useState<{ title: string; artist: string; albumCover?: string } | null>(null);
@@ -140,7 +139,14 @@ export default function KioskPage() {
     queryKey: ["venue", code],
     queryFn: () => fetchVenue(code!),
     enabled: !!code,
+    refetchInterval: 30000,
   });
+
+  // Server-side venue setting wins. URL ?layout= is only used as a fallback
+  // before the venue query loads or when the venue has no saved layout.
+  const serverLayout = (venue as any)?.kioskLayout as string | undefined;
+  const effectiveLayout = serverLayout ?? urlLayout ?? "default";
+  const isSquareLayout = effectiveLayout === "square";
 
   // Apple Music kiosk pairing: fetch saved Music User Token from server.
   // If present, apply it to MusicKit silently so the headless kiosk can stream

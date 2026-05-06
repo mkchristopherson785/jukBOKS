@@ -287,6 +287,24 @@ export default function VenuesPage() {
                 </div>
 
                 <div className="mb-3 p-3 bg-black/20 rounded-lg border border-white/5">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Tv className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                      <div className="text-xs font-medium text-white">Display Layout</div>
+                    </div>
+                    <select
+                      value={(venue.kioskLayout as string) || "default"}
+                      onChange={(e) => updateVenueMutation.mutate({ venueId: venue.id, data: { kioskLayout: e.target.value as "default" | "square" } })}
+                      className="text-xs bg-black/40 border border-white/10 rounded-lg text-white px-2 py-1 focus:outline-none focus:border-blue-500"
+                      data-testid={`select-layout-${venue.code}`}
+                    >
+                      <option value="default">Landscape (16:9)</option>
+                      <option value="square">Square (1:1)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mb-3 p-3 bg-black/20 rounded-lg border border-white/5">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <Music2 className="w-4 h-4 text-pink-400 flex-shrink-0" />

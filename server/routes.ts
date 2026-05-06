@@ -572,6 +572,7 @@ router.get("/api/v1/venues/:code", async (req: Request, res: Response) => {
       announcementFrequencyType: venue.announcementFrequencyType,
       announcementFrequency: venue.announcementFrequency,
       announcementPlayMode: venue.announcementPlayMode,
+      kioskLayout: venue.kioskLayout || "default",
     });
   } catch (error) {
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });
@@ -2386,8 +2387,9 @@ router.patch("/api/me/venues/:venueId", isAuthenticated, async (req: any, res) =
       return res.status(404).json({ error: "NOT_FOUND", message: "Venue not found" });
     }
 
-    const { name, allowExplicit, blockHolidayMusic, autoApprove, dailyRequestLimit, isActive, songCooldownMinutes, artistCooldownMinutes, artistMaxPlaysPerHour } = req.body;
-    
+    const { name, allowExplicit, blockHolidayMusic, autoApprove, dailyRequestLimit, isActive, songCooldownMinutes, artistCooldownMinutes, artistMaxPlaysPerHour, kioskLayout } = req.body;
+    const allowedLayouts = new Set(["default", "square"]);
+
     const updatedVenue = await storage.updateVenue(venueId, {
       ...(name !== undefined && { name }),
       ...(allowExplicit !== undefined && { allowExplicit }),
@@ -2398,6 +2400,7 @@ router.patch("/api/me/venues/:venueId", isAuthenticated, async (req: any, res) =
       ...(songCooldownMinutes !== undefined && typeof songCooldownMinutes === "number" && songCooldownMinutes >= 0 && songCooldownMinutes <= 1440 && { songCooldownMinutes }),
       ...(artistCooldownMinutes !== undefined && typeof artistCooldownMinutes === "number" && artistCooldownMinutes >= 0 && artistCooldownMinutes <= 1440 && { artistCooldownMinutes }),
       ...(artistMaxPlaysPerHour !== undefined && typeof artistMaxPlaysPerHour === "number" && artistMaxPlaysPerHour >= 0 && artistMaxPlaysPerHour <= 20 && { artistMaxPlaysPerHour }),
+      ...(typeof kioskLayout === "string" && allowedLayouts.has(kioskLayout) && { kioskLayout }),
     });
 
     res.json(updatedVenue);
