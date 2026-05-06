@@ -241,24 +241,8 @@ export default function KioskPage() {
     window.location.reload();
   }, []);
 
-  // Song-count reload: after every ?songsPerReload=N song changes, reload the
-  // page. Fires naturally between songs (when the trackId changes), so it
-  // never cuts off a song. Default 0 = off; opt in via URL param.
-  const songCountRef = useRef(0);
-  const songReloadIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const n = parseInt(params.get("songsPerReload") || "0", 10) || 0;
-    if (n <= 0) return;
-    const currentId = currentSong?.trackId || nowPlaying?.trackId || null;
-    if (!currentId || currentId === songReloadIdRef.current) return;
-    songReloadIdRef.current = currentId;
-    songCountRef.current += 1;
-    if (songCountRef.current >= n) {
-      triggerReload(`Played ${n} songs`);
-    }
-  }, [currentSong?.trackId, nowPlaying?.trackId, triggerReload]);
+  // (Song-count reload effect lives below, after nowPlaying is declared, so
+  // its deps array can safely read nowPlaying?.trackId without TDZ errors.)
 
   // Memory-leak watchdog: reload the page every ?reload=N minutes (default 30).
   // Polite reload waits until no song is playing. Hard reload (?hardReload=N,
@@ -357,6 +341,27 @@ export default function KioskPage() {
     enabled: !!code,
     refetchInterval: 8000,
   });
+
+  // Song-count reload: after every ?songsPerReload=N song changes, reload the
+  // page. Fires naturally between songs (when the trackId changes), so it
+  // never cuts off a song. Default 0 = off; opt in via URL param.
+  // Placed AFTER nowPlaying is declared so the deps array can read its trackId
+  // without hitting a temporal dead zone (caused a render crash earlier).
+  const songCountRef = useRef(0);
+  const songReloadIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const n = parseInt(params.get("songsPerReload") || "0", 10) || 0;
+    if (n <= 0) return;
+    const currentId = currentSong?.trackId || nowPlaying?.trackId || null;
+    if (!currentId || currentId === songReloadIdRef.current) return;
+    songReloadIdRef.current = currentId;
+    songCountRef.current += 1;
+    if (songCountRef.current >= n) {
+      triggerReload(`Played ${n} songs`);
+    }
+  }, [currentSong?.trackId, nowPlaying?.trackId, triggerReload]);
 
   const { data: qrData } = useQuery({
     queryKey: ["qrcode", code],
