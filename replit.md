@@ -41,7 +41,7 @@ Guests on the party page can tap "Listen Along" to stream the venue's current so
 -   **QR Code Access**: Guests join parties and request songs without account creation.
 -   **Smart Repetition Prevention**: Configurable cooldowns for songs and artists.
 -   **Upvote/Downvote System**: Guests influence queue order.
--   **Announcement Groups**: Scheduled audio announcements with flexible timing and play modes.
+-   **Announcement Groups**: Scheduled audio announcements with flexible timing and play modes. Each announcement supports an optional cover image (`announcements.image_url`) shown on the kiosk in place of the default speaker icon during playback. Image upload (max 10 MB) lives in the Add Announcement modal in Settings; falls back to the gradient + speaker icon when no image is set. Urgent announcements support `urgentAnnouncementImageUrl` on `venues` for the same purpose.
 -   **Admin Queue Management**: Approve/reject requests, remove songs.
 -   **Mobile Host Quick Actions**: Skip song, clear queue, view live listener count.
 -   **Venue Analytics**: Tracks key metrics like total songs played, unique guests, and peak hours.

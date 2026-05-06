@@ -37,6 +37,8 @@ export default function SettingsPage() {
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [announcementName, setAnnouncementName] = useState("");
   const [announcementError, setAnnouncementError] = useState("");
+  const [announcementImageUrl, setAnnouncementImageUrl] = useState<string>("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [addingToGroupId, setAddingToGroupId] = useState<number | null>(null);
   const [showNewGroupModal, setShowNewGroupModal] = useState(false);
   const [newGroupFrequencyType, setNewGroupFrequencyType] = useState("songs");
@@ -361,6 +363,7 @@ export default function SettingsPage() {
         data: {
           name: announcementName.trim(),
           audioUrl: result.objectPath,
+          imageUrl: announcementImageUrl || null,
         },
       });
     } catch (err: any) {
@@ -880,7 +883,11 @@ export default function SettingsPage() {
                         ) : (
                           group.announcements.map((announcement: Announcement) => (
                             <div key={announcement.id} className="flex items-center gap-2 p-1.5 bg-white/5 rounded">
-                              <Volume2 className={`w-3 h-3 ${announcement.isActive ? 'text-green-400' : 'text-gray-500'}`} />
+                              {(announcement as any).imageUrl ? (
+                                <img src={(announcement as any).imageUrl} alt="" className="w-6 h-6 rounded object-cover flex-shrink-0" />
+                              ) : (
+                                <Volume2 className={`w-3 h-3 ${announcement.isActive ? 'text-green-400' : 'text-gray-500'}`} />
+                              )}
                               <p className="text-white text-xs flex-1 truncate">{announcement.name}</p>
                               <button
                                 onClick={() => toggleAnnouncementMutation.mutate({ id: announcement.id, isActive: !announcement.isActive })}
@@ -1213,6 +1220,67 @@ export default function SettingsPage() {
               className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 mb-4"
               autoFocus
             />
+            <label className="block text-gray-400 text-sm mb-1">
+              Cover Image (optional)
+            </label>
+            <div className="flex items-center gap-3 mb-4">
+              {announcementImageUrl ? (
+                <img src={announcementImageUrl} alt="" className="w-16 h-16 rounded-lg object-cover border border-white/10" />
+              ) : (
+                <div className="w-16 h-16 rounded-lg bg-white/5 border border-dashed border-white/20 flex items-center justify-center text-gray-500 text-[10px] text-center px-1">
+                  No image
+                </div>
+              )}
+              <label className={cn(
+                "flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white/5 border border-dashed border-white/20 rounded-lg text-gray-300 hover:bg-white/10 cursor-pointer transition-colors text-sm",
+                isUploadingImage && "opacity-50 pointer-events-none"
+              )}>
+                <Upload className="w-4 h-4" />
+                {isUploadingImage ? "Uploading..." : announcementImageUrl ? "Change Image" : "Upload Image"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={isUploadingImage}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    if (!file.type.startsWith("image/")) {
+                      setAnnouncementError("Please choose an image file (PNG, JPG, etc.)");
+                      return;
+                    }
+                    if (file.size > 10 * 1024 * 1024) {
+                      setAnnouncementError("Image is too large (max 10 MB).");
+                      return;
+                    }
+                    setAnnouncementError("");
+                    setIsUploadingImage(true);
+                    try {
+                      const result = await uploadFile(file);
+                      if (result?.objectPath) {
+                        setAnnouncementImageUrl(result.objectPath);
+                      } else {
+                        setAnnouncementError("Image upload failed. Please try again.");
+                      }
+                    } catch (err: any) {
+                      setAnnouncementError(err?.message || "Image upload failed.");
+                    } finally {
+                      setIsUploadingImage(false);
+                    }
+                  }}
+                />
+              </label>
+              {announcementImageUrl && (
+                <button
+                  type="button"
+                  onClick={() => setAnnouncementImageUrl("")}
+                  className="px-2 py-2 text-xs text-gray-400 hover:text-red-400 transition-colors"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
             <label className={cn(
               "block w-full",
               (!announcementName.trim() || isUploading || addAnnouncementMutation.isPending) &&
@@ -1249,6 +1317,7 @@ export default function SettingsPage() {
                   setShowAnnouncementModal(false);
                   setAnnouncementName("");
                   setAnnouncementError("");
+                  setAnnouncementImageUrl("");
                   setAddingToGroupId(null);
                 }}
                 className="flex-1 px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors"

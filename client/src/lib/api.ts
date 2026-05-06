@@ -465,7 +465,7 @@ export async function createAnnouncement(venueId: number, data: { name: string; 
   return res.json();
 }
 
-export async function updateAnnouncement(venueId: number, announcementId: number, data: { name?: string; isActive?: boolean }) {
+export async function updateAnnouncement(venueId: number, announcementId: number, data: { name?: string; isActive?: boolean; imageUrl?: string | null }) {
   const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/announcements/${announcementId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -565,7 +565,7 @@ export async function deleteAnnouncementGroup(venueId: number, groupId: number) 
   return res.json();
 }
 
-export async function addAnnouncementToGroup(venueId: number, groupId: number, data: { name: string; audioUrl: string; duration?: number }) {
+export async function addAnnouncementToGroup(venueId: number, groupId: number, data: { name: string; audioUrl: string; imageUrl?: string | null; duration?: number }) {
   const res = await fetch(`${API_BASE}/api/me/venues/${venueId}/announcement-groups/${groupId}/announcements`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

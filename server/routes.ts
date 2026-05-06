@@ -2941,9 +2941,12 @@ router.post("/api/me/venues/:venueId/announcement-groups/:groupId/announcements"
       return res.status(404).json({ error: "GROUP_NOT_FOUND", message: "Announcement group not found" });
     }
 
-    const { name, audioUrl, duration } = req.body;
+    const { name, audioUrl, imageUrl, duration } = req.body;
     if (!name || !audioUrl) {
       return res.status(400).json({ error: "MISSING_FIELDS", message: "Name and audio URL are required" });
+    }
+    if (imageUrl && (typeof imageUrl !== "string" || imageUrl.length > 2000)) {
+      return res.status(400).json({ error: "INVALID_IMAGE", message: "Image URL must be a string (max 2000 chars)" });
     }
 
     const existingAnnouncements = await storage.getAnnouncementsByGroup(groupId);
@@ -2953,6 +2956,7 @@ router.post("/api/me/venues/:venueId/announcement-groups/:groupId/announcements"
       groupId: groupId,
       name,
       audioUrl,
+      imageUrl: imageUrl || null,
       duration: duration || null,
       isActive: true,
       position: existingAnnouncements.length,
@@ -3064,10 +3068,16 @@ router.patch("/api/me/venues/:venueId/announcements/:announcementId", isAuthenti
       return res.status(404).json({ error: "ANNOUNCEMENT_NOT_FOUND", message: "Announcement not found" });
     }
 
-    const { name, isActive } = req.body;
+    const { name, isActive, imageUrl } = req.body;
     const updateData: any = {};
     if (name !== undefined) updateData.name = name;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (imageUrl !== undefined) {
+      if (imageUrl !== null && (typeof imageUrl !== "string" || imageUrl.length > 2000)) {
+        return res.status(400).json({ error: "INVALID_IMAGE", message: "Image URL must be a string (max 2000 chars)" });
+      }
+      updateData.imageUrl = imageUrl || null;
+    }
 
     const updated = await storage.updateAnnouncement(announcementId, updateData);
     res.json({ success: true, announcement: updated });
@@ -3165,6 +3175,7 @@ router.get("/api/v1/venues/:code/next-announcement", async (req: Request, res: R
           name: "Urgent Announcement",
           audioUrl: venue.urgentAnnouncementAudioUrl || null,
           ttsText: venue.urgentAnnouncementText || null,
+          imageUrl: venue.urgentAnnouncementImageUrl || null,
           duration: null,
         },
       });
@@ -3234,6 +3245,7 @@ router.get("/api/v1/venues/:code/next-announcement", async (req: Request, res: R
             id: announcement.id,
             name: announcement.name,
             audioUrl: announcement.audioUrl,
+            imageUrl: announcement.imageUrl || null,
             duration: announcement.duration,
           }
         });

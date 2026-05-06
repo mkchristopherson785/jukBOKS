@@ -98,7 +98,7 @@ export default function KioskPage() {
   const [isStarted, setIsStarted] = useState(autostart || isDisplayOnly);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [isPlayingAnnouncement, setIsPlayingAnnouncement] = useState(false);
-  const [currentAnnouncement, setCurrentAnnouncement] = useState<{ id: number; name: string; audioUrl: string } | null>(null);
+  const [currentAnnouncement, setCurrentAnnouncement] = useState<{ id: number; name: string; audioUrl: string; imageUrl?: string | null } | null>(null);
   const [announcementAudio, setAnnouncementAudio] = useState<HTMLAudioElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [togglePlayHandler, setTogglePlayHandler] = useState<(() => void) | null>(null);
@@ -876,9 +876,17 @@ export default function KioskPage() {
           {isPlayingAnnouncement && currentAnnouncement ? (
             <div className="text-center">
               <div className="mb-4 flex justify-center">
-                <div className="w-40 h-40 rounded-2xl shadow-2xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
-                  <Volume2 className="w-20 h-20 text-white/80 animate-pulse" />
-                </div>
+                {currentAnnouncement.imageUrl ? (
+                  <img
+                    src={currentAnnouncement.imageUrl}
+                    alt={currentAnnouncement.name}
+                    className="w-40 h-40 rounded-2xl shadow-2xl object-cover"
+                  />
+                ) : (
+                  <div className="w-40 h-40 rounded-2xl shadow-2xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
+                    <Volume2 className="w-20 h-20 text-white/80 animate-pulse" />
+                  </div>
+                )}
               </div>
               <h2 className="text-2xl font-bold text-white mb-1">{currentAnnouncement.name}</h2>
               <p className="text-lg text-gray-300">Announcement</p>
@@ -972,9 +980,17 @@ export default function KioskPage() {
           {isPlayingAnnouncement && currentAnnouncement ? (
             <>
               <div className="mb-6 sm:mb-12 flex justify-center">
-                <div className="w-48 h-48 sm:w-72 sm:h-72 lg:w-96 lg:h-96 rounded-2xl sm:rounded-3xl shadow-2xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
-                  <Volume2 className="w-24 h-24 sm:w-36 sm:h-36 lg:w-48 lg:h-48 text-white/80 animate-pulse" />
-                </div>
+                {currentAnnouncement.imageUrl ? (
+                  <img
+                    src={currentAnnouncement.imageUrl}
+                    alt={currentAnnouncement.name}
+                    className="w-48 h-48 sm:w-72 sm:h-72 lg:w-96 lg:h-96 rounded-2xl sm:rounded-3xl shadow-2xl object-cover"
+                  />
+                ) : (
+                  <div className="w-48 h-48 sm:w-72 sm:h-72 lg:w-96 lg:h-96 rounded-2xl sm:rounded-3xl shadow-2xl bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center">
+                    <Volume2 className="w-24 h-24 sm:w-36 sm:h-36 lg:w-48 lg:h-48 text-white/80 animate-pulse" />
+                  </div>
+                )}
               </div>
               <div className="text-center">
                 <h2 className="text-2xl sm:text-4xl lg:text-6xl font-bold text-white mb-2 sm:mb-4">{currentAnnouncement.name}</h2>
