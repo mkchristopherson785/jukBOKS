@@ -24,12 +24,14 @@ echo "Installing systemd user service..."
 cat > "$SERVICE_DIR/jukboks-audio-agent.service" << EOF
 [Unit]
 Description=Jukboks Audio Agent
-After=graphical-session.target
+After=pipewire.service pipewire-pulse.service pulseaudio.service graphical-session.target
+Wants=pipewire.service pipewire-pulse.service
 
 [Service]
 Type=simple
+Environment=XDG_RUNTIME_DIR=/run/user/%U
 ExecStart=$INSTALL_DIR/jukboks-audio-agent
-Restart=on-failure
+Restart=always
 RestartSec=10
 
 [Install]

@@ -2,10 +2,8 @@
 # jukboks-audio-agent
 # Periodically:
 #   1. Detects available PulseAudio/PipeWire output sinks on this Pi.
-#   2. Reports them to the Jukboks server (lock-protected — only the active
-#      kiosk for a venue can publish).
-#   3. Polls the server for the admin-selected sink and applies it as the
-#      default output.
+#   2. Reports them to the Jukboks server.
+#   3. Polls for the admin-selected sink and applies it as the default output.
 #
 # Runs as the desktop user (NOT root) so it shares the audio session with the
 # kiosk Chromium process. Installed as a systemd --user service.
@@ -15,10 +13,11 @@ set -u
 CONFIG_FILE="/etc/jukboks/config.json"
 DEVICE_ID_FILE="$HOME/.config/jukboks/device-id"
 INTERVAL=60
+TAB="$(printf '\t')"
 
 mkdir -p "$(dirname "$DEVICE_ID_FILE")"
 
-# Stable device ID for this Pi (matches the kiosk's lock holder ID convention).
+# Stable device ID for this Pi.
 if [ ! -s "$DEVICE_ID_FILE" ]; then
   if command -v uuidgen >/dev/null 2>&1; then
     uuidgen > "$DEVICE_ID_FILE"
@@ -28,41 +27,49 @@ if [ ! -s "$DEVICE_ID_FILE" ]; then
 fi
 DEVICE_ID="$(cat "$DEVICE_ID_FILE")"
 
-# Friendly label heuristic from a PulseAudio sink name.
+# Make sure pactl can find the user's PipeWire/PulseAudio socket even when
+# launched by systemd --user.
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+
+# Friendly label heuristic from a PulseAudio/PipeWire sink name.
 friendly_label() {
   local name="$1"
   case "$name" in
-    *hdmi*) echo "HDMI" ;;
-    *Headphones*|*headphone*|*analog*) echo "3.5mm Headphone Jack" ;;
+    *hdmi*|*HDMI*) echo "HDMI" ;;
+    *Headphones*|*headphone*|*analog-stereo*) echo "3.5mm Headphone Jack" ;;
     *hifiberry*|*HiFiBerry*|*HifiBerry*) echo "HiFiBerry HAT" ;;
     *iqaudio*|*IQaudio*|*IQAudio*) echo "IQaudio HAT" ;;
+    *justboom*|*JustBoom*) echo "JustBoom HAT" ;;
+    *allo*|*Allo*) echo "Allo HAT" ;;
+    *pisound*|*Pisound*) echo "Pisound HAT" ;;
     *bluez*|*bluetooth*) echo "Bluetooth Speaker" ;;
     *usb*|*USB*) echo "USB Audio" ;;
+    *auto_null*|*dummy*) echo "(no audio device detected)" ;;
     *) echo "$name" ;;
   esac
 }
 
 while true; do
-  # Read venue code + server URL from the kiosk config.
   if [ ! -r "$CONFIG_FILE" ]; then
     sleep "$INTERVAL"
     continue
   fi
-  VENUE_CODE="$(python3 -c "import json,sys; c=json.load(open('$CONFIG_FILE')); print(c.get('venue_code',''))" 2>/dev/null)"
-  SERVER_URL="$(python3 -c "import json,sys; c=json.load(open('$CONFIG_FILE')); print(c.get('url',''))" 2>/dev/null)"
+  VENUE_CODE="$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('venue_code',''))" 2>/dev/null)"
+  SERVER_URL="$(python3 -c "import json; print(json.load(open('$CONFIG_FILE')).get('url',''))" 2>/dev/null)"
   if [ -z "$VENUE_CODE" ] || [ -z "$SERVER_URL" ]; then
     sleep "$INTERVAL"
     continue
   fi
 
-  # 1. Enumerate sinks (build a tab-separated list, then JSON-encode safely
-  #    via python3 to avoid quote/backslash injection from sink names).
+  # 1. Enumerate sinks. Build TAB-separated lines, then JSON-encode safely
+  #    via python3 to avoid quote/backslash injection from sink names.
   SINK_LINES=""
   while IFS=$'\t' read -r _ NAME _ _ _; do
     [ -z "$NAME" ] && continue
     LABEL="$(friendly_label "$NAME")"
-    SINK_LINES+="$NAME  $LABEL"$'\n'
+    SINK_LINES+="${NAME}${TAB}${LABEL}"$'\n'
   done < <(pactl list short sinks 2>/dev/null)
+
   SINKS_JSON="$(printf '%s' "$SINK_LINES" | python3 -c "
 import json, sys
 out = []
@@ -77,7 +84,7 @@ print(json.dumps(out))
 " 2>/dev/null)"
   [ -z "$SINKS_JSON" ] && SINKS_JSON="[]"
 
-  # 2. Report sinks (best-effort, ignore errors).
+  # 2. Report sinks (best-effort).
   curl -fsS -m 10 -X POST \
     -H "Content-Type: application/json" \
     -d "{\"deviceId\":\"$DEVICE_ID\",\"devices\":$SINKS_JSON}" \
@@ -85,12 +92,14 @@ print(json.dumps(out))
 
   # 3. Poll for admin-selected sink.
   RESP="$(curl -fsS -m 10 "$SERVER_URL/api/v1/venues/$VENUE_CODE/audio-sink?deviceId=$DEVICE_ID" 2>/dev/null || echo '')"
-  TARGET="$(echo "$RESP" | python3 -c "import json,sys
+  TARGET="$(echo "$RESP" | python3 -c "
+import json, sys
 try:
   d = json.load(sys.stdin)
   print(d.get('sink') or '')
 except Exception:
-  print('')" 2>/dev/null)"
+  print('')
+" 2>/dev/null)"
 
   # 4. Apply if different from current default.
   if [ -n "$TARGET" ]; then
