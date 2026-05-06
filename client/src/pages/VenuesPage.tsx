@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { MapPin, Plus, Trash2, Settings, QrCode, Tv, Copy, Check, LogOut, User, Shield, ArrowLeft, Music2, Unplug, Loader2, RefreshCw } from "lucide-react";
+import { MapPin, Plus, Trash2, Settings, QrCode, Tv, Copy, Check, LogOut, User, Shield, ArrowLeft, Music2, Unplug, Loader2, RefreshCw, Activity, Thermometer, MemoryStick, HardDrive, AlertTriangle } from "lucide-react";
 import { fetchMyVenues, createVenue, deleteVenue, fetchVenue, updateVenue, fetchQRCode, fetchListeners, fetchTeam, checkSuperAdmin, connectAppleMusic, disconnectAppleMusic } from "../lib/api";
 import { useAuth } from "../hooks/use-auth";
 import { useMusicKit } from "../hooks/useMusicKit";
@@ -371,6 +371,102 @@ export default function VenuesPage() {
                     )}
                   </button>
                 </div>
+
+                {(() => {
+                  const h: any = (venue as any).kioskHealth || {};
+                  const updatedAt = (venue as any).kioskHealthUpdatedAt as string | null;
+                  const ageSec = updatedAt ? Math.floor((Date.now() - new Date(updatedAt).getTime()) / 1000) : null;
+                  const stale = ageSec === null || ageSec > 120;
+                  const fmtAge = (s: number | null) => {
+                    if (s === null) return "never";
+                    if (s < 60) return `${s}s ago`;
+                    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+                    return `${Math.floor(s / 3600)}h ago`;
+                  };
+                  const fmtUptime = (s: number | null | undefined) => {
+                    if (s == null) return "—";
+                    if (s < 60) return `${s}s`;
+                    if (s < 3600) return `${Math.floor(s / 60)}m`;
+                    if (s < 86400) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+                    return `${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h`;
+                  };
+                  const tempColor = h.cpuTempC == null ? "text-gray-400" : h.cpuTempC >= 80 ? "text-red-400" : h.cpuTempC >= 70 ? "text-amber-400" : "text-green-400";
+                  const memColor = h.memUsedPercent == null ? "text-gray-400" : h.memUsedPercent >= 90 ? "text-red-400" : h.memUsedPercent >= 75 ? "text-amber-400" : "text-green-400";
+                  const chromeColor = h.chromiumMemMb == null ? "text-gray-400" : h.chromiumMemMb >= 1500 ? "text-red-400" : h.chromiumMemMb >= 1000 ? "text-amber-400" : "text-green-400";
+                  const hasData = updatedAt !== null;
+                  const warn = !stale && (
+                    (h.cpuTempC != null && h.cpuTempC >= 80) ||
+                    (h.memUsedPercent != null && h.memUsedPercent >= 90) ||
+                    (h.chromiumMemMb != null && h.chromiumMemMb >= 1500) ||
+                    (h.chromiumRunning === false)
+                  );
+                  return (
+                    <div className={`mb-3 p-3 bg-black/20 rounded-lg border ${warn ? "border-amber-500/40" : "border-white/5"}`} data-testid={`pi-health-${venue.code}`}>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2">
+                          <Activity className={`w-4 h-4 flex-shrink-0 ${stale ? "text-gray-500" : warn ? "text-amber-400" : "text-emerald-400"}`} />
+                          <div className="text-xs font-medium text-white">Pi Health</div>
+                          {warn && <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />}
+                        </div>
+                        <span className={`text-[10px] ${stale ? "text-gray-500" : "text-gray-400"}`}>
+                          {hasData ? fmtAge(ageSec) : "agent not installed"}
+                        </span>
+                      </div>
+                      {!hasData ? (
+                        <p className="text-[11px] text-gray-500">
+                          Update the audio agent on the Pi to enable health reporting:
+                          <code className="block mt-1 text-[10px] text-blue-300 font-mono break-all">curl -fsSL https://jukboks.com/scripts/install-audio-agent.sh | bash</code>
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
+                          <div className="flex items-center gap-1.5">
+                            <Thermometer className="w-3 h-3 text-gray-400" />
+                            <span className="text-gray-400">CPU temp</span>
+                            <span className={`ml-auto tabular-nums ${tempColor}`}>{h.cpuTempC != null ? `${h.cpuTempC}°C` : "—"}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <MemoryStick className="w-3 h-3 text-gray-400" />
+                            <span className="text-gray-400">Memory</span>
+                            <span className={`ml-auto tabular-nums ${memColor}`}>{h.memUsedPercent != null ? `${h.memUsedPercent}%` : "—"}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5" title="Total RSS across all Chromium processes">
+                            <Music2 className="w-3 h-3 text-gray-400" />
+                            <span className="text-gray-400">Chromium RAM</span>
+                            <span className={`ml-auto tabular-nums ${chromeColor}`}>
+                              {h.chromiumRunning === false ? "not running" : h.chromiumMemMb != null ? `${Math.round(h.chromiumMemMb)} MB` : "—"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <RefreshCw className="w-3 h-3 text-gray-400" />
+                            <span className="text-gray-400">Browser up</span>
+                            <span className="ml-auto tabular-nums text-gray-200">{fmtUptime(h.chromiumUptimeSeconds)}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <HardDrive className="w-3 h-3 text-gray-400" />
+                            <span className="text-gray-400">Disk used</span>
+                            <span className="ml-auto tabular-nums text-gray-200">{h.diskUsedPercent != null ? `${h.diskUsedPercent}%` : "—"}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Activity className="w-3 h-3 text-gray-400" />
+                            <span className="text-gray-400">System up</span>
+                            <span className="ml-auto tabular-nums text-gray-200">{fmtUptime(h.uptimeSeconds)}</span>
+                          </div>
+                        </div>
+                      )}
+                      {warn && (
+                        <p className="mt-2 text-[10px] text-amber-300/90">
+                          {h.chromiumRunning === false
+                            ? "Chromium is not running. The kiosk page is offline — SSH in and run the autostart, or reboot."
+                            : h.cpuTempC >= 80
+                              ? "Pi is running hot. Improve airflow or move it out of direct sun."
+                              : h.chromiumMemMb >= 1500
+                                ? "Chromium is using a lot of memory — likely leaking. Run pkill -f chromium to refresh, or wait for the 04:00 nightly restart."
+                                : "Memory is nearly full. Consider restarting Chromium soon."}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className="mb-3 p-3 bg-black/20 rounded-lg border border-white/5">
                   <div className="flex items-center justify-between gap-2">

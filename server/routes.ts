@@ -916,6 +916,48 @@ router.post("/api/v1/venues/:code/audio-devices", async (req: Request, res: Resp
 
 // Pi polls for the currently selected audio sink. Public (sink name is not
 // sensitive; venue code is the gate).
+// Pi posts system health metrics here. Public endpoint (same trust model as
+// audio-devices: venue code is the gate, metrics are non-sensitive). Capped
+// payload sizes to prevent abuse.
+router.post("/api/v1/venues/:code/health", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) return res.status(404).json({ error: "VENUE_NOT_FOUND" });
+
+    const body = req.body || {};
+    const num = (v: any, min: number, max: number): number | null => {
+      const n = typeof v === "number" ? v : Number(v);
+      if (!Number.isFinite(n)) return null;
+      if (n < min || n > max) return null;
+      return Math.round(n * 100) / 100;
+    };
+
+    const health = {
+      cpuTempC: num(body.cpuTempC, 0, 150),
+      cpuLoad1: num(body.cpuLoad1, 0, 100),
+      memUsedPercent: num(body.memUsedPercent, 0, 100),
+      memFreeMb: num(body.memFreeMb, 0, 1024 * 1024),
+      memTotalMb: num(body.memTotalMb, 0, 1024 * 1024),
+      diskUsedPercent: num(body.diskUsedPercent, 0, 100),
+      uptimeSeconds: num(body.uptimeSeconds, 0, 60 * 60 * 24 * 365 * 10),
+      chromiumMemMb: num(body.chromiumMemMb, 0, 1024 * 1024),
+      chromiumUptimeSeconds: num(body.chromiumUptimeSeconds, 0, 60 * 60 * 24 * 365),
+      chromiumRunning: typeof body.chromiumRunning === "boolean" ? body.chromiumRunning : null,
+      deviceId: typeof body.deviceId === "string" ? body.deviceId.slice(0, 100) : null,
+    };
+
+    await storage.updateVenue(venue.id, {
+      kioskHealth: health,
+      kioskHealthUpdatedAt: new Date(),
+    });
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("kiosk health error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 router.get("/api/v1/venues/:code/audio-sink", async (req: Request, res: Response) => {
   try {
     const venue = await storage.getVenueByCode(req.params.code);

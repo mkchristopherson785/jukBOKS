@@ -103,6 +103,8 @@ export const venues = pgTable("venues", {
   kioskAudioVolume: integer("kiosk_audio_volume").default(65),
   kioskAudioDevices: jsonb("kiosk_audio_devices").default([]),
   kioskAudioDevicesUpdatedAt: timestamp("kiosk_audio_devices_updated_at"),
+  kioskHealth: jsonb("kiosk_health").default({}),
+  kioskHealthUpdatedAt: timestamp("kiosk_health_updated_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({

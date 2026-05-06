@@ -4,6 +4,7 @@
 #   1. Detects available PulseAudio/PipeWire output sinks on this Pi.
 #   2. Reports them to the Jukboks server.
 #   3. Polls for the admin-selected sink and applies it as the default output.
+#   4. Reports system health (CPU temp, memory, disk, Chromium uptime).
 #
 # Runs as the desktop user (NOT root) so it shares the audio session with the
 # kiosk Chromium process. Installed as a systemd --user service.
@@ -50,6 +51,108 @@ friendly_label() {
   esac
 }
 
+# Collect system health metrics. All values JSON-safe numbers.
+collect_health() {
+  python3 - <<'PY' 2>/dev/null || echo '{}'
+import json, os, subprocess, time
+
+def read_first(path):
+  try:
+    with open(path) as f: return f.read().strip()
+  except Exception: return None
+
+def num(x, default=None):
+  try: return round(float(x), 2)
+  except Exception: return default
+
+# CPU temp (millidegree C on Pi)
+cpu_temp = None
+raw = read_first("/sys/class/thermal/thermal_zone0/temp")
+if raw:
+  try: cpu_temp = round(int(raw) / 1000.0, 1)
+  except Exception: pass
+
+# Load average
+load1 = None
+try:
+  load1 = round(os.getloadavg()[0], 2)
+except Exception: pass
+
+# Memory from /proc/meminfo (in kB)
+mem_total_kb = mem_avail_kb = None
+try:
+  with open("/proc/meminfo") as f:
+    for line in f:
+      if line.startswith("MemTotal:"): mem_total_kb = int(line.split()[1])
+      elif line.startswith("MemAvailable:"): mem_avail_kb = int(line.split()[1])
+      if mem_total_kb is not None and mem_avail_kb is not None: break
+except Exception: pass
+
+mem_total_mb = round(mem_total_kb / 1024, 1) if mem_total_kb else None
+mem_free_mb = round(mem_avail_kb / 1024, 1) if mem_avail_kb else None
+mem_used_pct = None
+if mem_total_kb and mem_avail_kb:
+  mem_used_pct = round((1 - mem_avail_kb / mem_total_kb) * 100, 1)
+
+# System uptime
+uptime_sec = None
+raw = read_first("/proc/uptime")
+if raw:
+  try: uptime_sec = int(float(raw.split()[0]))
+  except Exception: pass
+
+# Disk free on /
+disk_used_pct = None
+try:
+  s = os.statvfs("/")
+  total = s.f_blocks * s.f_frsize
+  free = s.f_bavail * s.f_frsize
+  if total > 0:
+    disk_used_pct = round((1 - free / total) * 100, 1)
+except Exception: pass
+
+# Chromium memory + uptime (sum across all chromium processes)
+chrome_mem_mb = None
+chrome_uptime = None
+chrome_running = False
+try:
+  out = subprocess.run(
+    ["ps", "-eo", "etimes=,rss=,comm="],
+    capture_output=True, text=True, timeout=5
+  ).stdout
+  total_rss = 0
+  oldest_etime = 0
+  for line in out.splitlines():
+    parts = line.strip().split(None, 2)
+    if len(parts) < 3: continue
+    etime, rss, comm = parts
+    if "chrom" in comm.lower():
+      chrome_running = True
+      try:
+        total_rss += int(rss)
+        oldest_etime = max(oldest_etime, int(etime))
+      except Exception: pass
+  if chrome_running:
+    chrome_mem_mb = round(total_rss / 1024, 1)
+    chrome_uptime = oldest_etime
+except Exception: pass
+
+print(json.dumps({
+  "cpuTempC": cpu_temp,
+  "cpuLoad1": load1,
+  "memUsedPercent": mem_used_pct,
+  "memFreeMb": mem_free_mb,
+  "memTotalMb": mem_total_mb,
+  "diskUsedPercent": disk_used_pct,
+  "uptimeSeconds": uptime_sec,
+  "chromiumMemMb": chrome_mem_mb,
+  "chromiumUptimeSeconds": chrome_uptime,
+  "chromiumRunning": chrome_running,
+}))
+PY
+}
+
+HEALTH_TICK=0
 while true; do
   if [ ! -r "$CONFIG_FILE" ]; then
     sleep "$INTERVAL"
@@ -125,6 +228,26 @@ except Exception:
     [ -n "$DEFAULT_SINK" ] && pactl set-sink-volume "$DEFAULT_SINK" "${VOLUME}%" 2>/dev/null
   fi
 
+  # 5. Report system health every 3 ticks (~30s) — enough granularity
+  #    without flooding the DB with writes.
+  HEALTH_TICK=$((HEALTH_TICK + 1))
+  if [ "$HEALTH_TICK" -ge 3 ]; then
+    HEALTH_TICK=0
+    HEALTH_JSON="$(collect_health)"
+    if [ -n "$HEALTH_JSON" ] && [ "$HEALTH_JSON" != "{}" ]; then
+      # Inject deviceId without escaping issues: trim trailing } and append.
+      PAYLOAD="$(echo "$HEALTH_JSON" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+d['deviceId'] = '$DEVICE_ID'
+print(json.dumps(d))
+" 2>/dev/null)"
+      [ -n "$PAYLOAD" ] && curl -fsS -m 10 -X POST \
+        -H "Content-Type: application/json" \
+        -d "$PAYLOAD" \
+        "$SERVER_URL/api/v1/venues/$VENUE_CODE/health" >/dev/null 2>&1 || true
+    fi
+  fi
 
   sleep "$INTERVAL"
 done
