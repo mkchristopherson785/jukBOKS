@@ -972,9 +972,15 @@ export default function KioskPage() {
             <div className="text-center w-full">
               {displayCover && (
                 <div className="mb-4 flex justify-center">
-                  <img 
-                    src={displayCover} 
-                    alt={displayTitle || "Album"} 
+                  {/* key={displayCover} forces React to fully unmount/remount the img on song
+                      change so the renderer can free the previous decoded bitmap immediately
+                      instead of caching it. decoding=async keeps the next decode off the main
+                      thread so the song change never stutters the UI. */}
+                  <img
+                    key={displayCover}
+                    src={displayCover}
+                    alt={displayTitle || "Album"}
+                    decoding="async"
                     className="w-40 h-40 rounded-2xl shadow-2xl object-cover"
                   />
                 </div>
@@ -1081,11 +1087,16 @@ export default function KioskPage() {
               }`}>
                 {displayCover && (
                   <div className="mb-6 sm:mb-12 flex justify-center">
-                    <div className="relative">
+                    {/* key={displayCover} on the wrapper unmounts both the blurred BG and the
+                        img on song change, so the renderer releases the prior song's two
+                        decoded image buffers immediately. decoding=async keeps the next
+                        song's decode off the main thread. */}
+                    <div key={displayCover} className="relative">
                       <div className="absolute inset-0 rounded-2xl sm:rounded-3xl blur-3xl opacity-30" style={{ background: `url(${displayCover}) center/cover` }} />
-                      <img 
-                        src={displayCover} 
-                        alt={displayTitle || "Album"} 
+                      <img
+                        src={displayCover}
+                        alt={displayTitle || "Album"}
+                        decoding="async"
                         className="relative w-48 h-48 sm:w-72 sm:h-72 lg:w-96 lg:h-96 rounded-2xl sm:rounded-3xl shadow-2xl object-cover"
                       />
                     </div>
