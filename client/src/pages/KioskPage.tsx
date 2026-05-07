@@ -763,27 +763,47 @@ export default function KioskPage() {
     return false; // No announcement to play
   }, [code, isPlayingAnnouncement, refetchQueue]);
 
+  // Synchronous re-entry lock for song-end. Defense-in-depth at the
+  // orchestrator level — even if MusicKitPlayer's throttle is somehow defeated
+  // (e.g. component remount, multiple instances mounting both layouts at once,
+  // an unanticipated MusicKit event), this lock guarantees we never advance
+  // the queue more than once per ~5s. Mirrors the autoPlayLockRef +
+  // urgentPlaybackLockRef pattern. setIsTransitioning is async (React state),
+  // so it cannot be relied on for synchronous gating.
+  const songEndedLockRef = useRef(false);
+
   const handleSongEnded = useCallback(async () => {
-    if (currentSong) {
-      setIsTransitioning(true);
-      setLastPlayedSong({ title: currentSong.title, artist: currentSong.artist, albumCover: currentSong.albumCover });
-      
-      markPlayedMutation.mutate(currentSong.id, {
-        onSettled: async () => {
-          setCurrentSong(null);
-          
-          // Check if we should play an announcement
-          const playingAnnouncement = await checkAndPlayAnnouncement();
-          
-          if (!playingAnnouncement) {
-            // No announcement, continue to next song
-            setIsTransitioning(false);
-            refetchQueue();
-          }
-          // If announcement is playing, it will handle transitioning when it ends
-        },
-      });
+    if (!currentSong) return;
+    if (songEndedLockRef.current) {
+      console.warn("[kiosk] handleSongEnded re-entry blocked by lock");
+      return;
     }
+    songEndedLockRef.current = true;
+    setIsTransitioning(true);
+    setLastPlayedSong({ title: currentSong.title, artist: currentSong.artist, albumCover: currentSong.albumCover });
+
+    markPlayedMutation.mutate(currentSong.id, {
+      onSettled: async () => {
+        setCurrentSong(null);
+
+        // Check if we should play an announcement
+        const playingAnnouncement = await checkAndPlayAnnouncement();
+
+        if (!playingAnnouncement) {
+          // No announcement, continue to next song
+          setIsTransitioning(false);
+          refetchQueue();
+        }
+        // If announcement is playing, it will handle transitioning when it ends
+
+        // Release the lock after a short cooldown so back-to-back skips can't
+        // cascade through the queue, but legitimate end-of-song transitions
+        // proceed normally.
+        setTimeout(() => {
+          songEndedLockRef.current = false;
+        }, 5000);
+      },
+    });
   }, [currentSong, markPlayedMutation, refetchQueue, checkAndPlayAnnouncement]);
 
   const handleSkip = useCallback(() => {
