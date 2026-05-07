@@ -48,14 +48,17 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
   const playingStartedAtRef = useRef(0);
   const lastEndedAtRef = useRef(0);
   // A track must have actually played for at least this many ms before we
-  // accept an `ended`/`completed` event. Real songs are 2-4 minutes long, so
-  // any "song ended" inside the first 15s is almost certainly a load failure
-  // (region-locked, network hiccup, token race, buffer underrun) — not a real
-  // end-of-song. Manual skips/next-track go through a separate handler, so
-  // legitimate fast advances are unaffected. We saw the cascade shrink from
-  // 10 → 5 → 3 as we tightened from 0ms → 3000ms, so the failures were ending
-  // around 3-4 seconds in. 15s gives a wide safety margin.
-  const MIN_PLAY_DURATION_MS = 15000;
+  // accept an `ended`/`completed` event. MusicKit briefly toggles `playing`
+  // (sometimes for <100ms) before bailing on a region-locked or unloadable
+  // track, which would defeat hasReachedPlayingRef alone.
+  //
+  // EMPIRICAL: shrank cascade 10 → 5 → 3 as we went 0 → 3000ms. Bumping to
+  // 15000ms made it WORSE (~20 song flash) — likely because suppressing
+  // `ended` at 15s lets MusicKit's internal queue keep auto-advancing in the
+  // background trying to find a playable track, and our state listener can't
+  // distinguish those internal track changes from our React-managed track
+  // (state event has no track identifier). 3s is the sweet spot for now.
+  const MIN_PLAY_DURATION_MS = 3000;
 
   const throttledOnEnded = useCallback(() => {
     const now = Date.now();
