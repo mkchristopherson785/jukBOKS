@@ -75,14 +75,57 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
     }
   }, [isConfigured, isAuthorized, previewUrl, usePreview, sonosEnabled]);
 
+  // Two-layer guard against the "skip cascade" bug: MusicKit can emit
+  // `completed`/`ended` state immediately when a track fails to play (token
+  // timing race at startup, region-locked song, removed track). Without
+  // these guards, that fake "song ended" event triggers onEnded → next song
+  // → which also fails → cascade through 8+ tracks in a few seconds before
+  // one finally sticks.
+  //
+  // Layer 1: hasReachedPlayingRef — only honor `completed/ended` if the
+  //   track actually entered `playing` state at some point. Resets per
+  //   trackId so a real song-end fires correctly.
+  // Layer 2: 5s throttle — defense in depth. Even if layer 1 misses
+  //   somehow, we cap auto-advance at one skip per 5 seconds, turning a
+  //   cascade of 8 in 2 seconds into a slow single-skip-per-5s loop that's
+  //   visible/diagnosable instead of invisible/catastrophic.
+  const hasReachedPlayingRef = useRef(false);
+  const lastEndedAtRef = useRef(0);
+  useEffect(() => {
+    // Reset the "did this track actually play" flag whenever the track
+    // changes, so a fresh trackId starts with a clean slate.
+    hasReachedPlayingRef.current = false;
+  }, [trackId]);
+
   useEffect(() => {
     if (!musicKit || !trackId || usePreview) return;
 
     const handleStateChange = (event: any) => {
+      if (event.state === window.MusicKit.PlaybackStates.playing) {
+        hasReachedPlayingRef.current = true;
+      }
       if (
         event.state === window.MusicKit.PlaybackStates.completed ||
         event.state === window.MusicKit.PlaybackStates.ended
       ) {
+        if (!hasReachedPlayingRef.current) {
+          console.warn(
+            `[kiosk] MusicKit reported ${event.state} for ${trackId} without ever reaching 'playing'. ` +
+            `Ignoring to prevent skip cascade — track likely failed to load (region-locked, ` +
+            `removed, or token not yet applied).`
+          );
+          return;
+        }
+        const now = Date.now();
+        if (now - lastEndedAtRef.current < 5000) {
+          console.warn(
+            `[kiosk] Suppressing onEnded — only ${now - lastEndedAtRef.current}ms since last skip. ` +
+            `Possible cascade.`
+          );
+          return;
+        }
+        lastEndedAtRef.current = now;
+        hasReachedPlayingRef.current = false;
         onEnded?.();
       }
     };
