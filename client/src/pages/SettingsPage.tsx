@@ -290,7 +290,7 @@ export default function SettingsPage() {
   });
 
   const addAnnouncementMutation = useMutation({
-    mutationFn: ({ groupId, data }: { groupId: number; data: { name: string; audioUrl: string } }) => 
+    mutationFn: ({ groupId, data }: { groupId: number; data: { name: string; audioUrl: string; imageUrl?: string | null } }) => 
       addAnnouncementToGroup(selectedVenue!.id, groupId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["announcement-groups", selectedVenue?.id] });
