@@ -45,7 +45,14 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
   // the underlying source fails to load, and without a single shared throttle
   // a cascade rips through 8-10 songs in seconds.
   const hasReachedPlayingRef = useRef(false);
+  const playingStartedAtRef = useRef(0);
   const lastEndedAtRef = useRef(0);
+  // A track must have actually played for at least this many ms before we
+  // accept an `ended`/`completed` event. MusicKit briefly toggles `playing`
+  // (sometimes for <100ms) before bailing on a region-locked or unloadable
+  // track, which would defeat hasReachedPlayingRef alone. 3s is short enough
+  // that real seeks/skips work, long enough to filter out token-race failures.
+  const MIN_PLAY_DURATION_MS = 3000;
 
   const throttledOnEnded = useCallback(() => {
     const now = Date.now();
@@ -73,19 +80,25 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
       // Closure-scoped flags per audio instance — never use shared refs here,
       // because a stale `ended` from a previous Audio object must NOT see
       // flags set by a newer instance (would re-trigger the cascade).
-      let started = false;
+      let startedAt = 0;
       let disposed = false;
       const onPlaying = () => {
         if (disposed) return;
-        started = true;
+        if (startedAt === 0) startedAt = Date.now();
       };
       const onAudioEnded = () => {
         if (disposed) return;
         setPreviewPlaying(false);
-        if (!started) {
+        if (startedAt === 0) {
           console.warn(
-            `[kiosk] Preview reported 'ended' without ever 'playing'. Ignoring — ` +
-            `URL likely failed to load: ${previewUrl}`
+            `[kiosk] Preview 'ended' without ever 'playing'. Ignoring — URL likely failed: ${previewUrl}`
+          );
+          return;
+        }
+        const playedFor = Date.now() - startedAt;
+        if (playedFor < MIN_PLAY_DURATION_MS) {
+          console.warn(
+            `[kiosk] Preview 'ended' after only ${playedFor}ms. Ignoring — likely failed to stream: ${previewUrl}`
           );
           return;
         }
@@ -139,9 +152,10 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
   // Both refs are declared above (alongside the preview-path guards) so the
   // throttle is shared across MusicKit + preview + any future audio source.
   useEffect(() => {
-    // Reset the "did this track actually play" flag whenever the track
-    // changes, so a fresh trackId starts with a clean slate.
+    // Reset per-track playback state whenever trackId changes so a fresh
+    // track starts with a clean slate.
     hasReachedPlayingRef.current = false;
+    playingStartedAtRef.current = 0;
   }, [trackId]);
 
   useEffect(() => {
@@ -149,7 +163,10 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
 
     const handleStateChange = (event: any) => {
       if (event.state === window.MusicKit.PlaybackStates.playing) {
-        hasReachedPlayingRef.current = true;
+        if (!hasReachedPlayingRef.current) {
+          hasReachedPlayingRef.current = true;
+          playingStartedAtRef.current = Date.now();
+        }
       }
       if (
         event.state === window.MusicKit.PlaybackStates.completed ||
@@ -158,8 +175,15 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
         if (!hasReachedPlayingRef.current) {
           console.warn(
             `[kiosk] MusicKit reported ${event.state} for ${trackId} without ever reaching 'playing'. ` +
-            `Ignoring to prevent skip cascade — track likely failed to load (region-locked, ` +
-            `removed, or token not yet applied).`
+            `Ignoring — track likely failed to load (region-locked, removed, or token not yet applied).`
+          );
+          return;
+        }
+        const playedFor = Date.now() - playingStartedAtRef.current;
+        if (playedFor < MIN_PLAY_DURATION_MS) {
+          console.warn(
+            `[kiosk] MusicKit reported ${event.state} for ${trackId} after only ${playedFor}ms of playback. ` +
+            `Ignoring — track briefly toggled 'playing' then bailed (likely region-locked or unloadable).`
           );
           return;
         }
