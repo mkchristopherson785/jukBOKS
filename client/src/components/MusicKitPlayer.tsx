@@ -27,6 +27,7 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
     playSong,
     pause,
     stop,
+    releasePlayer,
     musicKit,
   } = useMusicKit();
 
@@ -119,8 +120,16 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
     if (!trackId) {
       currentlyPlayingTrackRef.current = null;
       sonosTrackRef.current = null;
+      // Between songs: release MusicKit's internal player references so the
+      // prior song's audio buffers + nowPlayingItem + queue items can be GC'd
+      // before the next song's setQueue() allocates new ones. Defensive — all
+      // failures are swallowed inside releasePlayer so playback never breaks.
+      // Skip in Sonos/preview modes which don't use MusicKit's full player.
+      if (!usePreview && !sonosEnabled) {
+        releasePlayer();
+      }
     }
-  }, [trackId]);
+  }, [trackId, usePreview, sonosEnabled, releasePlayer]);
 
   const handleAuthorize = async () => {
     const success = await authorize();

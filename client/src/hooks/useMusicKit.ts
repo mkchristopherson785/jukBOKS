@@ -187,6 +187,26 @@ export function useMusicKit() {
     setState(prev => ({ ...prev, isPlaying: false, currentTrackId: null }));
   }, []);
 
+  // Aggressive between-songs cleanup. MusicKit JS holds decoded audio buffers,
+  // the nowPlayingItem (with artwork + metadata), and the queue items in
+  // memory. setQueue() replaces but doesn't always release prior buffers
+  // promptly — over hundreds of songs the renderer slowly bloats and
+  // eventually crashes ("Aw Snap"). Call this when a song finishes and the
+  // next hasn't started yet (MusicKit is in `completed` state, so stop() is
+  // a no-op for playback but releases the player's internal references).
+  // Every step is wrapped because MusicKit's internal API surface varies
+  // between v1 and v3 — we never want a missing method to break playback.
+  const releasePlayer = useCallback(async () => {
+    const mk = musicKitRef.current;
+    if (!mk) return;
+    try { await mk.stop(); } catch {}
+    // v3 exposes clearQueue() directly; v1 exposes player.queue.removeAll()
+    try { if (typeof mk.clearQueue === "function") await mk.clearQueue(); } catch {}
+    try { mk.player?.queue?.removeAll?.(); } catch {}
+    try { mk.queue?.removeAll?.(); } catch {}
+    setState(prev => ({ ...prev, isPlaying: false, currentTrackId: null }));
+  }, []);
+
   const skipToNext = useCallback(async () => {
     if (!musicKitRef.current) return;
     try {
@@ -243,6 +263,7 @@ export function useMusicKit() {
     playSong,
     pause,
     stop,
+    releasePlayer,
     skipToNext,
     onPlaybackEnded,
     seekToTime,
