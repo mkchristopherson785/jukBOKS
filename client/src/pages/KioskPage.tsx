@@ -460,8 +460,19 @@ export default function KioskPage() {
     },
   });
 
+  // Synchronous re-entry lock for auto-play. Three different effects can call
+  // triggerAutoPlay (initial load, "no current song" watcher, and playNextSong
+  // when queue is empty). React state (isAutoPlaying) updates async, so all
+  // three could fire in the same tick before the state propagates — each one
+  // races in, hits POST /auto-play, and the server adds a backup song. Net
+  // effect: 8+ songs piled into the queue before any actually plays. This ref
+  // flips synchronously so the second caller bails immediately. Same pattern
+  // already used by urgentPlaybackLockRef.
+  const autoPlayLockRef = useRef(false);
+
   const triggerAutoPlay = useCallback(async (): Promise<boolean> => {
-    if (isAutoPlaying) return false;
+    if (autoPlayLockRef.current) return false;
+    autoPlayLockRef.current = true;
     setIsAutoPlaying(true);
     try {
       console.log("Triggering auto-play for venue:", code);
@@ -482,9 +493,14 @@ export default function KioskPage() {
       console.error("Auto-play error:", error);
       return false;
     } finally {
-      setTimeout(() => setIsAutoPlaying(false), 3000);
+      // 3s cooldown matches the existing isAutoPlaying delay — gives the queue
+      // refetch + render cycle time to complete before another auto-play can fire.
+      setTimeout(() => {
+        autoPlayLockRef.current = false;
+        setIsAutoPlaying(false);
+      }, 3000);
     }
-  }, [code, refetchQueue, isAutoPlaying]);
+  }, [code, refetchQueue]);
 
   // Track auto-play attempts for initial load
   const [autoPlayAttempts, setAutoPlayAttempts] = useState(0);
