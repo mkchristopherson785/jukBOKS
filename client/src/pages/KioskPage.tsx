@@ -287,6 +287,34 @@ export default function KioskPage() {
     return () => clearInterval(interval);
   }, [triggerReload]);
 
+  // Memory-based watchdog: reload when JS heap exceeds ?memReloadMb=N (default
+  // 0 = off). Self-correcting defense against MusicKit JS leaks: instead of
+  // guessing the right time/song interval, we react to the ACTUAL pressure.
+  // Polite by default (only between songs); ?memHardReloadMb=N forces a
+  // reload mid-song if the heap blows past that ceiling. Uses Chromium's
+  // non-standard performance.memory API (kiosk runs Chromium, so it's safe).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const perfMem = (performance as any).memory;
+    if (!perfMem) return; // Non-Chromium browser, skip silently.
+    const params = new URLSearchParams(window.location.search);
+    const politeMb = parseInt(params.get("memReloadMb") || "0", 10) || 0;
+    const hardMb = parseInt(params.get("memHardReloadMb") || "0", 10) || 0;
+    if (!politeMb && !hardMb) return;
+    const interval = setInterval(() => {
+      const heapMb = Math.round((perfMem.usedJSHeapSize || 0) / (1024 * 1024));
+      const { isPlaying: playing, isPlayingAnnouncement: announcing } = playbackStateRef.current;
+      if (hardMb && heapMb >= hardMb) {
+        triggerReload(`JS heap ${heapMb}MB hit HARD memory ceiling ${hardMb}MB`);
+        return;
+      }
+      if (politeMb && heapMb >= politeMb && !playing && !announcing) {
+        triggerReload(`JS heap ${heapMb}MB exceeded ${politeMb}MB, between songs`);
+      }
+    }, 15 * 1000);
+    return () => clearInterval(interval);
+  }, [triggerReload]);
+
   // Send heartbeat every 30 seconds when kiosk is running
   useEffect(() => {
     if (!code || isDisplayOnly) return;
