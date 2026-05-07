@@ -38,6 +38,29 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
   const currentlyPlayingTrackRef = useRef<string | null>(null);
   const sonosTrackRef = useRef<string | null>(null);
 
+  // Shared throttle + "did this track actually play" refs. Used by both the
+  // MusicKit path (further down) and the preview-audio path here. See the long
+  // comment on the MusicKit listener for full rationale on the skip-cascade
+  // bug — short version: both paths can emit a fake `ended` immediately when
+  // the underlying source fails to load, and without a single shared throttle
+  // a cascade rips through 8-10 songs in seconds.
+  const hasReachedPlayingRef = useRef(false);
+  const lastEndedAtRef = useRef(0);
+
+  const throttledOnEnded = useCallback(() => {
+    const now = Date.now();
+    if (now - lastEndedAtRef.current < 5000) {
+      console.warn(
+        `[kiosk] Suppressing onEnded — only ${now - lastEndedAtRef.current}ms since last skip. ` +
+        `Possible cascade.`
+      );
+      return;
+    }
+    lastEndedAtRef.current = now;
+    hasReachedPlayingRef.current = false;
+    onEnded?.();
+  }, [onEnded]);
+
   // Notify parent of playing state changes
   useEffect(() => {
     const currentlyPlaying = isPlaying || previewPlaying || sonosPlaying;
@@ -47,22 +70,51 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
   useEffect(() => {
     if (previewUrl && usePreview) {
       const audio = new Audio(previewUrl);
-      audio.addEventListener("ended", () => {
+      // Closure-scoped flags per audio instance — never use shared refs here,
+      // because a stale `ended` from a previous Audio object must NOT see
+      // flags set by a newer instance (would re-trigger the cascade).
+      let started = false;
+      let disposed = false;
+      const onPlaying = () => {
+        if (disposed) return;
+        started = true;
+      };
+      const onAudioEnded = () => {
+        if (disposed) return;
         setPreviewPlaying(false);
-        onEnded?.();
-      });
+        if (!started) {
+          console.warn(
+            `[kiosk] Preview reported 'ended' without ever 'playing'. Ignoring — ` +
+            `URL likely failed to load: ${previewUrl}`
+          );
+          return;
+        }
+        throttledOnEnded();
+      };
+      const onError = () => {
+        if (disposed) return;
+        console.warn(`[kiosk] Preview audio error, ignoring (no cascade): ${previewUrl}`);
+        setPreviewPlaying(false);
+      };
+      audio.addEventListener("playing", onPlaying);
+      audio.addEventListener("ended", onAudioEnded);
+      audio.addEventListener("error", onError);
       setPreviewAudio(audio);
       audio.play()
-        .then(() => setPreviewPlaying(true))
+        .then(() => { if (!disposed) setPreviewPlaying(true); })
         .catch((err) => {
           console.warn("Preview autoplay blocked, will need user interaction:", err.message);
         });
       return () => {
+        disposed = true;
+        audio.removeEventListener("playing", onPlaying);
+        audio.removeEventListener("ended", onAudioEnded);
+        audio.removeEventListener("error", onError);
         audio.pause();
         audio.src = "";
       };
     }
-  }, [previewUrl, usePreview, onEnded]);
+  }, [previewUrl, usePreview, trackId, throttledOnEnded]);
   
   // Auto-fallback to preview mode if MusicKit is configured but not authorized after a delay
   useEffect(() => {
@@ -75,22 +127,17 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
     }
   }, [isConfigured, isAuthorized, previewUrl, usePreview, sonosEnabled]);
 
-  // Two-layer guard against the "skip cascade" bug: MusicKit can emit
-  // `completed`/`ended` state immediately when a track fails to play (token
-  // timing race at startup, region-locked song, removed track). Without
-  // these guards, that fake "song ended" event triggers onEnded → next song
-  // → which also fails → cascade through 8+ tracks in a few seconds before
-  // one finally sticks.
-  //
-  // Layer 1: hasReachedPlayingRef — only honor `completed/ended` if the
-  //   track actually entered `playing` state at some point. Resets per
-  //   trackId so a real song-end fires correctly.
-  // Layer 2: 5s throttle — defense in depth. Even if layer 1 misses
-  //   somehow, we cap auto-advance at one skip per 5 seconds, turning a
-  //   cascade of 8 in 2 seconds into a slow single-skip-per-5s loop that's
-  //   visible/diagnosable instead of invisible/catastrophic.
-  const hasReachedPlayingRef = useRef(false);
-  const lastEndedAtRef = useRef(0);
+  // Skip-cascade bug: MusicKit can emit `completed`/`ended` state immediately
+  // when a track fails to play (token timing race at startup, region-locked
+  // song, removed track). Without guards, that fake "song ended" event
+  // triggers onEnded → next song → which also fails → cascade through 8+
+  // tracks in a few seconds before one finally sticks. Two layers:
+  //   Layer 1: hasReachedPlayingRef — only honor `completed/ended` if the
+  //     track actually entered `playing` state at some point. Resets per
+  //     trackId so a real song-end fires correctly.
+  //   Layer 2: 5s throttle inside throttledOnEnded — defense in depth.
+  // Both refs are declared above (alongside the preview-path guards) so the
+  // throttle is shared across MusicKit + preview + any future audio source.
   useEffect(() => {
     // Reset the "did this track actually play" flag whenever the track
     // changes, so a fresh trackId starts with a clean slate.
@@ -116,17 +163,7 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
           );
           return;
         }
-        const now = Date.now();
-        if (now - lastEndedAtRef.current < 5000) {
-          console.warn(
-            `[kiosk] Suppressing onEnded — only ${now - lastEndedAtRef.current}ms since last skip. ` +
-            `Possible cascade.`
-          );
-          return;
-        }
-        lastEndedAtRef.current = now;
-        hasReachedPlayingRef.current = false;
-        onEnded?.();
+        throttledOnEnded();
       }
     };
 
@@ -134,7 +171,7 @@ export function MusicKitPlayer({ trackId, onEnded, onSkip, previewUrl, hideContr
     return () => {
       musicKit.removeEventListener("playbackStateDidChange", handleStateChange);
     };
-  }, [musicKit, trackId, onEnded, usePreview]);
+  }, [musicKit, trackId, throttledOnEnded, usePreview]);
 
   useEffect(() => {
     if (sonosEnabled && venueCode && trackId && !usePreview) {
