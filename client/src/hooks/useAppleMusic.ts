@@ -34,11 +34,10 @@ export function useAppleMusic() {
   // artist-mode response when the user switches tabs (or types fast).
   const requestIdRef = useRef(0);
 
-  // Map iTunes search mode → attribute. Song mode is now explicit (songTerm)
-  // so default behavior matches the label: it really does match the *title*
-  // field, not artist/album/composer.
-  const attrFor = (mode: SearchMode) =>
-    mode === "artist" ? "&attribute=artistTerm" : "&attribute=songTerm";
+  // Server-side mode param. Artist mode triggers a two-stage lookup
+  // (find top artist match → fetch their songs), since iTunes Search
+  // ignores attribute=artistTerm for song-entity searches.
+  const modeParam = (mode: SearchMode) => `&mode=${mode}`;
 
   const searchTracks = useCallback(async (query: string, mode: SearchMode = "song") => {
     if (!query.trim()) {
@@ -56,7 +55,7 @@ export function useAppleMusic() {
     
     try {
       const response = await fetch(
-        `/api/apple-music/search?term=${encodeURIComponent(query)}&limit=${RESULTS_PER_PAGE}&offset=0${attrFor(mode)}`
+        `/api/apple-music/search?term=${encodeURIComponent(query)}&limit=${RESULTS_PER_PAGE}&offset=0${modeParam(mode)}`
       );
       // Stale response — a newer query/mode has already been requested.
       if (myRequestId !== requestIdRef.current) return;
@@ -98,7 +97,7 @@ export function useAppleMusic() {
     setIsLoadingMore(true);
     try {
       const response = await fetch(
-        `/api/apple-music/search?term=${encodeURIComponent(currentQueryRef.current)}&limit=${RESULTS_PER_PAGE}&offset=${offsetRef.current}${attrFor(currentModeRef.current)}`
+        `/api/apple-music/search?term=${encodeURIComponent(currentQueryRef.current)}&limit=${RESULTS_PER_PAGE}&offset=${offsetRef.current}${modeParam(currentModeRef.current)}`
       );
       const data = await response.json();
 

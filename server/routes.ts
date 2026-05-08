@@ -336,23 +336,48 @@ router.get("/api/v1/tracks/:trackId/similar", async (req: Request, res: Response
 
 // Proxy endpoint for iTunes search (avoids CORS issues on mobile)
 router.get("/api/apple-music/search", async (req: Request, res: Response) => {
-  const { term, limit = "20", offset = "0", attribute } = req.query;
+  const { term, limit = "20", offset = "0", mode } = req.query;
   
   if (!term || typeof term !== "string") {
     return res.status(400).json({ error: "Search term required" });
   }
   
+  const limitNum = Math.max(1, Math.min(parseInt(limit as string) || 20, 200));
+  const offsetNum = Math.max(0, parseInt(offset as string) || 0);
+  
   try {
-    // Whitelist iTunes search attributes so guests can choose to search by
-    // song title (default — no attribute) or artist name (attribute=artistTerm).
-    // Artist mode still returns song results (entity=song) so guests can tap
-    // straight through to request — they just see only tracks where the
-    // searched name matches the *artist* field, not the title.
-    let url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=${limit}&offset=${offset}`;
-    if (attribute === "artistTerm" || attribute === "songTerm") {
-      url += `&attribute=${attribute}`;
+    // Artist mode: iTunes Search ignores attribute=artistTerm on song
+    // entities (returns the same blended song-title-or-artist results), so
+    // we do a real two-stage lookup: find the top matching artist, then
+    // fetch their songs via the Lookup API. The Lookup API doesn't support
+    // offset, so we fetch (offset + limit) songs and slice client-side. Cap
+    // hard at 200 to avoid abusive payloads.
+    if (mode === "artist") {
+      const artistResp = await fetch(
+        `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=musicArtist&limit=1`
+      );
+      const artistData = await artistResp.json();
+      const artist = (artistData.results || [])[0];
+      if (!artist || !artist.artistId) {
+        return res.json({ resultCount: 0, results: [] });
+      }
+      const fetchN = Math.min(offsetNum + limitNum + 1, 200);
+      const songResp = await fetch(
+        `https://itunes.apple.com/lookup?id=${artist.artistId}&entity=song&limit=${fetchN}`
+      );
+      const songData = await songResp.json();
+      // Lookup returns the artist record as the first item; filter to tracks.
+      const tracks = (songData.results || []).filter(
+        (r: any) => r.wrapperType === "track" && r.kind === "song"
+      );
+      const slice = tracks.slice(offsetNum, offsetNum + limitNum);
+      return res.json({ resultCount: slice.length, results: slice });
     }
-    const response = await fetch(url);
+    
+    // Song mode (default).
+    const response = await fetch(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=${limitNum}&offset=${offsetNum}`
+    );
     const data = await response.json();
     res.json(data);
   } catch (error) {
