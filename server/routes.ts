@@ -958,6 +958,28 @@ router.post("/api/v1/venues/:code/health", async (req: Request, res: Response) =
   }
 });
 
+// Public read of the most recent kiosk health payload + heartbeat age. Used
+// by the audio-only kiosk render to display Pi diagnostics on its own screen
+// (so a tech plugging in a monitor sees CPU/mem/Chromium stats without
+// needing the admin UI). Same trust model as audio-sink: venue code is the
+// gate, metrics are non-sensitive operational data.
+router.get("/api/v1/venues/:code/kiosk-health", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) return res.status(404).json({ error: "VENUE_NOT_FOUND" });
+    const updatedAt = (venue as any).kioskHealthUpdatedAt as Date | null;
+    const ageSeconds = updatedAt ? Math.floor((Date.now() - new Date(updatedAt).getTime()) / 1000) : null;
+    res.json({
+      health: (venue as any).kioskHealth || null,
+      updatedAt: updatedAt ? new Date(updatedAt).toISOString() : null,
+      ageSeconds,
+    });
+  } catch (error) {
+    console.error("kiosk-health get error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 router.get("/api/v1/venues/:code/audio-sink", async (req: Request, res: Response) => {
   try {
     const venue = await storage.getVenueByCode(req.params.code);

@@ -1002,36 +1002,32 @@ export default function KioskPage() {
     </div>
   ) : null;
 
-  // Audio-only render: black screen + MusicKitPlayer + announcement audio.
-  // Deliberately renders nothing visual so the renderer process doesn't have
-  // to decode album art, animate transitions, or hold queue/QR DOM in memory.
-  // All the auto-play / song-end / announcement effects above still run, so
-  // the Pi behaves identically to a normal kiosk from the server's POV — the
-  // only difference is what's drawn on screen (which on a headless Pi nobody
-  // sees anyway).
+  // Audio-only render: keeps MusicKitPlayer + all orchestration effects but
+  // skips heavy visuals (album art, animations, queue, QR, logo). On a normally
+  // headless Pi nobody sees this screen, but if a tech plugs in a monitor for
+  // diagnostics we may as well show useful info — render the Pi health stats
+  // (CPU temp, memory, Chromium RSS, uptimes) the agent has been reporting.
+  // Same color thresholds as the admin VenuesPage card so the same intuition
+  // applies. Falls back to "agent not reporting" when no data has come in.
   if (isAudioOnly) {
     return (
-      <div className="min-h-screen bg-black text-white/40 font-mono text-xs p-2">
-        <MusicKitPlayer
-          trackId={currentSong?.trackId || null}
-          previewUrl={displayPreview}
-          onEnded={handleSongEnded}
-          onSkip={handleSkip}
-          hideControls
-          onTogglePlay={(handler) => setTogglePlayHandler(() => handler)}
-          onSkipHandler={(handler) => setSkipHandler(() => handler)}
-          onPlayingChange={setIsPlaying}
-          trackName={currentSong?.title}
-          venueCode={code}
-          sonosEnabled={false}
-        />
-        <div data-testid="audio-only-status">
-          audio-only · {venue?.name || code}
-          {isPlayingAnnouncement && currentAnnouncement ? ` · announcement: ${currentAnnouncement.name}` : ""}
-          {!isPlayingAnnouncement && displayTitle ? ` · ${displayTitle} — ${displayArtist}` : ""}
-          {!isPaired && pairingCode ? ` · pair code: ${pairingCode}` : ""}
-        </div>
-      </div>
+      <AudioOnlyKioskView
+        code={code}
+        venue={venue}
+        currentSong={currentSong}
+        displayPreview={displayPreview}
+        displayTitle={displayTitle}
+        displayArtist={displayArtist}
+        handleSongEnded={handleSongEnded}
+        handleSkip={handleSkip}
+        setTogglePlayHandler={setTogglePlayHandler}
+        setSkipHandler={setSkipHandler}
+        setIsPlaying={setIsPlaying}
+        isPlayingAnnouncement={isPlayingAnnouncement}
+        currentAnnouncement={currentAnnouncement}
+        isPaired={isPaired}
+        pairingCode={pairingCode}
+      />
     );
   }
 
@@ -1340,6 +1336,155 @@ export default function KioskPage() {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Stat row with color-coded value matching admin VenuesPage thresholds.
+function HealthRow({ label, value, status }: { label: string; value: string; status?: "ok" | "warn" | "bad" | "muted" }) {
+  const color =
+    status === "bad" ? "text-red-400"
+    : status === "warn" ? "text-amber-400"
+    : status === "muted" ? "text-white/30"
+    : "text-emerald-400";
+  return (
+    <div className="flex justify-between gap-4 py-0.5">
+      <span className="text-white/50">{label}</span>
+      <span className={color}>{value}</span>
+    </div>
+  );
+}
+
+function fmtUptime(sec: number | null): string {
+  if (sec == null) return "—";
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function AudioOnlyKioskView(props: {
+  code: string | undefined;
+  venue: any;
+  currentSong: any;
+  displayPreview: string | undefined;
+  displayTitle: string;
+  displayArtist: string;
+  handleSongEnded: () => void;
+  handleSkip: () => void;
+  setTogglePlayHandler: (h: any) => void;
+  setSkipHandler: (h: any) => void;
+  setIsPlaying: (b: boolean) => void;
+  isPlayingAnnouncement: boolean;
+  currentAnnouncement: { id: number; name: string; audioUrl: string; imageUrl?: string | null } | null;
+  isPaired: boolean;
+  pairingCode: string | null;
+}) {
+  const {
+    code, venue, currentSong, displayPreview, displayTitle, displayArtist,
+    handleSongEnded, handleSkip, setTogglePlayHandler, setSkipHandler, setIsPlaying,
+    isPlayingAnnouncement, currentAnnouncement, isPaired, pairingCode,
+  } = props;
+
+  // Poll the public health endpoint every 30s — same cadence the agent reports.
+  const { data: healthData } = useQuery<{ health: any; updatedAt: string | null; ageSeconds: number | null }>({
+    queryKey: ["kiosk-health-self", code],
+    queryFn: async () => {
+      const r = await fetch(`/api/v1/venues/${code}/kiosk-health`);
+      if (!r.ok) throw new Error("health fetch failed");
+      return r.json();
+    },
+    enabled: !!code,
+    refetchInterval: 30000,
+    staleTime: 25000,
+  });
+
+  const h = healthData?.health;
+  const ageSec = healthData?.ageSeconds ?? null;
+  const stale = ageSec != null && ageSec > 120; // >2min = agent likely silent
+
+  const tempStatus = h?.cpuTempC == null ? "muted" : h.cpuTempC >= 80 ? "bad" : h.cpuTempC >= 70 ? "warn" : "ok";
+  const memStatus = h?.memUsedPercent == null ? "muted" : h.memUsedPercent >= 90 ? "bad" : h.memUsedPercent >= 75 ? "warn" : "ok";
+  const chromiumStatus = h?.chromiumMemMb == null ? "muted" : h.chromiumMemMb >= 1500 ? "bad" : h.chromiumMemMb >= 1000 ? "warn" : "ok";
+  const diskStatus = h?.diskUsedPercent == null ? "muted" : h.diskUsedPercent >= 90 ? "bad" : h.diskUsedPercent >= 75 ? "warn" : "ok";
+  const ageStatus = ageSec == null ? "muted" : ageSec > 120 ? "bad" : ageSec > 60 ? "warn" : "ok";
+
+  return (
+    <div className="min-h-screen bg-black text-white font-mono p-4 sm:p-6 flex flex-col gap-4">
+      <MusicKitPlayer
+        trackId={currentSong?.trackId || null}
+        previewUrl={displayPreview}
+        onEnded={handleSongEnded}
+        onSkip={handleSkip}
+        hideControls
+        onTogglePlay={(handler) => setTogglePlayHandler(() => handler)}
+        onSkipHandler={(handler) => setSkipHandler(() => handler)}
+        onPlayingChange={setIsPlaying}
+        trackName={currentSong?.title}
+        venueCode={code}
+        sonosEnabled={false}
+      />
+
+      {/* Header */}
+      <div className="flex items-baseline justify-between border-b border-white/10 pb-2">
+        <div className="text-sm sm:text-base font-semibold text-white/90">
+          {venue?.name || code} <span className="text-white/40">· audio-only</span>
+        </div>
+        <div className="text-[10px] sm:text-xs text-white/40">jukboks.com/kiosk/{code}</div>
+      </div>
+
+      {/* Pairing banner */}
+      {!isPaired && pairingCode && (
+        <div className="bg-amber-900/40 border border-amber-700/50 rounded p-3 text-amber-200 text-sm">
+          Apple Music not paired. Visit <span className="font-bold">jukboks.com/pair</span> · code <span className="font-mono text-lg tracking-widest">{pairingCode}</span>
+        </div>
+      )}
+
+      {/* Now playing */}
+      <div className="text-xs sm:text-sm">
+        <div className="text-white/40 mb-1">Now playing</div>
+        <div className="text-white truncate">
+          {isPlayingAnnouncement && currentAnnouncement
+            ? `📢 ${currentAnnouncement.name}`
+            : displayTitle
+              ? `${displayTitle} — ${displayArtist}`
+              : "(idle)"}
+        </div>
+      </div>
+
+      {/* Pi health */}
+      <div className="text-xs sm:text-sm">
+        <div className="flex items-baseline justify-between mb-1">
+          <span className="text-white/40">Pi health</span>
+          <span className={`text-[10px] ${stale ? "text-red-400" : "text-white/30"}`}>
+            {ageSec == null ? "no data ever" : stale ? `agent silent ${fmtUptime(ageSec)}` : `updated ${ageSec}s ago`}
+          </span>
+        </div>
+        {h ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+            <HealthRow label="CPU temp" value={h.cpuTempC != null ? `${h.cpuTempC}°C` : "—"} status={tempStatus} />
+            <HealthRow label="CPU load (1m)" value={h.cpuLoad1 != null ? `${h.cpuLoad1}` : "—"} status="ok" />
+            <HealthRow label="Memory used" value={h.memUsedPercent != null ? `${h.memUsedPercent}% (${Math.round((h.memTotalMb ?? 0) - (h.memFreeMb ?? 0))} / ${Math.round(h.memTotalMb ?? 0)} MB)` : "—"} status={memStatus} />
+            <HealthRow label="Disk used" value={h.diskUsedPercent != null ? `${h.diskUsedPercent}%` : "—"} status={diskStatus} />
+            <HealthRow label="Chromium RSS" value={h.chromiumMemMb != null ? `${Math.round(h.chromiumMemMb)} MB` : "—"} status={chromiumStatus} />
+            <HealthRow label="Chromium uptime" value={fmtUptime(h.chromiumUptimeSeconds)} status={h.chromiumRunning === false ? "bad" : "ok"} />
+            <HealthRow label="System uptime" value={fmtUptime(h.uptimeSeconds)} status="ok" />
+            <HealthRow label="Heartbeat age" value={ageSec != null ? `${ageSec}s` : "—"} status={ageStatus} />
+          </div>
+        ) : (
+          <div className="text-white/30 italic">
+            Audio agent has not reported. Install with:<br />
+            <span className="text-white/50">curl -fsSL https://jukboks.com/scripts/install-audio-agent.sh | bash</span>
+          </div>
+        )}
+      </div>
+
+      <div className="text-[10px] text-white/30 mt-auto pt-4 border-t border-white/10">
+        Audio-only mode renders no album art / queue / animations to minimize renderer memory.
+        Display lives separately at <span className="text-white/50">/kiosk/{code}?display=true</span>.
       </div>
     </div>
   );
