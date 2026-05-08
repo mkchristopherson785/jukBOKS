@@ -449,7 +449,7 @@ export default function VenuesPage() {
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2">
                           <Activity className={`w-4 h-4 flex-shrink-0 ${stale ? "text-gray-500" : warn ? "text-amber-400" : "text-emerald-400"}`} />
-                          <div className="text-xs font-medium text-white">Pi Health</div>
+                          <div className="text-xs font-medium text-white">Kiosk Health</div>
                           {warn && <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />}
                         </div>
                         <span className={`text-[10px] ${stale ? "text-gray-500" : "text-gray-400"}`}>
@@ -458,8 +458,9 @@ export default function VenuesPage() {
                       </div>
                       {!hasData ? (
                         <p className="text-[11px] text-gray-500">
-                          Update the audio agent on the Pi to enable health reporting:
-                          <code className="block mt-1 text-[10px] text-blue-300 font-mono break-all">curl -fsSL https://jukboks.com/scripts/install-audio-agent.sh | bash</code>
+                          Install (or re-install) the audio agent on the kiosk machine to enable health reporting:
+                          <code className="block mt-1 text-[10px] text-blue-300 font-mono break-all">Mac: curl -fsSL https://jukboks.com/scripts/install-mac-audio-agent.sh | bash</code>
+                          <code className="block mt-1 text-[10px] text-blue-300 font-mono break-all">Pi:  curl -fsSL https://jukboks.com/scripts/install-audio-agent.sh | bash</code>
                         </p>
                       ) : (
                         <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-[11px]">
@@ -500,12 +501,12 @@ export default function VenuesPage() {
                       {warn && (
                         <p className="mt-2 text-[10px] text-amber-300/90">
                           {h.chromiumRunning === false
-                            ? "Chromium is not running. The kiosk page is offline — SSH in and run the autostart, or reboot."
-                            : h.cpuTempC >= 80
-                              ? "Pi is running hot. Improve airflow or move it out of direct sun."
-                              : h.chromiumMemMb >= 1500
-                                ? "Chromium is using a lot of memory — likely leaking. Run pkill -f chromium to refresh, or wait for the 04:00 nightly restart."
-                                : "Memory is nearly full. Consider restarting Chromium soon."}
+                            ? "Browser is not running. The kiosk page is offline — wait for the autostart wrapper to relaunch (~3s), or use the Restart Kiosk Browser button above."
+                            : (h.cpuTempC != null && h.cpuTempC >= 80)
+                              ? "Kiosk machine is running hot. Improve airflow or move it out of direct sun."
+                              : (h.chromiumMemMb != null && h.chromiumMemMb >= 1500)
+                                ? "Browser is using a lot of memory — likely a MusicKit JS leak. Use the Restart Kiosk Browser button above, or wait for the agent's auto-restart to fire when no song is playing."
+                                : "System memory is nearly full. Consider restarting the browser soon."}
                         </p>
                       )}
                     </div>

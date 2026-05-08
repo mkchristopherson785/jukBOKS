@@ -1018,6 +1018,11 @@ router.post("/api/v1/venues/:code/health", async (req: Request, res: Response) =
 
     const body = req.body || {};
     const num = (v: any, min: number, max: number): number | null => {
+      // Treat null/undefined as "not reported" — Number(null) is 0, which
+      // would otherwise sneak through as a valid 0°C / 0% reading and
+      // mislead the admin UI (e.g. CPU temp on macOS, where we don't have
+      // sudo to read thermal sensors).
+      if (v === null || v === undefined || v === "") return null;
       const n = typeof v === "number" ? v : Number(v);
       if (!Number.isFinite(n)) return null;
       if (n < min || n > max) return null;
