@@ -989,8 +989,31 @@ router.get("/api/v1/venues/:code/audio-sink", async (req: Request, res: Response
     // that, an offline-then-back-online agent would otherwise restart Chromium
     // hours after the admin clicked the button.
     const restartRequestedAt = (venue as any).kioskRestartRequestedAt as Date | null;
-    const restartRequested = !!restartRequestedAt
+    let restartRequested = !!restartRequestedAt
       && (Date.now() - new Date(restartRequestedAt).getTime()) < 2 * 60 * 1000;
+
+    // Renderer-crash auto-recovery: "Aw Snap" leaves the chromium-browser
+    // PROCESS alive (so the autostart while-loop doesn't relaunch it) but the
+    // RENDERER is dead — no more kiosk page heartbeats. Detect this by
+    // comparing the page's last heartbeat against now: if the page has been
+    // silent >3min while the agent says chromium is running, force a restart.
+    // 5-min cooldown via kioskRestartRequestedAt prevents loops while the new
+    // tab is loading and starts heartbeating again.
+    if (!restartRequested) {
+      const heartbeat = (venue as any).kioskLockHeartbeat as Date | null;
+      const heartbeatAgeMs = heartbeat ? Date.now() - new Date(heartbeat).getTime() : null;
+      const restartAgeMs = restartRequestedAt ? Date.now() - new Date(restartRequestedAt).getTime() : Infinity;
+      const heartbeatStale = heartbeatAgeMs != null && heartbeatAgeMs > 3 * 60 * 1000;
+      const cooldownOk = restartAgeMs > 5 * 60 * 1000;
+      if (heartbeatStale && cooldownOk) {
+        await storage.updateVenue(venue.id, {
+          kioskRestartRequestedAt: new Date(),
+        } as any);
+        restartRequested = true;
+        console.warn(`[kiosk] Auto-restart triggered for ${venue.code}: page heartbeat stale ${Math.round(heartbeatAgeMs / 1000)}s (likely "Aw Snap" renderer crash).`);
+      }
+    }
+
     res.json({
       sink: venue.kioskAudioSink || null,
       volume: venue.kioskAudioVolume ?? 65,
