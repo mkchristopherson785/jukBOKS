@@ -42,7 +42,9 @@ if [ ! -f "$ENV_FILE" ]; then
   echo "What is your venue code? (the part after /kiosk/ in your kiosk URL)"
   echo "Example: will-s-B5yA5h"
   printf "Venue code: "
-  read -r VENUE_CODE
+  # Read from /dev/tty (the actual terminal), not stdin — stdin is the piped
+  # script body when this is run via `curl | bash`.
+  read -r VENUE_CODE < /dev/tty
   if [ -z "$VENUE_CODE" ]; then
     echo "ERROR: venue code cannot be empty. Aborting."
     exit 1
@@ -58,7 +60,7 @@ if [ ! -f "$ENV_FILE" ]; then
   echo "Is this Mac headless? (no monitor — audio only, with the visual"
   echo "display shown on a separate device like a TV stick or tablet)"
   printf "Headless? [y/N]: "
-  read -r HEADLESS_ANSWER
+  read -r HEADLESS_ANSWER < /dev/tty
   EXTRA_PARAMS=""
   case "${HEADLESS_ANSWER:-}" in
     y|Y|yes|YES|Yes)
