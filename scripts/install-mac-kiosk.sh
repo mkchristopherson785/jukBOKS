@@ -36,8 +36,28 @@ echo "==> Fetching launcher from $BASE_URL/scripts/mac-kiosk-launch.sh"
 curl -fsSL "$BASE_URL/scripts/mac-kiosk-launch.sh" -o "$LAUNCHER"
 chmod +x "$LAUNCHER"
 
-# 2) Prompt for venue code if env file doesn't exist.
-if [ ! -f "$ENV_FILE" ]; then
+# 2) Determine venue code + headless mode. If env file exists, reuse the
+#    venue code and headless flag from the existing KIOSK_URL — but always
+#    rewrite the rest of the URL params from this script's defaults so a
+#    re-install picks up new memory thresholds, reload cadence, etc.
+VENUE_CODE=""
+EXTRA_PARAMS=""
+if [ -f "$ENV_FILE" ]; then
+  EXISTING_URL="$(grep -E '^export KIOSK_URL=' "$ENV_FILE" 2>/dev/null | sed -E 's/^export KIOSK_URL="?([^"]*)"?$/\1/' | head -1)"
+  # Extract venue code from /kiosk/<code>?...
+  VENUE_CODE="$(printf '%s' "$EXISTING_URL" | sed -nE 's|.*/kiosk/([A-Za-z0-9_-]+).*|\1|p')"
+  # Preserve headless mode if previously set.
+  if printf '%s' "$EXISTING_URL" | grep -q 'audioOnly=1'; then
+    EXTRA_PARAMS="&audioOnly=1"
+  fi
+  if [ -n "$VENUE_CODE" ]; then
+    echo "==> Reusing existing venue code from $ENV_FILE: $VENUE_CODE"
+    [ -n "$EXTRA_PARAMS" ] && echo "==> Preserving headless mode."
+    echo "==> URL params will be refreshed from this installer's defaults."
+  fi
+fi
+
+if [ -z "$VENUE_CODE" ]; then
   echo
   echo "What is your venue code? (the part after /kiosk/ in your kiosk URL)"
   echo "Example: will-s-B5yA5h"
@@ -61,7 +81,6 @@ if [ ! -f "$ENV_FILE" ]; then
   echo "display shown on a separate device like a TV stick or tablet)"
   printf "Headless? [y/N]: "
   read -r HEADLESS_ANSWER < /dev/tty
-  EXTRA_PARAMS=""
   case "${HEADLESS_ANSWER:-}" in
     y|Y|yes|YES|Yes)
       EXTRA_PARAMS="&audioOnly=1"
@@ -72,19 +91,17 @@ if [ ! -f "$ENV_FILE" ]; then
       echo "==> Standard mode: full kiosk display + audio."
       ;;
   esac
+fi
 
-  KIOSK_URL="$BASE_URL/kiosk/${VENUE_CODE}?autostart=true&reload=15&hardReload=30&memReloadMb=700&memHardReloadMb=1100${EXTRA_PARAMS}"
+KIOSK_URL="$BASE_URL/kiosk/${VENUE_CODE}?autostart=true&reload=15&hardReload=30&memReloadMb=700&memHardReloadMb=1100${EXTRA_PARAMS}"
 
-  cat > "$ENV_FILE" <<EOF
+cat > "$ENV_FILE" <<EOF
 # jukboks kiosk config.
 # Edit KIOSK_URL to change which venue this Mac displays, then restart:
 #   launchctl kickstart -k gui/\$(id -u)/com.jukboks.kiosk
 export KIOSK_URL="$KIOSK_URL"
 EOF
-  echo "==> Wrote $ENV_FILE"
-else
-  echo "==> $ENV_FILE already exists, leaving it alone."
-fi
+echo "==> Wrote $ENV_FILE"
 
 # 3) Write the LaunchAgent plist.
 cat > "$PLIST" <<EOF
