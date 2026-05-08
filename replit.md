@@ -1,76 +1,118 @@
 # Jukboks - Community Music Request Platform
 
 ## Overview
-Jukboks is a SaaS platform designed for businesses like bars, restaurants, and event venues to offer interactive music experiences. Guests can request and vote on songs, creating a dynamic and engaging atmosphere. The platform aims to enhance customer experience, drive engagement, and provide venues with a unique selling proposition through customizable music interactions.
+Jukboks is a SaaS platform for bars, restaurants, and event venues. Guests scan a QR code to request and vote on songs; the venue runs a kiosk that plays the unified queue through the venue speakers. Multi-tenant: organizations → venues → party sessions → guests.
 
 ## User Preferences
-I prefer detailed explanations of complex technical decisions. When implementing new features, propose the high-level approach and key components before diving into coding. For critical architectural changes, ask for approval first. Ensure all code is well-documented and follows modern TypeScript/React best practices.
+I prefer detailed explanations of complex technical decisions. Propose the high-level approach and key components before diving into coding. For critical architectural changes, ask for approval first. Code should be well-documented and follow modern TypeScript/React best practices.
 
-## System Architecture
+## Tech Stack
+- **Backend**: Node.js, Express, TypeScript
+- **Frontend**: React, Vite, TailwindCSS, shadcn/ui
+- **Database**: PostgreSQL with Drizzle ORM
+- **Music**: Apple Music API (MusicKit JS) for full playback; iTunes Search API for search/previews
+- **Auth**: Replit Auth (Google, Apple, email/password) for owners; token-based for guests and Integration API
+- **Mobile**: Native iOS app via Capacitor (dual Host/Guest modes, bottom tab nav)
 
-### Multi-Tenant Structure
-The system is built with a multi-tenant architecture:
-- **Organizations**: Represent businesses, each with their own branding and settings.
-- **Users**: Staff and managers within an organization.
-- **Venues**: Individual locations or rooms, each hosting its own music queue and guest interactions.
-- **Party Sessions**: Daily instances of guest interaction tied to a QR code.
-- **Guests**: Anonymous users requesting and voting on songs.
+## Core Features
 
-### Tech Stack
--   **Backend**: Node.js, Express, TypeScript
--   **Frontend**: React, Vite, TailwindCSS, shadcn/ui
--   **Database**: PostgreSQL with Drizzle ORM
--   **Music Integration**: Apple Music API (MusicKit JS)
--   **Authentication**: Replit Auth (Google, Apple, email/password) for venue owners, token-based for guests and API.
+### Party / Guest Experience
+- **QR Code access** — guests join a party without creating an account
+- **Search** — by song title (default) or artist (toggle pills above the search box). Server proxies iTunes search with `attribute=songTerm` / `attribute=artistTerm` whitelisted
+- **Unified queue** — guest requests blended with auto-play from backup playlists
+- **Upvote/downvote** — guests influence queue order
+- **Smart repetition prevention** — configurable per-song / per-artist cooldowns
+- **Guest favorites** — cloud-synced per-venue, keyed by guest name. `GET/POST /api/v1/venues/:code/favorites`, `DELETE .../:trackId`. One-time localStorage migration for legacy favorites
+- **Song details modal** — Info button on every song row opens `SongDetailsDialog` with album art, metadata, 30s preview, Apple Music link, and "You might also like" similar songs (artist-based, deduped). Backed by `GET /api/v1/tracks/:trackId` and `.../similar`, server-cached 24h with bounded LRU. Inline "+" buttons request similar songs directly
+- **Listen Along (time sync)** — guests stream the venue's current song through their own Apple Music subscription, starting at the venue's playback position. `/api/v1/party/:partyCode` returns `nowPlaying.startedAt`, `nowPlaying.duration`, and top-level `serverNow` to cancel clock skew. Client computes `(serverNow − startedAt) + (Date.now() − __receivedAtMs)`, calls `seekToTime` after `play()`, and re-syncs every 15s if drift > 2s
+- **Guest ranking / gamification** — ranks earned from upvotes received: Wallflower (0-9), Crowd Pleaser (10-29), Vibe Curator (30-74), Beat Dropper (75-149), Hitmaker (150-299), Jukebox Hero (300+). Logic in `shared/ranks.ts`. Components: `GuestRankBadge` (inline next to requester names), `GuestRankCard` (with progress bar). Aggregated server-side via `getGuestRankings()`; case-insensitive name matching
 
-### UI/UX Decisions
--   **Mobile App**: Native iOS app via Capacitor with dual Host/Guest modes and bottom tab navigation.
--   **Kiosk Display Mode**: TV-friendly "Now Playing" screen with scheduled playback, animated transitions, and live listener count.
--   **Venue Branding**: Custom CSS properties allow organizations to apply their primary color to party page elements.
+### Admin
+- **Queue management** — approve/reject requests, remove songs, skip current
+- **Mobile host quick actions** — skip, clear queue, live listener count
+- **Venue analytics** — total songs played, unique guests, peak hours
+- **Venue branding** — custom CSS properties for primary color
+- **Announcement groups** — scheduled audio announcements with optional cover image (`announcements.image_url`, max 10 MB upload). Each row has a Test button (`POST /api/me/venues/:venueId/announcements/:announcementId/test`)
+- **Urgent announcements** — `POST /api/v1/venues/:code/announce` interrupts current song and plays twice. Supports TTS (browser SpeechSynthesis) or pre-recorded audio URL. Optional `imageUrl` (also stored as `urgent_announcement_image_url` on venues)
+- **Integration API** — API key management UI in Settings; authenticated endpoints for external platforms (LivHOA): search, list venues, play history, request, vote, urgent announce, track details/similar. Keys shown once, then masked. Documented at `docs/INTEGRATION_API.md`. Queue + history endpoints include `requesterRank` per song
 
-### Listen Along — Time Sync
-Guests on the party page can tap "Listen Along" to stream the venue's current song through their own Apple Music subscription. Playback now starts at the **venue's current playback position**, not from the start of the song. Implementation:
-- Server `/api/v1/party/:partyCode` returns `nowPlaying.startedAt` (ISO), `nowPlaying.duration` (ms), and a top-level `serverNow` (ISO) so the client can cancel out clock skew.
-- The party query stamps `__receivedAtMs` on each fetch.
-- `getVenuePositionMs()` = `(serverNow - startedAt) + (Date.now() - __receivedAtMs)`, clamped to song length.
-- `useMusicKit.playSong(trackId, { startPositionMs })` calls `seekToTime(startPositionMs / 1000)` after `play()` (only if > 1.5s).
-- A 15-second drift check compares `getCurrentPlaybackTimeMs()` against `getVenuePositionMs()` and re-seeks when drift > 2s.
+### Kiosk
+- **Display modes** (URL params on `/kiosk/:code`):
+  - default: full kiosk (audio + visuals, claims device lock, heartbeats)
+  - `?display=true`: visuals only (no audio, no lock, no heartbeat — multi-TV safe)
+  - `?audioOnly=1`: audio + logic only (no album art / animations / QR / queue list / logo). Renders a small health diagnostics panel so a tech plugging in a monitor sees CPU/mem/disk/uptime live. Implies autostart
+  - `?layout=square` for 1:1 displays; admin can also set `venues.kioskLayout` (Landscape 16:9 / Square 1:1) which wins over URL param
+- **Device locking + heartbeat** — only one device plays audio per venue. "Playback Locked" screen on the loser shows a "Play here instead" button (`POST /api/v1/venues/:code/kiosk-release`)
+- **Scheduled playback** — kiosk only plays during configured hours
+- **Headless Apple Music pairing** — kiosk shows a 6-digit code (`POST /api/v1/venues/:code/pairing-code`, 10-min TTL, in-memory). Owner enters it at `/pair` on phone after authorizing MusicKit; resulting `musicUserToken` is POSTed to `/api/me/pair`, saved to `venues.appleMusicUserToken`. Kiosk polls `GET .../apple-music-token` every 30s and applies it via `applyMusicUserToken` (no popup, no user gesture). `/api/me/venues` strips the raw token and returns `appleMusicConnected` boolean. Disconnect via `DELETE /api/me/venues/:venueId/apple-music-token`
 
-### Core Features
--   **Unified Queue**: Blends user requests with auto-play songs from backup playlists.
--   **QR Code Access**: Guests join parties and request songs without account creation.
--   **Smart Repetition Prevention**: Configurable cooldowns for songs and artists.
--   **Upvote/Downvote System**: Guests influence queue order.
--   **Announcement Groups**: Scheduled audio announcements with flexible timing and play modes. Each announcement supports an optional cover image (`announcements.image_url`) shown on the kiosk in place of the default speaker icon during playback. Image upload (max 10 MB) lives in the Add Announcement modal in Settings; falls back to the gradient + speaker icon when no image is set. Each announcement row in Settings has a **Test** button (`POST /api/me/venues/:venueId/announcements/:announcementId/test`) that fires it via the urgent flow so it plays on the kiosk within ~5s. Urgent announcements support `urgent_announcement_image_url` on `venues` (also exposed in the Test Urgent Announcement panel and on `POST /api/v1/venues/:code/announce` via the optional `imageUrl` field).
--   **Mac Audio Agent**: Parallel to the Pi audio-agent (`scripts/rpi-portal/audio-agent.sh`) — `scripts/mac-audio-agent.sh` polls `GET /api/v1/venues/:code/audio-sink` every 60s and applies the selected sink via `SwitchAudioSource -t output -s "Name"` and the volume via `osascript -e "set volume output volume X"`. Reports detected output devices to `POST /api/v1/venues/:code/audio-devices` so they appear in the admin Venues page Audio Output dropdown (HDMI, Headphones, AirPlay receivers, USB speakers, etc.). Same restart-on-request behavior as the Pi (kicks `com.jukboks.kiosk` LaunchAgent). Installed via `curl -fsSL https://jukboks.com/scripts/install-mac-audio-agent.sh | bash` — installer auto-installs Homebrew and `switchaudio-osx` if missing, reuses the venue code from the kiosk install if present, and creates `~/Library/LaunchAgents/com.jukboks.audio-agent.plist` (RunAtLoad + KeepAlive). Logs at `~/Library/Logs/jukboks-audio-agent.log`. Stable per-Mac deviceId in `~/.config/jukboks/device-id`.
--   **Mac Kiosk Mode**: Recommended kiosk platform — Intel/Apple Silicon Mac mini or any old Mac running macOS Chrome. Avoids the ARM Chromium per-tab memory ceiling that causes "Aw Snap" on Raspberry Pi. One-line install: `curl -fsSL https://jukboks.com/scripts/install-mac-kiosk.sh | bash`. The installer prompts for the venue code, downloads `scripts/mac-kiosk-launch.sh` to `~/.config/jukboks/kiosk-launch.sh`, writes the URL to `~/.config/jukboks/kiosk.env`, and installs a LaunchAgent at `~/Library/LaunchAgents/com.jukboks.kiosk.plist` (RunAtLoad + KeepAlive) that launches Chrome via `--kiosk --app=URL` inside a while-loop wrapper so any Chrome exit relaunches within 3 seconds. Default URL params bias toward gentler reload cadence than the Pi (`reload=15&hardReload=30&memReloadMb=900&memHardReloadMb=1500`) since macOS Chrome leaks slower. After install the user enables Automatic Login + Prevent Sleep in System Settings. Restart Chrome with `launchctl kickstart -k gui/$(id -u)/com.jukboks.kiosk`. Logs at `~/Library/Logs/jukboks-kiosk.log`.
--   **Pi Nightly Auto-Restart**: Optional cron job at 04:00 local time that does `pkill -f chromium`, letting the kiosk autostart relaunch a fresh tab. Prevents memory-leak "Aw, Snap!" crashes after long uptimes. Installed via `curl -fsSL https://jukboks.com/scripts/install-nightly-restart.sh | bash` (no sudo). Removable with `crontab -l | grep -v jukboks-nightly-restart | crontab -`.
--   **Admin Queue Management**: Approve/reject requests, remove songs.
--   **Mobile Host Quick Actions**: Skip song, clear queue, view live listener count.
--   **Venue Analytics**: Tracks key metrics like total songs played, unique guests, and peak hours.
--   **Kiosk Monitoring**: Heartbeat system, device locking, scheduled playback, and offline alerts for Raspberry Pi kiosks. When another device holds the lock, the "Playback Locked" screen shows a "Play here instead" button that calls `POST /api/v1/venues/:code/kiosk-release` to clear the lock and lets the new device claim it via the next heartbeat.
--   **Integration API**: API key management UI in Settings, with authenticated endpoints for external platforms (LivHOA). Endpoints: search songs, list venues, play history, request songs, vote, trigger urgent announcements (TTS or audio URL). Keys are masked after generation (shown once, then hidden). Documented at `docs/INTEGRATION_API.md`.
--   **Urgent Announcements**: External systems can trigger immediate announcements via `POST /api/v1/venues/:code/announce`. Supports text-to-speech (browser SpeechSynthesis API on kiosk) or pre-recorded audio URLs. Urgent announcements interrupt the current song immediately and play twice. Auto-clear after playback.
--   **TV Display Mode**: A display-only version of the kiosk screen at `/kiosk/:code?display=true`. Shows now playing, queue, QR code, and album art without any audio playback. No device locking or heartbeats — multiple TVs can run simultaneously. Supports `layout=square` and other kiosk URL params.
--   **Audio-Only Mode (Headless Pi)**: `/kiosk/:code?audioOnly=1` is the counterpart to `display=true` — keeps MusicKit + auto-play + announcements + lock + schedule logic running but skips all heavy rendering (no album art, no animations, no QR, no queue list, no logo). Designed for headless Raspberry Pi kiosks paired with a separate display device (TV stick, tablet, old laptop) showing `?display=true`. Splitting playback from display dramatically cuts renderer memory pressure on the Pi (the top cause of "Aw Snap" crashes) and isolates blast radius — a display crash no longer kills audio. Implies autostart so the headless Pi never shows a tap-to-start screen it can't tap. All other URL params (memReloadMb, hardReload, etc.) still work. The screen itself renders the **Pi health diagnostics** (CPU temp, memory %, Chromium RSS + uptime, disk %, system uptime, heartbeat age) with the same color thresholds as the admin VenuesPage card, so a tech plugging in a monitor sees live diagnostics without needing the admin UI. Backed by public `GET /api/v1/venues/:code/kiosk-health` (returns the latest agent payload + heartbeat age, polled every 30s by the audio-only page itself).
--   **Guest Favorites**: Cloud-synced per-venue favorites stored in the database, keyed by guest name + venue. Favorites persist across devices — guests see the same favorites on any phone/browser as long as they join with the same name. API: `GET/POST /api/v1/venues/:code/favorites`, `DELETE /api/v1/venues/:code/favorites/:trackId`. Includes one-time localStorage migration for legacy favorites.
--   **Song Details ("View More")**: Each song row in the queue, in search results, and in play history has an Info button that opens a `SongDetailsDialog` modal. The modal shows large album art, title, artist, album, length, release date, genre, track number, an Apple Music link, a 30-second preview play button, and a "You might also like" section with similar songs. Clicking a similar song drills into its details (with a Back button to navigate the breadcrumb). Each similar song also has a "+" button to add it directly to the queue when the dialog is opened from a request-capable surface (party page queue, search). The button shows a check mark when the track is already queued or just requested. Backed by `GET /api/v1/tracks/:trackId` (rich metadata) and `GET /api/v1/tracks/:trackId/similar?limit=N` (artist-based suggestions, deduped by title to avoid album-edition duplicates). Both endpoints proxy Apple's iTunes Lookup API, are cached server-side for 24 hours with a bounded LRU, have a 5s upstream timeout, and are exposed in the Integration API for external systems. The dialog accepts an optional `onRequest(track)` callback + `queuedTrackIds` set to enable the inline add-to-queue flow.
--   **Kiosk Admin Controls (VenuesPage)**: Each venue card has a "Display Layout" dropdown (Landscape 16:9 / Square 1:1) writing `venues.kioskLayout`, and an "Audio Output" dropdown listing sinks reported by the Pi (writes `venues.kioskAudioSink`). KioskPage uses `serverLayout ?? urlLayout ?? "default"` with 30s refetch. Apple Music connect/disconnect is also on each card; `/api/me/venues` strips the raw `appleMusicUserToken` and returns an `appleMusicConnected` boolean instead. Also has a **"Restart Kiosk Browser"** button that stamps `venues.kiosk_restart_requested_at`; the audio agent's existing 10s `/audio-sink` poll returns a `restartRequested` flag (only honored within a 2-minute window so an offline-then-back-online agent can't restart Chromium hours later), at which point the agent ack's via `POST /api/v1/venues/:code/restart-ack` and `pkill -f chromium`. Kiosk autostart relaunches a fresh tab — no SSH, no Pi reboot needed. Owner-only (`POST /api/me/venues/:venueId/restart-kiosk`).
--   **Renderer-Crash Auto-Recovery ("Aw Snap")**: When MusicKit JS exhausts the renderer's per-tab memory ceiling, Chromium shows "Aw Snap" — but critically the `chromium-browser` PROCESS stays alive, so the autostart `while true` wrapper never relaunches it. The agent's RSS watchdog also misses it because total RSS often drops after the renderer dies. Defense: server-side detection in `GET /api/v1/venues/:code/audio-sink`. If the kiosk page's `kiosk_lock_heartbeat` is >3min stale, the server stamps `kioskRestartRequestedAt` and returns `restartRequested: true` on the agent's next 10s poll. Agent does `pkill -f chromium`, the autostart wrapper relaunches a fresh tab, and the new page resumes heartbeating. 5-min cooldown via `kioskRestartRequestedAt` prevents restart loops during the relaunch window. Same auto-recovery path as the manual admin "Restart Kiosk" button — just triggered automatically.
--   **Chromium Memory Auto-Restart**: The audio agent watches Chromium RSS every ~30s. Two thresholds: `CHROMIUM_MAX_MB` (default 2500, polite restart only when no PulseAudio sink is `RUNNING` so it never interrupts a song) and `CHROMIUM_HARD_MAX_MB` (default 3000, force restart even mid-song to prevent renderer OOM during back-to-back sets that pin the page open forever). 30-min cooldown between restarts prevents loops. Either set to 0 to disable. Per-Pi overrides via systemd drop-in: `~/.config/systemd/user/jukboks-audio-agent.service.d/override.conf` with `Environment=CHROMIUM_MAX_MB=1500` and/or `Environment=CHROMIUM_HARD_MAX_MB=2500`.
--   **Kiosk Page Memory Watchdog**: Defense-in-depth against MusicKit JS leaks crashing the renderer ("Aw Snap"). KioskPage has five optional reload triggers: (1) `?reload=N` polite uptime reload after N minutes (default 30, min 5) **only when no song/announcement is playing**; (2) `?hardReload=N` force reload after N minutes (default 2× polite, or 60) regardless of playback state; (3) `?songsPerReload=N` reloads after N song-changes (default 0=off); (4) `?memReloadMb=N` polite reload when JS heap exceeds N MB (polls `performance.memory` every 15s, only fires between songs); (5) `?memHardReloadMb=N` force reload when heap exceeds N MB regardless of playback state. The song-count trigger is the cleanest because it always fires at a song boundary. Set any to 0 to disable. This is the page-side counterpart to the agent's process-RSS restart and the only defense that addresses per-renderer memory ceilings (parent Chromium keeps running when a renderer dies, so the agent's RSS-based restart can miss it).
--   **Skip-Cascade Prevention**: At kiosk startup MusicKit isn't yet authorized (~2s race) and preview-audio URLs occasionally fail (404/CORS). Both cases used to fire `ended` immediately on each track in the queue → cascade through 8-10 songs in seconds before one stuck. `MusicKitPlayer` now has a single shared `throttledOnEnded` (5s minimum between auto-advances) wrapping both audio paths. Each path also requires the track to actually reach `playing` state before honoring `ended`/`completed` (`hasReachedPlayingRef` for MusicKit, `previewStartedRef` for HTML5 preview). Preview audio also has an `error` listener that swallows failures silently instead of letting them propagate as `ended`. Suppressed events log `[kiosk] ... skip cascade` warnings to console for diagnosis.
--   **MusicKit Inter-Song Cleanup**: Between songs (when `trackId` becomes null) `useMusicKit.releasePlayer()` calls `stop()` + `queue.removeAll()` defensively so the prior song's audio buffers + nowPlayingItem can be GC'd before the next `setQueue()` allocates new ones. All failures swallowed so playback never breaks.
--   **Auto-Play Race Lock**: Three effects could each call `triggerAutoPlay` simultaneously at startup (queue-empty effect, no-current-song effect, isStarted-changed effect), piling up to 8 backup songs into the queue in one render cycle. Now gated by a synchronous `autoPlayLockRef` that flips before the network call and releases 3s later, so only one auto-play fires per cooldown window even when React state hasn't propagated yet.
--   **Pi Autostart Relaunch Loop**: The default openbox autostart runs `chromium-browser ... &` exactly once per X session. Without a wrapper, `pkill -f chromium` (whether from the admin "Restart Kiosk Browser" button or the agent's RSS auto-restart) just leaves a black screen until the next reboot. Install script now wraps the chromium command in `while true; do chromium-browser ...; sleep 2; done &` so any chromium exit is followed by a fresh launch within 2 seconds.
--   **React Query Cache Tuning (memory)**: Global default `gcTime: 60_000` (down from 5min) so unused query data is GC'd quickly on long-running kiosks. KioskPage overrides per-query: `qrcode` has `refetchInterval: false` (QR never changes during a session); `nowPlaying` and `queue` poll every 8s instead of the 5s default (kiosk reacts to song-end via MusicKit events anyway, so the poll is just to pick up admin edits/new requests where 8s lag is imperceptible); the unused `sonos-kiosk` query was removed entirely. `useMusicKit`'s `isAuthorized` reconciliation interval slowed from 1s to 5s. Cumulatively cuts ~80 wasted requests/min on the kiosk and keeps the cache footprint small.
--   **Pi System Health Card**: The audio agent on each Pi POSTs system metrics (CPU temp, memory %, Chromium RSS + uptime, disk %, system uptime) to `POST /api/v1/venues/:code/health` every ~30s. Stored in `venues.kiosk_health` (jsonb) + `kiosk_health_updated_at`. Displayed on each VenuesPage card with thresholds (CPU ≥70°C amber/≥80°C red; mem ≥75% amber/≥90% red; Chromium ≥1000 MB amber/≥1500 MB red). Card turns amber + shows guidance when any threshold trips, including "Chromium not running" if Chromium has died. Falls back to "agent not installed" when no data has ever been received. Requires reinstalling the audio agent (`curl -fsSL https://jukboks.com/scripts/install-audio-agent.sh | bash`) to pick up the health-reporting code.
--   **Pi Audio Output Picker + Volume**: The Raspberry Pi runs a `jukboks-audio-agent` systemd-user service (installed via `curl -fsSL https://jukboks.com/scripts/install-audio-agent.sh | bash`, no sudo). Every 60s it `pactl list short sinks`, POSTs friendly-named devices to `POST /api/v1/venues/:code/audio-devices`, polls `GET /api/v1/venues/:code/audio-sink` (returns `{ sink, volume }`), and applies both via `pactl set-default-sink` + `pactl set-sink-volume "$SINK" "${VOL}%"`. Volume column `kiosk_audio_volume` (int, default 65, 0-100). Admin slider in VenuesPage; Pi-side default 65% prevents digital clipping when the speaker amp adds gain. Both Pi endpoints are public — sink names are non-sensitive metadata and the venue code is the gate (same trust model as the party page). The audio agent runs as a separate process from the kiosk Chromium so its deviceId can't match the kiosk lock holder, which is why we don't enforce the lock here. Devices payload is capped at 20 entries; each name/description capped at 200 chars. Stable per-Pi deviceId stored in `~/.config/jukboks/device-id`. Bash agent at `scripts/rpi-portal/audio-agent.sh`, served by Express at `/scripts/audio-agent.sh`.
--   **Headless Kiosk Apple Music Pairing**: Raspberry Pi kiosks (no monitor/keyboard) can stream full Apple Music songs by pairing once from the venue owner's phone. Kiosk requests a 6-digit code from `POST /api/v1/venues/:code/pairing-code` (10-min TTL, in-memory store in `server/pairing-codes.ts`) and shows it as a banner overlay. Owner visits `/pair` on phone, enters code, and after `useMusicKit.authorize()` completes the resulting `musicUserToken` is POSTed to `/api/me/pair` (auth'd, verifies user owns the venue). Token saved to `venues.appleMusicUserToken`. Kiosk polls `GET /api/v1/venues/:code/apple-music-token` every 30s and applies it via `useMusicKit.applyMusicUserToken(token)` which sets `musicKit.musicUserToken` directly — no popup, no user gesture needed. Owner can disconnect via `DELETE /api/me/venues/:venueId/apple-music-token`.
--   **Guest Ranking / Gamification**: Guests earn ranks based on total upvotes received on their song requests. Ranks: Wallflower (0-9, no hat), Crowd Pleaser (10-29, party hat), Vibe Curator (30-74, beret), Beat Dropper (75-149, backwards cap), Hitmaker (150-299, top hat), Jukebox Hero (300+, crown). Rank logic lives in `shared/ranks.ts` so both client and server use the same thresholds. Components: `GuestRankBadge` (inline hat icon next to requester names in queue), `GuestRankCard` (full card with progress bar shown on party/search pages). Rankings aggregated server-side via `getGuestRankings()` in storage, returned in party API response. Case-insensitive name matching for display. Integration API endpoints `/api/v1/venues/:code/queue` and `/api/v1/venues/:code/history` include `requesterRank: { level, name, totalUpvotes }` for each guest-requested song.
+### VenuesPage Admin Card
+- **Display Layout** dropdown (writes `kioskLayout`)
+- **Audio Output** dropdown (writes `kioskAudioSink`) — sinks reported by the audio agent
+- **Volume slider** (writes `kioskAudioVolume`, 0-100, default 65 to prevent amp clipping)
+- **Apple Music** connect/disconnect
+- **Restart Kiosk Browser** — stamps `kiosk_restart_requested_at`. Audio agent's `/audio-sink` poll returns `restartRequested: true` (only honored within a 2-min window so an offline agent can't restart hours later), agent acks via `POST .../restart-ack` and kills the browser. Kiosk autostart relaunches a fresh tab. Owner-only
+- **Pi/Mac System Health card** — CPU temp, memory %, Chromium RSS + uptime, disk %, system uptime, heartbeat age. Thresholds: CPU ≥70°C amber / ≥80°C red; mem ≥75% / ≥90%; Chromium ≥1000 MB / ≥1500 MB. Falls back to "agent not installed" when no data
+
+## Mac Kiosk (recommended platform)
+
+Intel or Apple Silicon Mac mini (or any old Mac) running macOS Chrome. Avoids the ARM Chromium per-tab memory ceiling that causes "Aw Snap" on Raspberry Pi. Two installers, both no-sudo for the user side (Homebrew install does prompt for the Mac password):
+
+### Kiosk install
+```
+curl -fsSL https://jukboks.com/scripts/install-mac-kiosk.sh | bash
+```
+- Prompts for venue code (and headless y/N — adds `&audioOnly=1`)
+- Writes `~/.config/jukboks/kiosk.env` and `~/.config/jukboks/kiosk-launch.sh`
+- Installs LaunchAgent `~/Library/LaunchAgents/com.jukboks.kiosk.plist` (RunAtLoad + KeepAlive)
+- Launch script wraps `chrome --kiosk --app=URL` in a while-loop so any Chrome exit relaunches within 3s
+- Default URL params (gentler than Pi since macOS Chrome leaks slower): `?autostart=true&reload=15&hardReload=30&memReloadMb=900&memHardReloadMb=1500`
+- After install, user enables Automatic Login + Prevent Sleep in System Settings
+- Restart Chrome: `launchctl kickstart -k gui/$(id -u)/com.jukboks.kiosk`
+- Logs: `~/Library/Logs/jukboks-kiosk.log`
+
+### Audio agent install
+```
+curl -fsSL https://jukboks.com/scripts/install-mac-audio-agent.sh | bash
+```
+- Auto-installs Homebrew (writes the brew installer to a temp file and runs it with `< /dev/tty` so sudo can prompt — `curl | bash` strips stdin, breaking interactive sudo otherwise) and `switchaudio-osx`
+- Reuses venue code from kiosk install if present
+- LaunchAgent `~/Library/LaunchAgents/com.jukboks.audio-agent.plist` (RunAtLoad + KeepAlive)
+- Loop (60s): lists outputs via `SwitchAudioSource -a -t output`, POSTs to `/audio-devices`, polls `/audio-sink` for desired sink + volume + restart flag, applies sink via `SwitchAudioSource -t output -s`, volume via `osascript -e "set volume output volume X"`. Also POSTs system health (load avg, mem%, disk%, uptime, Chrome RSS+uptime) to `/health`. CPU temp reported as null (requires sudo on macOS)
+- Logs: `~/Library/Logs/jukboks-audio-agent.log`
+- Stable per-Mac deviceId: `~/.config/jukboks/device-id`
+
+## Renderer-crash and memory defenses (apply to both Mac and Pi)
+
+MusicKit JS slowly leaks renderer memory; Chrome eventually shows "Aw Snap" but the parent process stays alive, so a `pkill` wrapper alone won't recover. Layered defenses:
+
+1. **Server-side stale-heartbeat detection** — if `kiosk_lock_heartbeat` is >3min stale, `GET /api/v1/venues/:code/audio-sink` stamps `kioskRestartRequestedAt` and returns `restartRequested: true` to the agent. Same path as the manual "Restart Kiosk Browser" button. 5-min cooldown prevents loops
+2. **Agent-side process-RSS watchdog** — every ~30s, restart browser when RSS exceeds `CHROMIUM_MAX_MB` (default 2500, polite — only when no sink is RUNNING) or `CHROMIUM_HARD_MAX_MB` (default 3000, even mid-song). 30-min cooldown. Set either to 0 to disable. Per-Pi overrides via systemd drop-in
+3. **KioskPage memory watchdog** — five optional URL-param triggers, all set to 0 to disable:
+   - `?reload=N` — polite reload after N min only between songs (default 30, min 5)
+   - `?hardReload=N` — force reload after N min regardless of playback (default 60)
+   - `?songsPerReload=N` — reload after N song-changes (cleanest; always at song boundary)
+   - `?memReloadMb=N` — polite reload when JS heap exceeds N MB (between songs)
+   - `?memHardReloadMb=N` — force reload when heap exceeds N MB
+4. **Skip-cascade prevention** — `MusicKitPlayer` has a single shared `throttledOnEnded` (5s minimum between auto-advances) and requires the track to actually reach `playing` state before honoring `ended`/`completed`. Preview-audio path also swallows `error` events instead of letting them propagate as `ended`. Suppressed events log `[kiosk] ... skip cascade`
+5. **Inter-song cleanup** — when `trackId` becomes null, `useMusicKit.releasePlayer()` calls `stop()` + `queue.removeAll()` so the prior song's buffers + nowPlayingItem can be GC'd before the next `setQueue()` allocates new ones
+6. **Auto-play race lock** — `autoPlayLockRef` flips synchronously before the network call and releases 3s later, preventing three startup effects from each piling 8 songs into the queue
+7. **React Query tuning** — global `gcTime: 60_000`. KioskPage: `qrcode` never refetches; `nowPlaying` and `queue` poll every 8s instead of 5s. `useMusicKit.isAuthorized` reconciliation slowed from 1s to 5s. Cuts ~80 wasted requests/min
+
+## Pi Kiosk (legacy)
+
+Raspberry Pi support remains in place but is no longer the recommended platform — ARM Chromium's per-tab memory ceiling makes "Aw Snap" crashes endemic on long-running kiosks. Use Mac for new installs.
+
+- **Install kiosk + audio agent**: `curl -fsSL https://jukboks.com/scripts/install-audio-agent.sh | bash` (no sudo)
+- **Audio agent**: `scripts/rpi-portal/audio-agent.sh` — `pactl list short sinks`, friendly-named, POSTs to `/audio-devices`, polls `/audio-sink`, applies via `pactl set-default-sink` + `pactl set-sink-volume`. Also reports health via `/health`
+- **Optional nightly auto-restart**: `curl -fsSL https://jukboks.com/scripts/install-nightly-restart.sh | bash` adds a 04:00 cron `pkill -f chromium`
+- **Autostart relaunch loop**: chromium command wrapped in `while true; do chromium-browser ...; sleep 2; done &` so any kill is followed by a fresh launch within 2s
+- **Headless Pi pattern**: pair `?audioOnly=1` on the Pi with `?display=true` on a separate cheap display device (TV stick, tablet, old laptop) to dramatically cut renderer memory pressure and isolate blast radius
+
+Both Pi audio endpoints are public — sink names are non-sensitive metadata, the venue code is the gate. Devices payload capped at 20 entries; names capped at 200 chars.
 
 ## External Dependencies
--   **Apple Music API**: Utilized for song search, 30-second previews (iTunes API), and full playback via MusicKit JS.
--   **Sonos API**: (Planned integration) For controlling Sonos speakers in venues via OAuth 2.0.
--   **Replit Auth**: Provides user authentication for venue owners and staff.
--   **PostgreSQL**: Primary database for all application data.
+- **Apple Music API** — search, 30s previews (iTunes), full playback (MusicKit JS)
+- **Sonos API** — planned OAuth 2.0 integration for Sonos speaker control
+- **Replit Auth** — owner/staff authentication
+- **PostgreSQL** — primary database
