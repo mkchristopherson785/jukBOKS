@@ -915,6 +915,36 @@ router.get("/scripts/mac-kiosk-launch.sh", async (_req: Request, res: Response) 
   }
 });
 
+// Mac audio agent — parallel to the Pi audio-agent. Uses Homebrew's
+// switchaudio-osx to enumerate and select audio outputs, plus AppleScript for
+// volume. Lets the admin Venues page switch HDMI ↔ Headphones ↔ AirPlay etc.
+// remotely within ~60s.
+router.get("/scripts/install-mac-audio-agent.sh", async (_req: Request, res: Response) => {
+  try {
+    const fs = await import("fs/promises");
+    const path = await import("path");
+    const p = path.resolve(process.cwd(), "scripts/install-mac-audio-agent.sh");
+    const body = await fs.readFile(p, "utf-8");
+    res.setHeader("Content-Type", "text/x-shellscript; charset=utf-8");
+    res.send(body);
+  } catch {
+    res.status(404).send("not found");
+  }
+});
+
+router.get("/scripts/mac-audio-agent.sh", async (_req: Request, res: Response) => {
+  try {
+    const fs = await import("fs/promises");
+    const path = await import("path");
+    const p = path.resolve(process.cwd(), "scripts/mac-audio-agent.sh");
+    const body = await fs.readFile(p, "utf-8");
+    res.setHeader("Content-Type", "text/x-shellscript; charset=utf-8");
+    res.send(body);
+  } catch {
+    res.status(404).send("not found");
+  }
+});
+
 // Pi reports its detected audio output devices. The audio agent runs as a
 // separate process from the kiosk Chromium and therefore has its own deviceId
 // that does not match the kiosk lock holder, so we don't enforce the lock
