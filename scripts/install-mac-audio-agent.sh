@@ -29,10 +29,27 @@ mkdir -p "$HOME/Library/Logs"
 # 1) Ensure Homebrew is installed (needed for switchaudio-osx).
 if ! command -v brew >/dev/null 2>&1; then
   echo
-  echo "==> Homebrew not found. Installing it now…"
+  echo "==> Homebrew not found. Checking prerequisites…"
+
+  # Homebrew requires the user to be an Administrator. Pre-flight check so we
+  # fail with a useful message instead of brew's cryptic error.
+  if ! /usr/bin/dsmemberutil checkmembership -U "$(whoami)" -G admin 2>/dev/null | grep -q "user is a member"; then
+    echo
+    echo "ERROR: Your Mac account ($(whoami)) is not an Administrator."
+    echo
+    echo "Homebrew (which we need to install switchaudio-osx) requires admin."
+    echo "Fix: System Settings → Users & Groups → click the (i) next to your"
+    echo "user → toggle 'Allow this user to administer this computer' → ON."
+    echo "(You may need to log out and back in afterward.) Then re-run this"
+    echo "installer."
+    exit 1
+  fi
+
   echo "    (You'll be prompted for your Mac password — this is normal.)"
   echo
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  # NONINTERACTIVE=1 lets brew install via `curl | bash` without asking for
+  # interactive input (which fails when stdin is the script body itself).
+  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
   # Add brew to PATH for this shell (Apple Silicon vs Intel).
   if [ -x /opt/homebrew/bin/brew ]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
