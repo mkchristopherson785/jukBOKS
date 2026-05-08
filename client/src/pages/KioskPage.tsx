@@ -92,10 +92,19 @@ export default function KioskPage() {
   const autostart = searchParams.get("autostart") === "true";
   const urlLayout = searchParams.get("layout");
   const isDisplayOnly = searchParams.get("display") === "true";
+  // Audio-only mode for headless Pi kiosks paired with a separate display
+  // device (which loads ?display=true). Skips all heavy rendering — no album
+  // art (no image decode buffers), no queue list, no QR code, no animations,
+  // no logo. Just a black screen + the MusicKitPlayer audio engine + the
+  // auto-play / song-end / announcement effects. Drops renderer memory
+  // pressure substantially, which is the top cause of "Aw Snap" crashes on
+  // long-running kiosks. Implies autostart so the headless Pi never shows a
+  // tap-to-start screen it can't tap.
+  const isAudioOnly = searchParams.get("audioOnly") === "1" || searchParams.get("audioOnly") === "true";
   const [currentSong, setCurrentSong] = useState<any>(null);
   const [lastPlayedSong, setLastPlayedSong] = useState<{ title: string; artist: string; albumCover?: string } | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [isStarted, setIsStarted] = useState(autostart || isDisplayOnly);
+  const [isStarted, setIsStarted] = useState(autostart || isDisplayOnly || isAudioOnly);
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
   const [isPlayingAnnouncement, setIsPlayingAnnouncement] = useState(false);
   const [currentAnnouncement, setCurrentAnnouncement] = useState<{ id: number; name: string; audioUrl: string; imageUrl?: string | null } | null>(null);
@@ -992,6 +1001,39 @@ export default function KioskPage() {
       </div>
     </div>
   ) : null;
+
+  // Audio-only render: black screen + MusicKitPlayer + announcement audio.
+  // Deliberately renders nothing visual so the renderer process doesn't have
+  // to decode album art, animate transitions, or hold queue/QR DOM in memory.
+  // All the auto-play / song-end / announcement effects above still run, so
+  // the Pi behaves identically to a normal kiosk from the server's POV — the
+  // only difference is what's drawn on screen (which on a headless Pi nobody
+  // sees anyway).
+  if (isAudioOnly) {
+    return (
+      <div className="min-h-screen bg-black text-white/40 font-mono text-xs p-2">
+        <MusicKitPlayer
+          trackId={currentSong?.trackId || null}
+          previewUrl={displayPreview}
+          onEnded={handleSongEnded}
+          onSkip={handleSkip}
+          hideControls
+          onTogglePlay={(handler) => setTogglePlayHandler(() => handler)}
+          onSkipHandler={(handler) => setSkipHandler(() => handler)}
+          onPlayingChange={setIsPlaying}
+          trackName={currentSong?.title}
+          venueCode={code}
+          sonosEnabled={false}
+        />
+        <div data-testid="audio-only-status">
+          audio-only · {venue?.name || code}
+          {isPlayingAnnouncement && currentAnnouncement ? ` · announcement: ${currentAnnouncement.name}` : ""}
+          {!isPlayingAnnouncement && displayTitle ? ` · ${displayTitle} — ${displayArtist}` : ""}
+          {!isPaired && pairingCode ? ` · pair code: ${pairingCode}` : ""}
+        </div>
+      </div>
+    );
+  }
 
   if (isSquareLayout) {
     return (
