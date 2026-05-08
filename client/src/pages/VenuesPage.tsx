@@ -283,6 +283,16 @@ export default function VenuesPage() {
                     <Tv className="w-4 h-4" />
                     Kiosk
                   </a>
+                  <a
+                    href={`/kiosk/${venue.code}?display=true`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-fuchsia-600 hover:bg-fuchsia-700 text-white text-sm rounded-lg transition-colors"
+                    title="Display-only kiosk view (no audio, no device locking — open on a TV/tablet/laptop)"
+                  >
+                    <Tv className="w-4 h-4" />
+                    Display
+                  </a>
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(`https://jukboks.com/party/${venue.code}`);
