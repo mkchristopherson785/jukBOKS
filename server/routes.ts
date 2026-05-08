@@ -336,16 +336,23 @@ router.get("/api/v1/tracks/:trackId/similar", async (req: Request, res: Response
 
 // Proxy endpoint for iTunes search (avoids CORS issues on mobile)
 router.get("/api/apple-music/search", async (req: Request, res: Response) => {
-  const { term, limit = "20", offset = "0" } = req.query;
+  const { term, limit = "20", offset = "0", attribute } = req.query;
   
   if (!term || typeof term !== "string") {
     return res.status(400).json({ error: "Search term required" });
   }
   
   try {
-    const response = await fetch(
-      `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&limit=${limit}&offset=${offset}`
-    );
+    // Whitelist iTunes search attributes so guests can choose to search by
+    // song title (default — no attribute) or artist name (attribute=artistTerm).
+    // Artist mode still returns song results (entity=song) so guests can tap
+    // straight through to request — they just see only tracks where the
+    // searched name matches the *artist* field, not the title.
+    let url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=${limit}&offset=${offset}`;
+    if (attribute === "artistTerm" || attribute === "songTerm") {
+      url += `&attribute=${attribute}`;
+    }
+    const response = await fetch(url);
     const data = await response.json();
     res.json(data);
   } catch (error) {

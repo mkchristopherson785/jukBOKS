@@ -35,6 +35,7 @@ interface SongSearchProps {
 
 export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic = false, queueTrackIds }: SongSearchProps) {
   const [query, setQuery] = useState("");
+  const [searchMode, setSearchMode] = useState<"song" | "artist">("song");
   const { searchTracks, results, isSearching, clearResults, loadMore, hasMore, isLoadingMore } = useAppleMusic();
   const [previewingTrackId, setPreviewingTrackId] = useState<string | null>(null);
   const [previewProgress, setPreviewProgress] = useState(0);
@@ -98,10 +99,10 @@ export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic 
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      searchTracks(query);
+      searchTracks(query, searchMode);
     }, 300);
     return () => clearTimeout(timer);
-  }, [query, searchTracks]);
+  }, [query, searchMode, searchTracks]);
 
   const handleSelect = (track: Track) => {
     if (!allowExplicit && track.isExplicit) return;
@@ -125,13 +126,45 @@ export function SongSearch({ onSelect, allowExplicit = false, blockHolidayMusic 
 
   return (
     <div className="relative w-full">
+      <div className="flex gap-2 mb-2" role="tablist" aria-label="Search by">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={searchMode === "song"}
+          onClick={() => setSearchMode("song")}
+          data-testid="button-search-mode-song"
+          className={cn(
+            "flex-1 py-2 px-4 rounded-xl text-sm font-medium transition-colors",
+            searchMode === "song"
+              ? "bg-indigo-500 text-white"
+              : "bg-white/10 text-gray-300 hover:bg-white/15"
+          )}
+        >
+          Song
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={searchMode === "artist"}
+          onClick={() => setSearchMode("artist")}
+          data-testid="button-search-mode-artist"
+          className={cn(
+            "flex-1 py-2 px-4 rounded-xl text-sm font-medium transition-colors",
+            searchMode === "artist"
+              ? "bg-indigo-500 text-white"
+              : "bg-white/10 text-gray-300 hover:bg-white/15"
+          )}
+        >
+          Artist
+        </button>
+      </div>
       <div className="relative">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search for a song..."
+          placeholder={searchMode === "artist" ? "Search by artist..." : "Search for a song..."}
           className="w-full pl-12 pr-12 py-4 bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
         />
         {query && (

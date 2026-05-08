@@ -19,30 +19,49 @@ export interface Track {
 
 const RESULTS_PER_PAGE = 50;
 
+export type SearchMode = "song" | "artist";
+
 export function useAppleMusic() {
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [results, setResults] = useState<Track[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const currentQueryRef = useRef("");
+  const currentModeRef = useRef<SearchMode>("song");
   const offsetRef = useRef(0);
+  // Monotonic request id — only the latest request is allowed to write to
+  // state. Prevents a slow song-mode response from clobbering a faster
+  // artist-mode response when the user switches tabs (or types fast).
+  const requestIdRef = useRef(0);
 
-  const searchTracks = useCallback(async (query: string) => {
+  // Map iTunes search mode → attribute. Song mode is now explicit (songTerm)
+  // so default behavior matches the label: it really does match the *title*
+  // field, not artist/album/composer.
+  const attrFor = (mode: SearchMode) =>
+    mode === "artist" ? "&attribute=artistTerm" : "&attribute=songTerm";
+
+  const searchTracks = useCallback(async (query: string, mode: SearchMode = "song") => {
     if (!query.trim()) {
+      requestIdRef.current++; // invalidate any in-flight request
       setResults([]);
       setHasMore(false);
       return;
     }
 
     currentQueryRef.current = query;
+    currentModeRef.current = mode;
     offsetRef.current = 0;
+    const myRequestId = ++requestIdRef.current;
     setIsSearching(true);
     
     try {
       const response = await fetch(
-        `/api/apple-music/search?term=${encodeURIComponent(query)}&limit=${RESULTS_PER_PAGE}&offset=0`
+        `/api/apple-music/search?term=${encodeURIComponent(query)}&limit=${RESULTS_PER_PAGE}&offset=0${attrFor(mode)}`
       );
+      // Stale response — a newer query/mode has already been requested.
+      if (myRequestId !== requestIdRef.current) return;
       const data = await response.json();
+      if (myRequestId !== requestIdRef.current) return;
 
       const tracks: Track[] = data.results.map((item: any) => ({
         id: item.trackId?.toString() || "",
@@ -64,11 +83,12 @@ export function useAppleMusic() {
       setHasMore(returned >= RESULTS_PER_PAGE);
       offsetRef.current = returned;
     } catch (error) {
+      if (myRequestId !== requestIdRef.current) return;
       console.error("Search failed:", error);
       setResults([]);
       setHasMore(false);
     } finally {
-      setIsSearching(false);
+      if (myRequestId === requestIdRef.current) setIsSearching(false);
     }
   }, []);
 
@@ -78,7 +98,7 @@ export function useAppleMusic() {
     setIsLoadingMore(true);
     try {
       const response = await fetch(
-        `/api/apple-music/search?term=${encodeURIComponent(currentQueryRef.current)}&limit=${RESULTS_PER_PAGE}&offset=${offsetRef.current}`
+        `/api/apple-music/search?term=${encodeURIComponent(currentQueryRef.current)}&limit=${RESULTS_PER_PAGE}&offset=${offsetRef.current}${attrFor(currentModeRef.current)}`
       );
       const data = await response.json();
 
