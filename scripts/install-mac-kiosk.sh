@@ -73,7 +73,7 @@ if [ ! -f "$ENV_FILE" ]; then
       ;;
   esac
 
-  KIOSK_URL="$BASE_URL/kiosk/${VENUE_CODE}?autostart=true&reload=15&hardReload=30&memReloadMb=900&memHardReloadMb=1500${EXTRA_PARAMS}"
+  KIOSK_URL="$BASE_URL/kiosk/${VENUE_CODE}?autostart=true&reload=15&hardReload=30&memReloadMb=700&memHardReloadMb=1100${EXTRA_PARAMS}"
 
   cat > "$ENV_FILE" <<EOF
 # jukboks kiosk config.

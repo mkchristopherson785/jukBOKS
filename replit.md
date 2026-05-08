@@ -66,7 +66,7 @@ curl -fsSL https://jukboks.com/scripts/install-mac-kiosk.sh | bash
 - Writes `~/.config/jukboks/kiosk.env` and `~/.config/jukboks/kiosk-launch.sh`
 - Installs LaunchAgent `~/Library/LaunchAgents/com.jukboks.kiosk.plist` (RunAtLoad + KeepAlive)
 - Launch script wraps `chrome --kiosk --app=URL` in a while-loop so any Chrome exit relaunches within 3s
-- Default URL params (gentler than Pi since macOS Chrome leaks slower): `?autostart=true&reload=15&hardReload=30&memReloadMb=900&memHardReloadMb=1500`
+- Default URL params: `?autostart=true&reload=15&hardReload=30&memReloadMb=700&memHardReloadMb=1100` (JS heap, not full RSS — leaves headroom for any single song while catching real leaks before the renderer dies)
 - After install, user enables Automatic Login + Prevent Sleep in System Settings
 - Restart Chrome: `launchctl kickstart -k gui/$(id -u)/com.jukboks.kiosk`
 - Logs: `~/Library/Logs/jukboks-kiosk.log`
