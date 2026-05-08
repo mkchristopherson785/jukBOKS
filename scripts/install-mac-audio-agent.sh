@@ -47,9 +47,14 @@ if ! command -v brew >/dev/null 2>&1; then
 
   echo "    (You'll be prompted for your Mac password — this is normal.)"
   echo
-  # NONINTERACTIVE=1 lets brew install via `curl | bash` without asking for
-  # interactive input (which fails when stdin is the script body itself).
-  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  # When this whole installer is run via `curl | bash`, stdin is the script
+  # body — sudo can't read your password from a piped stdin. Download Homebrew's
+  # installer to a temp file and run it with stdin redirected to /dev/tty so
+  # sudo can prompt you interactively.
+  BREW_INSTALL_TMP="$(mktemp)"
+  curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o "$BREW_INSTALL_TMP"
+  /bin/bash "$BREW_INSTALL_TMP" < /dev/tty
+  rm -f "$BREW_INSTALL_TMP"
   # Add brew to PATH for this shell (Apple Silicon vs Intel).
   if [ -x /opt/homebrew/bin/brew ]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
