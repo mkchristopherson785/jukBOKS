@@ -54,7 +54,24 @@ if [ ! -f "$ENV_FILE" ]; then
     exit 1
   fi
 
-  KIOSK_URL="$BASE_URL/kiosk/${VENUE_CODE}?autostart=true&reload=15&hardReload=30&memReloadMb=900&memHardReloadMb=1500"
+  echo
+  echo "Is this Mac headless? (no monitor — audio only, with the visual"
+  echo "display shown on a separate device like a TV stick or tablet)"
+  printf "Headless? [y/N]: "
+  read -r HEADLESS_ANSWER
+  EXTRA_PARAMS=""
+  case "${HEADLESS_ANSWER:-}" in
+    y|Y|yes|YES|Yes)
+      EXTRA_PARAMS="&audioOnly=1"
+      echo "==> Headless mode: audio only (open the Display URL on a separate device)."
+      echo "    Display URL: $BASE_URL/kiosk/${VENUE_CODE}?display=true"
+      ;;
+    *)
+      echo "==> Standard mode: full kiosk display + audio."
+      ;;
+  esac
+
+  KIOSK_URL="$BASE_URL/kiosk/${VENUE_CODE}?autostart=true&reload=15&hardReload=30&memReloadMb=900&memHardReloadMb=1500${EXTRA_PARAMS}"
 
   cat > "$ENV_FILE" <<EOF
 # jukboks kiosk config.
@@ -119,4 +136,8 @@ echo "    launchctl kickstart -k gui/\$(id -u)/com.jukboks.kiosk"
 echo
 echo "  Logs:"
 echo "    tail -f ~/Library/Logs/jukboks-kiosk.log"
+echo
+echo "  To switch between headless and full-display modes later, edit"
+echo "  ~/.config/jukboks/kiosk.env (add or remove '&audioOnly=1' at the"
+echo "  end of KIOSK_URL), then run the kickstart command above."
 echo "==============================================================="
