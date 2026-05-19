@@ -1158,8 +1158,16 @@ router.post("/api/v1/venues/:code/restart-ack", async (req: Request, res: Respon
   try {
     const venue = await storage.getVenueByCode(req.params.code);
     if (!venue) return res.status(404).json({ error: "VENUE_NOT_FOUND" });
+    // Anchor the timestamp 2 min in the past instead of clearing to null.
+    // The `restartRequested` flag at GET /audio-sink is age < 2min, so this
+    // immediately turns it false (agent stops trying to restart). But the
+    // 5-min auto-restart cooldown still measures real elapsed time from
+    // this anchor — without it, a null timestamp evaluates to Infinity
+    // for cooldown purposes and the server hammers the kiosk every ~60s
+    // while a broken page can't heartbeat after restart.
+    const ackAnchor = new Date(Date.now() - 2 * 60 * 1000 - 1000);
     await storage.updateVenue(venue.id, {
-      kioskRestartRequestedAt: null,
+      kioskRestartRequestedAt: ackAnchor,
     } as any);
     res.json({ success: true });
   } catch (error) {
