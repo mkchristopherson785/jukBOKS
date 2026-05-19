@@ -122,11 +122,17 @@ echo "==> Wrote $ENV_FILE"
 # the new venue), causing a ~1-minute restart loop.
 AUDIO_AGENT_ENV="$HOME/.config/jukboks/audio-agent.env"
 if [ -f "$AUDIO_AGENT_ENV" ]; then
-  CURRENT_AGENT_VENUE="$(grep -E '^VENUE_CODE=' "$AUDIO_AGENT_ENV" 2>/dev/null | sed -E 's/^VENUE_CODE=//' | head -1)"
+  # audio-agent.env historically uses `export VENUE_CODE="..."` (the audio
+  # agent installer writes it that way), but also tolerate plain `VENUE_CODE=...`.
+  # Strip optional `export ` prefix and optional surrounding double quotes.
+  CURRENT_AGENT_VENUE="$(grep -E '^(export[[:space:]]+)?VENUE_CODE=' "$AUDIO_AGENT_ENV" 2>/dev/null \
+    | sed -E 's/^(export[[:space:]]+)?VENUE_CODE=//; s/^"(.*)"$/\1/' \
+    | head -1)"
   if [ -n "$CURRENT_AGENT_VENUE" ] && [ "$CURRENT_AGENT_VENUE" != "$VENUE_CODE" ]; then
     echo "==> Audio agent was on venue '$CURRENT_AGENT_VENUE' — updating to '$VENUE_CODE'."
-    # macOS sed requires '' after -i.
-    sed -i '' "s|^VENUE_CODE=.*|VENUE_CODE=$VENUE_CODE|" "$AUDIO_AGENT_ENV"
+    # macOS sed requires '' after -i. Match both `export VENUE_CODE=...` and
+    # `VENUE_CODE=...`, rewriting in the same shape (quoted, with optional export).
+    sed -i '' -E "s|^(export[[:space:]]+)?VENUE_CODE=.*|\1VENUE_CODE=\"$VENUE_CODE\"|" "$AUDIO_AGENT_ENV"
     if launchctl print "gui/$(id -u)/com.jukboks.audio-agent" >/dev/null 2>&1; then
       launchctl kickstart -k "gui/$(id -u)/com.jukboks.audio-agent" >/dev/null 2>&1 || true
       echo "==> Restarted audio agent."
