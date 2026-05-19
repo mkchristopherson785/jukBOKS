@@ -1,0 +1,44 @@
+jukboks-mac-01@jukboks-mac-01 ~ % grep KIOSK_URL ~/.config/jukboks/kiosk.env && \
+  echo "---" && \
+  tail -30 ~/Library/Logs/jukboks-kiosk.log && \
+  echo "---" && \
+  pgrep -lf "Google Chrome" | head -5
+# Edit KIOSK_URL to change which venue this Mac displays, then restart:
+export KIOSK_URL="https://jukboks.com/kiosk/pool-YFJMQY?autostart=true&reload=15&hardReload=30&memReloadMb=700&memHardReloadMb=1100"
+---
+[20129:206105:0519/155702.810197:VERBOSE1:chrome/updater/app/app_wakeall.cc:58] Launching `/Users/jukboks-mac-01/Library/Application Support/Google/GoogleUpdater/149.0.7814.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --wake`
+[20132:206109:0519/155702.820079:VERBOSE1:chrome/updater/updater.cc:352] Version: 149.0.7814.0, opt, x86_64, command line: /Users/jukboks-mac-01/Library/Application Support/Google/GoogleUpdater/149.0.7814.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --wake --enable-logging --vmodule=*/components/update_client/*=2,*/chrome/enterprise_companion/*=2,*/chrome/updater/*=2
+[20132:206109:0519/155702.820434:VERBOSE1:chrome/updater/updater.cc:355] OS version: 15.7.5, arch: x86_64, System uptime (seconds): 22591, parent pid: 20129
+[20132:206109:0519/155702.824010:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS START event to the history log
+[20135:206115:0519/155702.834695:VERBOSE1:chrome/updater/updater.cc:352] Version: 149.0.7814.0, opt, x86_64, command line: /Users/jukboks-mac-01/Library/Application Support/Google/GoogleUpdater/149.0.7814.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --crash-handler --database=/Users/jukboks-mac-01/Library/Application Support/Google/GoogleUpdater/149.0.7814.0/Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=149.0.7814.0 --handshake-fd=6 --enable-logging --vmodule=*/components/update_client/*=2,*/chrome/enterprise_companion/*=2,*/chrome/updater/*=2
+[20135:206115:0519/155702.835043:VERBOSE1:chrome/updater/updater.cc:355] OS version: 15.7.5, arch: x86_64, System uptime (seconds): 22591, parent pid: 1
+[20135:206115:0519/155702.838472:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS START event to the history log
+[20132:206109:0519/155702.839103:VERBOSE1:chrome/updater/crash_reporter.cc:124] Crash handler launched and ready.
+[20132:206109:0519/155702.840055:VERBOSE1:chrome/updater/crash_client.cc:108] Found 0 completed crash reports
+[20132:206109:0519/155702.840171:VERBOSE1:chrome/updater/crash_client.cc:132] Found 0 pending crash reports
+[20132:206109:0519/155702.840294:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /Users/jukboks-mac-01/Library/Application Support/Google/RLZ/Crashpad/settings.dat: No such file or directory (2)
+[20132:206109:0519/155702.840371:VERBOSE1:chrome/updater/updater.cc:103] Crash reporting initialized.
+[20132:206109:0519/155702.840705:VERBOSE1:chrome/updater/ipc/update_service_internal_proxy_mojo.cc:61] Run
+[20065:205391:0519/155703.968251:ERROR:google_apis/gcm/engine/connection_factory_impl.cc:484] ConnectionHandler failed with net error: -2
+[2026-05-19 15:57:04] Launching Chrome → https://jukboks.com/kiosk/pool-YFJMQY?autostart=true&reload=15&hardReload=30&memReloadMb=700&memHardReloadMb=1100
+[20065:205239:0519/155704.026259:ERROR:content/browser/gpu/gpu_process_host.cc:999] GPU process exited unexpectedly: exit_code=15
+[20065:205239:0519/155704.027482:ERROR:content/browser/network_service_instance_impl.cc:703] Network service crashed or was terminated, restarting service.
+2026-05-19 15:57:04.739 Google Chrome[20167:206246] setPresentationOptions called with NSApplicationPresentationFullScreen when there is no visible fullscreen window; this call will be ignored.
+Created TensorFlow Lite XNNPACK delegate for CPU.
+[20132:206109:0519/155719.852286:VERBOSE1:chrome/updater/app/app.cc:52] Shutdown: 0
+[20132:206109:0519/155719.852976:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS END event to the history log
+[20132:206109:0519/155719.853023:VERBOSE1:chrome/updater/updater.cc:390] UpdaterMain (--wake) returned 0.
+[20129:206105:0519/155720.052521:VERBOSE1:chrome/updater/app/app_wakeall.cc:68] `/Users/jukboks-mac-01/Library/Application Support/Google/GoogleUpdater/149.0.7814.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --wake` exited 0
+[20129:206093:0519/155720.052729:VERBOSE1:chrome/updater/app/app.cc:52] Shutdown: 0
+[20129:206093:0519/155720.053289:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS END event to the history log
+[20129:206093:0519/155720.053309:VERBOSE1:chrome/updater/updater.cc:390] UpdaterMain (--wake-all) returned 0.
+[20135:206115:0519/155729.863934:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS END event to the history log
+[20135:206115:0519/155729.863962:VERBOSE1:chrome/updater/updater.cc:390] UpdaterMain (--crash-handler) returned 0.
+[20131:206097:0519/155729.864931:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS END event to the history log
+[20131:206097:0519/155729.865250:VERBOSE1:chrome/updater/updater.cc:390] UpdaterMain (--crash-handler) returned 0.
+---
+20167 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --kiosk --user-data-dir=/Users/jukboks-mac-01/.config/jukboks/chrome-profile --no-first-run --no-default-browser-check --disable-translate --disable-features=TranslateUI --disable-session-crashed-bubble --disable-infobars --noerrdialogs --autoplay-policy=no-user-gesture-required --start-fullscreen --app=https://jukboks.com/kiosk/pool-YFJMQY?autostart=true&reload=15&hardReload=30&memReloadMb=700&memHardReloadMb=1100
+20174 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/148.0.7778.168/Helpers/chrome_crashpad_handler --monitor-self-annotation=ptype=crashpad-handler --database=/Users/jukboks-mac-01/Library/Application Support/Google/Chrome/Crashpad --url=https://clients2.google.com/cr/report --annotation=channel= --annotation=plat=OS X --annotation=prod=Chrome_Mac --annotation=ver=148.0.7778.168 --handshake-fd=5
+20185 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/148.0.7778.168/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper --type=gpu-process --noerrdialogs --user-data-dir=/Users/jukboks-mac-01/.config/jukboks/chrome-profile --gpu-preferences=SAAAAAAAAAAgAQAEAAAAAAAAAAAAAGAAAwAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAAACAAAAAAAAAAIAAAAAAAAAA== --shared-files --metrics-shmem-handle=1752395122,r,3438798196909771950,14837185338348234724,262144 --field-trial-handle=1718379636,r,9816507559548751719,1418063654456704965,262144 --disable-features=TranslateUI --variations-seed-version=20260519-010037.109000-production --pseudonymization-salt-handle=1935764596,r,9490258886703544165,5489629502259942962,4 --trace-process-track-uuid=3190708988185955192 --seatbelt-client=28
+20186 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/148.0.7778.168/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper --type=utility --utility-sub-type=network.mojom.NetworkService --lang=en-US --service-sandbox-type=network --noerrdialogs --user-data-dir=/Users/jukboks-mac-01/.config/jukboks/chrome-profile --shared-files --metrics-shmem-handle=1752395122,r,17692090751564951661,8907216285773993782,524288 --field-trial-handle=1718379636,r,9816507559548751719,1418063654456704965,262144 --disable-features=TranslateUI --variations-seed-version=20260519-010037.109000-production --pseudonymization-salt-handle=1935764596,r,9490258886703544165,5489629502259942962,4 --trace-process-track-uuid=3190708989122997041 --seatbelt-client=28
+20187 /Applications/Google Chrome.app/Contents/Frameworks/Google Chrome Framework.framework/Versions/148.0.7778.168/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper --type=utility --utility-sub-type=storage.mojom.StorageService --lang=en-US --service-sandbox-type=service --noerrdialogs --user-data-dir=/Users/jukboks-mac-01/.config/jukboks/chrome-profile --shared-files --metrics-shmem-handle=1752395122,r,6047474450337806848,5706272508197877268,524288 --field-trial-handle=1718379636,r,9816507559548751719,1418063654456704965,262144 --disable-features=TranslateUI --variations-seed-version=20260519-010037.109000-production --pseudonymization-salt-handle=1935764596,r,9490258886703544165,5489629502259942962,4 --trace-process-track-uuid=3190708990060038890 --seatbelt-client=46
