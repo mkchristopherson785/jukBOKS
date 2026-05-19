@@ -115,6 +115,25 @@ export KIOSK_URL="$KIOSK_URL"
 EOF
 echo "==> Wrote $ENV_FILE"
 
+# Keep the audio agent's venue in sync with the kiosk's venue. If the audio
+# agent is installed and points at a different venue, the agent will fight
+# the kiosk: server-side stale-heartbeat detection on the old venue will
+# repeatedly tell the agent to kill the local Chrome (which is now showing
+# the new venue), causing a ~1-minute restart loop.
+AUDIO_AGENT_ENV="$HOME/.config/jukboks/audio-agent.env"
+if [ -f "$AUDIO_AGENT_ENV" ]; then
+  CURRENT_AGENT_VENUE="$(grep -E '^VENUE_CODE=' "$AUDIO_AGENT_ENV" 2>/dev/null | sed -E 's/^VENUE_CODE=//' | head -1)"
+  if [ -n "$CURRENT_AGENT_VENUE" ] && [ "$CURRENT_AGENT_VENUE" != "$VENUE_CODE" ]; then
+    echo "==> Audio agent was on venue '$CURRENT_AGENT_VENUE' — updating to '$VENUE_CODE'."
+    # macOS sed requires '' after -i.
+    sed -i '' "s|^VENUE_CODE=.*|VENUE_CODE=$VENUE_CODE|" "$AUDIO_AGENT_ENV"
+    if launchctl print "gui/$(id -u)/com.jukboks.audio-agent" >/dev/null 2>&1; then
+      launchctl kickstart -k "gui/$(id -u)/com.jukboks.audio-agent" >/dev/null 2>&1 || true
+      echo "==> Restarted audio agent."
+    fi
+  fi
+fi
+
 # 3) Write the LaunchAgent plist.
 cat > "$PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
