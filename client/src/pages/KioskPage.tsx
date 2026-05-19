@@ -157,6 +157,14 @@ export default function KioskPage() {
   const effectiveLayout = serverLayout ?? urlLayout ?? "default";
   const isSquareLayout = effectiveLayout === "square";
 
+  // Phase 2: when the venue's playbackBackend is 'apple_music_native', the
+  // macOS audio agent drives Apple Music.app via AppleScript and the kiosk
+  // page must NOT also instantiate MusicKitPlayer (double audio + duplicate
+  // memory pressure). The kiosk still owns queue advancement — it just uses a
+  // time-based setTimeout (duration seconds) instead of MusicKit's `ended`
+  // event to fire handleSongEnded. Defaults to musickit_js until venue loads.
+  const isNativeBackend = (venue as any)?.playbackBackend === "apple_music_native";
+
   // Apple Music kiosk pairing: fetch saved Music User Token from server.
   // If present, apply it to MusicKit silently so the headless kiosk can stream
   // full songs without anyone tapping a sign-in button. If absent, request a
@@ -165,7 +173,10 @@ export default function KioskPage() {
   const { data: appleTokenData } = useQuery({
     queryKey: ["apple-music-token", code, deviceId],
     queryFn: () => fetchAppleMusicToken(code!, deviceId),
-    enabled: !!code && !isDisplayOnly && hasLock,
+    // Native backend doesn't use MusicKit JS at all, so the kiosk's saved
+    // Music User Token is irrelevant — skip the query and the pairing-code
+    // flow below to avoid showing a pairing banner that does nothing.
+    enabled: !!code && !isDisplayOnly && hasLock && !isNativeBackend,
     refetchInterval: 30000,
     retry: false,
   });
@@ -187,13 +198,14 @@ export default function KioskPage() {
 
   useEffect(() => {
     if (isDisplayOnly || !code || isPaired) return;
+    if (isNativeBackend) return; // native backend doesn't need MusicKit pairing
     if (appleTokenData === undefined) return; // wait for first fetch
     if (appleTokenData?.token) return;
     if (pairingCode) return;
     requestPairingCode(code)
       .then((res) => setPairingCode(res.code))
       .catch((err) => console.warn("Failed to request pairing code:", err));
-  }, [code, isDisplayOnly, appleTokenData, isPaired, pairingCode]);
+  }, [code, isDisplayOnly, appleTokenData, isPaired, pairingCode, isNativeBackend]);
 
   useEffect(() => {
     if (!venue) return;
@@ -815,6 +827,25 @@ export default function KioskPage() {
     });
   }, [currentSong, markPlayedMutation, refetchQueue, checkAndPlayAnnouncement]);
 
+  // Phase 2 native backend: with MusicKitPlayer unmounted, no `ended` event
+  // ever fires. Instead, schedule handleSongEnded based on the song's known
+  // duration. The agent's 1s poll loop will then notice the server cleared
+  // nowPlaying and pause the Music app; once the kiosk's auto-play effect
+  // picks the next song and POSTs /play, the agent starts the next track.
+  // Inter-song gap is bounded by (agent poll + AppleScript latency) ~= 1-2s.
+  useEffect(() => {
+    if (!isNativeBackend || isDisplayOnly) return;
+    if (!currentSong?.duration) return;
+    // 250ms safety margin so we fire handleSongEnded just before Apple Music
+    // can auto-advance to its algorithmic up-next (we also set repeat=one
+    // in the agent as a belt-and-braces defense).
+    const ms = Math.max(1000, currentSong.duration * 1000 - 250);
+    const timer = window.setTimeout(() => {
+      handleSongEnded();
+    }, ms);
+    return () => window.clearTimeout(timer);
+  }, [isNativeBackend, isDisplayOnly, currentSong?.id, currentSong?.duration, handleSongEnded]);
+
   const handleSkip = useCallback(() => {
     if (currentSong) {
       setIsTransitioning(true);
@@ -1027,6 +1058,7 @@ export default function KioskPage() {
         currentAnnouncement={currentAnnouncement}
         isPaired={isPaired}
         pairingCode={pairingCode}
+        isNativeBackend={isNativeBackend}
       />
     );
   }
@@ -1035,7 +1067,8 @@ export default function KioskPage() {
     return (
       <div className="min-h-screen bg-transparent flex flex-col relative overflow-hidden">
         {pairingBanner}
-        {!isDisplayOnly && (
+        {/* Native backend: macOS audio agent drives Music.app, no browser audio. */}
+        {!isDisplayOnly && !isNativeBackend && (
           <MusicKitPlayer
             trackId={currentSong?.trackId || null}
             previewUrl={displayPreview}
@@ -1218,7 +1251,8 @@ export default function KioskPage() {
                 </div>
               </div>
 
-              {!isDisplayOnly && (
+              {/* Native backend: macOS audio agent drives Music.app, no browser audio. */}
+              {!isDisplayOnly && !isNativeBackend && (
                 <MusicKitPlayer
                   trackId={currentSong?.trackId || null}
                   previewUrl={displayPreview}
@@ -1382,11 +1416,12 @@ function AudioOnlyKioskView(props: {
   currentAnnouncement: { id: number; name: string; audioUrl: string; imageUrl?: string | null } | null;
   isPaired: boolean;
   pairingCode: string | null;
+  isNativeBackend: boolean;
 }) {
   const {
     code, venue, currentSong, displayPreview, displayTitle, displayArtist,
     handleSongEnded, handleSkip, setTogglePlayHandler, setSkipHandler, setIsPlaying,
-    isPlayingAnnouncement, currentAnnouncement, isPaired, pairingCode,
+    isPlayingAnnouncement, currentAnnouncement, isPaired, pairingCode, isNativeBackend,
   } = props;
 
   // Poll the public health endpoint every 30s — same cadence the agent reports.
@@ -1414,19 +1449,22 @@ function AudioOnlyKioskView(props: {
 
   return (
     <div className="min-h-screen bg-black text-white font-mono p-4 sm:p-6 flex flex-col gap-4">
-      <MusicKitPlayer
-        trackId={currentSong?.trackId || null}
-        previewUrl={displayPreview}
-        onEnded={handleSongEnded}
-        onSkip={handleSkip}
-        hideControls
-        onTogglePlay={(handler) => setTogglePlayHandler(() => handler)}
-        onSkipHandler={(handler) => setSkipHandler(() => handler)}
-        onPlayingChange={setIsPlaying}
-        trackName={currentSong?.title}
-        venueCode={code}
-        sonosEnabled={false}
-      />
+      {/* Native backend: macOS audio agent drives Music.app — skip browser audio. */}
+      {!isNativeBackend && (
+        <MusicKitPlayer
+          trackId={currentSong?.trackId || null}
+          previewUrl={displayPreview}
+          onEnded={handleSongEnded}
+          onSkip={handleSkip}
+          hideControls
+          onTogglePlay={(handler) => setTogglePlayHandler(() => handler)}
+          onSkipHandler={(handler) => setSkipHandler(() => handler)}
+          onPlayingChange={setIsPlaying}
+          trackName={currentSong?.title}
+          venueCode={code}
+          sonosEnabled={false}
+        />
+      )}
 
       {/* Header */}
       <div className="flex items-baseline justify-between border-b border-white/10 pb-2">

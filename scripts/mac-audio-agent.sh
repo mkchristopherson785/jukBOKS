@@ -209,6 +209,127 @@ PY
 current_sink=""
 current_volume=""
 
+# =============================================================================
+# Phase 2: Native Apple Music playback driver.
+#
+# When the venue's playback_backend = 'apple_music_native', the kiosk page
+# unmounts MusicKitPlayer (no browser audio) and this agent drives the macOS
+# Music.app via AppleScript instead. We poll /playback-state every ~1s; when
+# the server's nowPlaying.catalogId changes we hand it to Music.app via the
+# music:// URL scheme. The kiosk page handles queue advancement on a
+# duration-based setTimeout (no MusicKit `ended` event in this mode).
+#
+# State is kept in two shell vars below. Both are owned by this loop only.
+# =============================================================================
+AM_DESIRED_ID=""        # catalog id we last asked Music.app to play
+AM_LAST_MUSIC_VOLUME="" # Music.app internal volume (separate from system out)
+
+# Hand Music.app a catalog id via the iTunes Store URL scheme. The
+# "/_/" segment is a song-slug placeholder Apple accepts; only the id matters.
+# We also pin repeat=one so that if our next-track command is briefly delayed
+# (kiosk lag, dropped poll), Music.app loops the current track instead of
+# falling through into Apple's algorithmic Up Next.
+am_play_catalog_id() {
+  local id="$1"
+  open "https://music.apple.com/us/song/_/$id" >>"$LOG_FILE" 2>&1 || \
+    log "WARN: open music:// failed for catalog id $id"
+  osascript -e 'tell application "Music" to set song repeat to one' >>"$LOG_FILE" 2>&1 || true
+}
+
+am_pause() {
+  osascript -e 'tell application "Music" to pause' >>"$LOG_FILE" 2>&1 || true
+}
+
+# Music.app has its OWN volume slider, separate from system output volume
+# (which the existing osascript "set volume output volume" already handles
+# in the 60s outer loop). We want both to match the admin's setting.
+am_set_music_volume() {
+  local v="$1"
+  osascript -e "tell application \"Music\" to set sound volume to $v" >>"$LOG_FILE" 2>&1 || true
+}
+
+# Returns "state|position_sec" (e.g. "playing|42"). Tolerates Music.app not
+# being frontmost or having no current track. Wrapped in `try` so AppleScript
+# errors don't dump to the log.
+am_get_state() {
+  osascript -e 'tell application "Music"
+    try
+      set s to player state as string
+      set p to (player position as integer)
+      return s & "|" & p
+    on error
+      return "stopped|0"
+    end try
+  end tell' 2>/dev/null
+}
+
+# One iteration of the fast native loop. Called ~1x per second when
+# playback_backend = 'apple_music_native'. Safe to call when Music.app isn't
+# running — the URL scheme will launch it.
+drive_native_apple_music() {
+  local resp desired_id desired_vol
+  resp="$(curl -fsS --max-time 5 "$BASE_URL/api/v1/venues/$VENUE_CODE/playback-state" 2>>"$LOG_FILE" || echo "")"
+  [ -z "$resp" ] && return
+
+  desired_id="$(printf '%s' "$resp" | python3 -c 'import json,sys
+try:
+  d=json.load(sys.stdin); np=d.get("nowPlaying") or {}
+  print(np.get("catalogId") or "")
+except Exception:
+  pass' 2>/dev/null)"
+  desired_vol="$(printf '%s' "$resp" | python3 -c 'import json,sys
+try:
+  d=json.load(sys.stdin); v=d.get("volume")
+  print(int(v) if v is not None else "")
+except Exception:
+  pass' 2>/dev/null)"
+
+  if [ -n "$desired_id" ] && [ "$desired_id" != "$AM_DESIRED_ID" ]; then
+    log "NATIVE: play catalog $desired_id (prev: ${AM_DESIRED_ID:-none})"
+    am_play_catalog_id "$desired_id"
+    AM_DESIRED_ID="$desired_id"
+    # Re-apply Music.app volume after starting a new track — Music.app
+    # occasionally resets internal volume when handed a fresh URL.
+    if [ -n "$desired_vol" ]; then
+      am_set_music_volume "$desired_vol"
+      AM_LAST_MUSIC_VOLUME="$desired_vol"
+    fi
+  elif [ -z "$desired_id" ] && [ -n "$AM_DESIRED_ID" ]; then
+    log "NATIVE: pause (server cleared nowPlaying)"
+    am_pause
+    AM_DESIRED_ID=""
+  fi
+
+  if [ -n "$desired_vol" ] && [ "$desired_vol" != "$AM_LAST_MUSIC_VOLUME" ]; then
+    am_set_music_volume "$desired_vol"
+    AM_LAST_MUSIC_VOLUME="$desired_vol"
+  fi
+
+  # Observe and report. The `currentCatalogId` we report is our intent
+  # (AM_DESIRED_ID), not what we'd read back from Music.app — Music's
+  # "database id" is a library id distinct from the storefront catalog id
+  # and there's no clean AppleScript-side mapping back. Position + state
+  # ARE genuine observations.
+  local observed obs_state obs_pos is_playing report_id
+  observed="$(am_get_state)"
+  obs_state="${observed%%|*}"
+  obs_pos="${observed#*|}"
+  case "$obs_pos" in (''|*[!0-9]*) obs_pos=0 ;; esac
+  is_playing="false"
+  [ "$obs_state" = "playing" ] && is_playing="true"
+  if [ -n "$AM_DESIRED_ID" ]; then
+    report_id="\"$AM_DESIRED_ID\""
+  else
+    report_id="null"
+  fi
+  curl -fsS -X POST -H "Content-Type: application/json" --max-time 5 \
+    -d "{\"currentCatalogId\":$report_id,\"positionSec\":$obs_pos,\"isPlaying\":$is_playing}" \
+    "$BASE_URL/api/v1/venues/$VENUE_CODE/playback-report" \
+    >/dev/null 2>>"$LOG_FILE" || true
+}
+
+playback_backend="musickit_js"
+
 while true; do
   # 1) List output devices and POST them.
   # SwitchAudioSource -a -t output prints one device name per line.
@@ -245,12 +366,16 @@ while true; do
     desired_sink="$(printf '%s' "$resp" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d.get("sink") or "")' 2>/dev/null || true)"
     desired_volume="$(printf '%s' "$resp" | python3 -c 'import json,sys;d=json.load(sys.stdin);v=d.get("volume");print(v if v is not None else "")' 2>/dev/null || true)"
     restart_requested="$(printf '%s' "$resp" | python3 -c 'import json,sys;d=json.load(sys.stdin);print("1" if d.get("restartRequested") else "")' 2>/dev/null || true)"
-    playback_backend="$(printf '%s' "$resp" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d.get("playbackBackend") or "musickit_js")' 2>/dev/null || echo musickit_js)"
-    # Option A (BETA) — native Apple Music app playback driver. Not yet
-    # implemented; flipping the venue's Playback Backend to "Native Apple
-    # Music" only logs here until the AppleScript driver lands.
-    if [ "$playback_backend" = "apple_music_native" ]; then
-      log "INFO: venue is set to native Apple Music backend (driver not yet implemented; falling through to MusicKit JS in browser)"
+    new_backend="$(printf '%s' "$resp" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d.get("playbackBackend") or "musickit_js")' 2>/dev/null || echo musickit_js)"
+    if [ "$new_backend" != "$playback_backend" ]; then
+      log "INFO: playback_backend changed: ${playback_backend} -> ${new_backend}"
+      playback_backend="$new_backend"
+      # When switching AWAY from native, pause Music.app so it doesn't keep
+      # playing in the background while MusicKit JS takes over.
+      if [ "$playback_backend" != "apple_music_native" ] && [ -n "$AM_DESIRED_ID" ]; then
+        am_pause
+        AM_DESIRED_ID=""
+      fi
     fi
 
     # 2a) Apply sink if changed.
@@ -357,5 +482,15 @@ except Exception:
     fi
   fi
 
-  sleep 60
+  # Fast inner loop: 60 ticks of ~1s each. Outer loop's 60s cadence
+  # (devices/sink/health/RSS watchdog) is preserved; only the native
+  # playback driver needs the high tick rate.
+  i=0
+  while [ "$i" -lt 60 ]; do
+    if [ "$playback_backend" = "apple_music_native" ]; then
+      drive_native_apple_music
+    fi
+    i=$((i + 1))
+    sleep 1
+  done
 done

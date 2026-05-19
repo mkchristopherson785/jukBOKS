@@ -605,6 +605,10 @@ router.get("/api/v1/venues/:code", async (req: Request, res: Response) => {
       announcementFrequency: venue.announcementFrequency,
       announcementPlayMode: venue.announcementPlayMode,
       kioskLayout: venue.kioskLayout || "default",
+      // Phase 2: kiosk reads this to decide whether to mount MusicKitPlayer
+      // (browser audio via MusicKit JS) or skip audio entirely and let the
+      // Mac audio agent drive the native Music.app via AppleScript.
+      playbackBackend: (venue as any).playbackBackend || "musickit_js",
     });
   } catch (error) {
     res.status(500).json({ error: "SERVER_ERROR", message: "Internal server error" });

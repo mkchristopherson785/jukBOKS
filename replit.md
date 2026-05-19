@@ -78,9 +78,22 @@ curl -fsSL https://jukboks.com/scripts/install-mac-audio-agent.sh | bash
 - Auto-installs Homebrew (writes the brew installer to a temp file and runs it with `< /dev/tty` so sudo can prompt — `curl | bash` strips stdin, breaking interactive sudo otherwise) and `switchaudio-osx`
 - Reuses venue code from kiosk install if present
 - LaunchAgent `~/Library/LaunchAgents/com.jukboks.audio-agent.plist` (RunAtLoad + KeepAlive)
-- Loop (60s): lists outputs via `SwitchAudioSource -a -t output`, POSTs to `/audio-devices`, polls `/audio-sink` for desired sink + volume + restart flag, applies sink via `SwitchAudioSource -t output -s`, volume via `osascript -e "set volume output volume X"`. Also POSTs system health (load avg, mem%, disk%, uptime, Chrome RSS+uptime) to `/health`. CPU temp reported as null (requires sudo on macOS)
+- Loop (60s): lists outputs via `SwitchAudioSource -a -t output`, POSTs to `/audio-devices`, polls `/audio-sink` for desired sink + volume + restart flag + playback backend, applies sink via `SwitchAudioSource -t output -s`, volume via `osascript -e "set volume output volume X"`. Also POSTs system health (load avg, mem%, disk%, uptime, Chrome RSS+uptime) to `/health`. CPU temp reported as null (requires sudo on macOS)
+- **Fast inner loop (1s)** runs between each 60s tick. When `playback_backend = apple_music_native`, calls `GET /playback-state` and drives Music.app via AppleScript (see "Native Apple Music backend" below). Idle when backend = musickit_js
 - Logs: `~/Library/Logs/jukboks-audio-agent.log`
 - Stable per-Mac deviceId: `~/.config/jukboks/device-id`
+
+## Native Apple Music backend (Option A)
+
+Bypasses MusicKit JS entirely by playing through the macOS Music.app, which doesn't suffer the renderer-side native-audio-buffer leak. Admin toggles `venues.playbackBackend` from `musickit_js` (default) to `apple_music_native` in the VenuesPage dropdown.
+
+When native:
+- **Kiosk page** unmounts `MusicKitPlayer` (no browser audio, no MusicKit init, no pairing flow). Still owns queue advancement — schedules `handleSongEnded` via `setTimeout(duration*1000 - 250ms)` per track. Visuals (album art, queue, QR) render normally
+- **Mac audio agent** polls `GET /api/v1/venues/:code/playback-state` every 1s. When server's `nowPlaying.catalogId` differs from `AM_DESIRED_ID`, runs `open https://music.apple.com/us/song/_/<id>` to start the track, then `tell application "Music" to set song repeat to one` so a brief stall doesn't fall into Apple's algorithmic Up Next. Reports observed state via `POST /playback-report`. Volume applied via `tell application "Music" to set sound volume to N` (separate from system output volume)
+- **Inter-song gap**: bounded by agent poll + AppleScript latency ≈ 1-2s
+- **One-time macOS prompt**: first track triggers an "audio-agent wants to control Music" Automation permission dialog. Approve in System Settings → Privacy & Security → Automation
+- **Endpoints**: `GET /api/v1/venues/:code/playback-state` (returns backend, nowPlaying, nextUp, volume, serverNow) and `POST /api/v1/venues/:code/playback-report` (agent persists observed state). Venue-code-gated, same trust model as `/audio-sink`
+- **Caveat**: `?audioOnly=1` URL mode still mounts MusicKitPlayer in the audio-only diagnostic view; if user has audioOnly + native combined the diagnostic view skips MusicKitPlayer too. Pi installs unaffected — Pi agent doesn't have the AppleScript driver
 
 ## Renderer-crash and memory defenses (apply to both Mac and Pi)
 
