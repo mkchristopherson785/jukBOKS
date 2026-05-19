@@ -1115,6 +1115,11 @@ router.get("/api/v1/venues/:code/audio-sink", async (req: Request, res: Response
       sink: venue.kioskAudioSink || null,
       volume: venue.kioskAudioVolume ?? 65,
       restartRequested,
+      // BETA: tells the agent which playback path to drive. Default
+      // 'musickit_js' = agent only manages audio sink/volume/restarts;
+      // 'apple_music_native' = agent will additionally drive the native
+      // Apple Music app via AppleScript (driver implementation pending).
+      playbackBackend: (venue as any).playbackBackend || "musickit_js",
     });
   } catch (error) {
     console.error("audio-sink error:", error);
@@ -2716,8 +2721,9 @@ router.patch("/api/me/venues/:venueId", isAuthenticated, async (req: any, res) =
       return res.status(404).json({ error: "NOT_FOUND", message: "Venue not found" });
     }
 
-    const { name, allowExplicit, blockHolidayMusic, autoApprove, dailyRequestLimit, isActive, songCooldownMinutes, artistCooldownMinutes, artistMaxPlaysPerHour, kioskLayout, kioskAudioSink } = req.body;
+    const { name, allowExplicit, blockHolidayMusic, autoApprove, dailyRequestLimit, isActive, songCooldownMinutes, artistCooldownMinutes, artistMaxPlaysPerHour, kioskLayout, kioskAudioSink, playbackBackend } = req.body;
     const allowedLayouts = new Set(["default", "square"]);
+    const allowedBackends = new Set(["musickit_js", "apple_music_native"]);
 
     const updatedVenue = await storage.updateVenue(venueId, {
       ...(name !== undefined && { name }),
@@ -2732,7 +2738,8 @@ router.patch("/api/me/venues/:venueId", isAuthenticated, async (req: any, res) =
       ...(typeof kioskLayout === "string" && allowedLayouts.has(kioskLayout) && { kioskLayout }),
       ...((kioskAudioSink === null || (typeof kioskAudioSink === "string" && kioskAudioSink.length <= 200)) && { kioskAudioSink: kioskAudioSink || null }),
       ...(typeof req.body.kioskAudioVolume === "number" && req.body.kioskAudioVolume >= 0 && req.body.kioskAudioVolume <= 100 && { kioskAudioVolume: Math.round(req.body.kioskAudioVolume) }),
-    });
+      ...(typeof playbackBackend === "string" && allowedBackends.has(playbackBackend) && { playbackBackend } as any),
+    } as any);
 
     res.json(updatedVenue);
   } catch (error) {

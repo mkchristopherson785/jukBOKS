@@ -37,6 +37,26 @@ if [ -z "${VENUE_CODE:-}" ]; then
 fi
 BASE_URL="${BASE_URL:-https://jukboks.com}"
 
+# Chrome RSS watchdog (Option C — process-level safety net for the MusicKit JS
+# memory leak that lives outside the JS heap and isn't catchable by the
+# page-side memHardReloadMb watcher). Both are tunable in audio-agent.env:
+#   CHROMIUM_MAX_MB        polite ceiling — restart only when no song is playing.
+#                          0 disables.
+#   CHROMIUM_HARD_MAX_MB   hard ceiling — restart regardless of playback. 0 disables.
+#   CHROMIUM_RESTART_COOLDOWN  seconds between restarts (default 1800 = 30min).
+# Defaults are tighter than the Pi because macOS RSS sums many Chrome helper
+# processes (main, renderer, GPU, audio, network) into one big number.
+CHROMIUM_MAX_MB="${CHROMIUM_MAX_MB:-2200}"
+CHROMIUM_HARD_MAX_MB="${CHROMIUM_HARD_MAX_MB:-2800}"
+CHROMIUM_RESTART_COOLDOWN="${CHROMIUM_RESTART_COOLDOWN:-1800}"
+# Sanitize to integers — a malformed value in audio-agent.env (e.g. quotes,
+# trailing comment) would otherwise make every `[ -gt ]` test below error out
+# each loop. Fall back to defaults on anything non-numeric.
+case "$CHROMIUM_MAX_MB" in (''|*[!0-9]*) CHROMIUM_MAX_MB=2200 ;; esac
+case "$CHROMIUM_HARD_MAX_MB" in (''|*[!0-9]*) CHROMIUM_HARD_MAX_MB=2800 ;; esac
+case "$CHROMIUM_RESTART_COOLDOWN" in (''|*[!0-9]*) CHROMIUM_RESTART_COOLDOWN=1800 ;; esac
+LAST_CHROMIUM_RESTART=0
+
 # Find SwitchAudioSource (handle both Intel and Apple Silicon brew paths).
 SAS=""
 for candidate in \
@@ -225,6 +245,13 @@ while true; do
     desired_sink="$(printf '%s' "$resp" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d.get("sink") or "")' 2>/dev/null || true)"
     desired_volume="$(printf '%s' "$resp" | python3 -c 'import json,sys;d=json.load(sys.stdin);v=d.get("volume");print(v if v is not None else "")' 2>/dev/null || true)"
     restart_requested="$(printf '%s' "$resp" | python3 -c 'import json,sys;d=json.load(sys.stdin);print("1" if d.get("restartRequested") else "")' 2>/dev/null || true)"
+    playback_backend="$(printf '%s' "$resp" | python3 -c 'import json,sys;d=json.load(sys.stdin);print(d.get("playbackBackend") or "musickit_js")' 2>/dev/null || echo musickit_js)"
+    # Option A (BETA) — native Apple Music app playback driver. Not yet
+    # implemented; flipping the venue's Playback Backend to "Native Apple
+    # Music" only logs here until the AppleScript driver lands.
+    if [ "$playback_backend" = "apple_music_native" ]; then
+      log "INFO: venue is set to native Apple Music backend (driver not yet implemented; falling through to MusicKit JS in browser)"
+    fi
 
     # 2a) Apply sink if changed.
     if [ -n "$desired_sink" ] && [ "$desired_sink" != "$current_sink" ]; then
@@ -254,6 +281,10 @@ while true; do
         >/dev/null 2>>"$LOG_FILE" || true
       launchctl kickstart -k "gui/$(id -u)/com.jukboks.kiosk" >>"$LOG_FILE" 2>&1 || \
         pkill -f "Google Chrome" >/dev/null 2>&1 || true
+      # Count this against the watchdog cooldown so the RSS check below
+      # doesn't immediately try to restart Chrome a second time on the same
+      # loop iteration (it would observe stale high-RSS for ~1 cycle).
+      LAST_CHROMIUM_RESTART="$(date +%s)"
     fi
   fi
 
@@ -272,6 +303,57 @@ print(json.dumps(d))
         -d "$PAYLOAD" \
         "$BASE_URL/api/v1/venues/$VENUE_CODE/health" >/dev/null 2>>"$LOG_FILE" || \
         log "WARN: health POST failed"
+    fi
+
+    # 4) Chrome RSS watchdog — Option C. Read RSS from the same payload
+    #    we just collected. The MusicKit JS memory leak grows in native
+    #    audio buffer territory outside the JS heap, so the page-side
+    #    memHardReloadMb watcher can't catch it. We restart Chrome at the
+    #    process level before it hits "Aw Snap".
+    CHROME_MB="$(printf '%s' "$HEALTH_JSON" | python3 -c "
+import json, sys
+try:
+  d = json.load(sys.stdin); v = d.get('chromiumMemMb')
+  print(int(v) if isinstance(v, (int, float)) else 0)
+except Exception:
+  print(0)
+" 2>/dev/null)"
+    [ -z "$CHROME_MB" ] && CHROME_MB=0
+    NOW="$(date +%s)"
+    SINCE_LAST=$((NOW - LAST_CHROMIUM_RESTART))
+
+    if [ "$CHROMIUM_HARD_MAX_MB" -gt 0 ] && [ "$CHROME_MB" -ge "$CHROMIUM_HARD_MAX_MB" ] && [ "$SINCE_LAST" -ge "$CHROMIUM_RESTART_COOLDOWN" ]; then
+      log "WATCHDOG: Chrome at ${CHROME_MB} MB (>= ${CHROMIUM_HARD_MAX_MB} MB HARD ceiling). Force restarting (may interrupt music)."
+      launchctl kickstart -k "gui/$(id -u)/com.jukboks.kiosk" >>"$LOG_FILE" 2>&1 || \
+        pkill -f "Google Chrome" >/dev/null 2>&1 || true
+      LAST_CHROMIUM_RESTART="$NOW"
+    elif [ "$CHROMIUM_MAX_MB" -gt 0 ] && [ "$CHROME_MB" -ge "$CHROMIUM_MAX_MB" ] && [ "$SINCE_LAST" -ge "$CHROMIUM_RESTART_COOLDOWN" ]; then
+      # Polite restart: only when nothing is playing. Check via the party
+      # endpoint — nowPlaying.trackId == null means safe to restart.
+      # FAIL-CLOSED: any transient network or parse error returns "unknown"
+      # (not "0"), and we defer rather than risk restarting during a song.
+      # The hard ceiling above is the safety net if RSS keeps climbing.
+      party_body="$(curl -fsS --max-time 5 "$BASE_URL/api/v1/party/$VENUE_CODE" 2>/dev/null || echo "")"
+      if [ -z "$party_body" ]; then
+        now_playing="unknown"
+      else
+        now_playing="$(printf '%s' "$party_body" | python3 -c 'import json,sys
+try:
+  d=json.load(sys.stdin); np=d.get("nowPlaying") or {}
+  print("1" if np.get("trackId") else "0")
+except Exception:
+  print("unknown")' 2>/dev/null || echo "unknown")"
+      fi
+      if [ "$now_playing" = "0" ]; then
+        log "WATCHDOG: Chrome at ${CHROME_MB} MB (>= ${CHROMIUM_MAX_MB} MB polite threshold), nothing playing. Restarting."
+        launchctl kickstart -k "gui/$(id -u)/com.jukboks.kiosk" >>"$LOG_FILE" 2>&1 || \
+          pkill -f "Google Chrome" >/dev/null 2>&1 || true
+        LAST_CHROMIUM_RESTART="$NOW"
+      elif [ "$now_playing" = "1" ]; then
+        log "WATCHDOG: Chrome at ${CHROME_MB} MB (>= ${CHROMIUM_MAX_MB} MB) but music is playing — deferring restart."
+      else
+        log "WATCHDOG: Chrome at ${CHROME_MB} MB (>= ${CHROMIUM_MAX_MB} MB) but couldn't reach party endpoint — deferring (will retry next cycle)."
+      fi
     fi
   fi
 

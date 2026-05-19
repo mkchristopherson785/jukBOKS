@@ -101,6 +101,14 @@ export const venues = pgTable("venues", {
   kioskLayout: text("kiosk_layout").default("default"),
   kioskAudioSink: text("kiosk_audio_sink"),
   kioskAudioVolume: integer("kiosk_audio_volume").default(65),
+  // Which audio backend the kiosk uses to play songs.
+  //   'musickit_js'        — current default: Chrome + MusicKit JS in the browser
+  //   'apple_music_native' — (BETA) the Mac audio agent drives the native
+  //                          Apple Music desktop app via AppleScript. The
+  //                          kiosk page renders visuals only. Eliminates the
+  //                          MusicKit JS renderer memory leak. Requires the
+  //                          Mac to be signed into Apple Music app w/ subscription.
+  playbackBackend: text("playback_backend").default("musickit_js"),
   kioskAudioDevices: jsonb("kiosk_audio_devices").default([]),
   kioskAudioDevicesUpdatedAt: timestamp("kiosk_audio_devices_updated_at"),
   kioskHealth: jsonb("kiosk_health").default({}),

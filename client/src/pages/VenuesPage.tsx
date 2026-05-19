@@ -325,6 +325,24 @@ export default function VenuesPage() {
 
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
+                      <Music2 className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                      <div className="text-xs font-medium text-white" title="Where audio actually plays. 'MusicKit JS' is the current default (Chrome in the browser). 'Native Apple Music app' is a BETA path that drives the macOS Apple Music app via the audio agent — eliminates the Chrome memory leak but requires the Mac to be signed into Apple Music with a subscription. The native driver is not yet implemented; flipping this only sets the toggle.">
+                        Playback Backend
+                      </div>
+                    </div>
+                    <select
+                      value={((venue as any).playbackBackend as string) || "musickit_js"}
+                      onChange={(e) => updateVenueMutation.mutate({ venueId: venue.id, data: { playbackBackend: e.target.value } as any })}
+                      className="text-xs bg-black/40 border border-white/10 rounded-lg text-white px-2 py-1 focus:outline-none focus:border-purple-500"
+                      data-testid={`select-playback-backend-${venue.code}`}
+                    >
+                      <option value="musickit_js">MusicKit JS (browser)</option>
+                      <option value="apple_music_native">Native Apple Music (BETA — coming soon)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <Music2 className="w-4 h-4 text-blue-400 flex-shrink-0" />
                       <div className="text-xs font-medium text-white">Audio Output</div>
                     </div>
