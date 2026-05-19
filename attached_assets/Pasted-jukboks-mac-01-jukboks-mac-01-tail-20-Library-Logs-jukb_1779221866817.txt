@@ -1,0 +1,21 @@
+jukboks-mac-01@jukboks-mac-01 ~ % tail -20 ~/Library/Logs/jukboks-audio-agent.log 
+[2026-05-19 16:01:39] WATCHDOG: Chrome at 2228 MB (>= 2200 MB HARD ceiling). Force restarting (may interrupt music).
+Could not find an audio device named "alsa_output.platform-soc_107c000000_sound.stereo-fallback" of type output.  Nothing was changed.
+[2026-05-19 16:02:40] WARN: failed to switch to 'alsa_output.platform-soc_107c000000_sound.stereo-fallback' (device not present?)
+[2026-05-19 16:02:40] Restart requested — kicking kiosk LaunchAgent
+[2026-05-19 16:03:40] Starting (venue=will-s-B5yA5h, sas=/usr/local/bin/SwitchAudioSource, deviceId=F8977667-810B-4BDA-8100-658184F67010)
+Could not find an audio device named "alsa_output.platform-soc_107c000000_sound.stereo-fallback" of type output.  Nothing was changed.
+[2026-05-19 16:03:41] WARN: failed to switch to 'alsa_output.platform-soc_107c000000_sound.stereo-fallback' (device not present?)
+[2026-05-19 16:03:42] Set volume to: 80
+Could not find an audio device named "alsa_output.platform-soc_107c000000_sound.stereo-fallback" of type output.  Nothing was changed.
+[2026-05-19 16:04:43] WARN: failed to switch to 'alsa_output.platform-soc_107c000000_sound.stereo-fallback' (device not present?)
+Could not find an audio device named "alsa_output.platform-soc_107c000000_sound.stereo-fallback" of type output.  Nothing was changed.
+[2026-05-19 16:05:45] WARN: failed to switch to 'alsa_output.platform-soc_107c000000_sound.stereo-fallback' (device not present?)
+[2026-05-19 16:05:45] Restart requested — kicking kiosk LaunchAgent
+[2026-05-19 16:05:56] Starting (venue=pool-YFJMQY, sas=/usr/local/bin/SwitchAudioSource, deviceId=F8977667-810B-4BDA-8100-658184F67010)
+[2026-05-19 16:05:57] Set volume to: 85
+[2026-05-19 16:07:57] Starting (venue=pool-YFJMQY, sas=/usr/local/bin/SwitchAudioSource, deviceId=F8977667-810B-4BDA-8100-658184F67010)
+[2026-05-19 16:07:59] Set volume to: 85
+[2026-05-19 16:08:00] WATCHDOG: Chrome at 2088 MB (>= 1800 MB) but music is playing — deferring restart.
+[2026-05-19 16:09:01] Restart requested — kicking kiosk LaunchAgent
+[2026-05-19 16:17:15] Restart requested — kicking kiosk LaunchAgent
