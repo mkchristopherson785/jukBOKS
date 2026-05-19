@@ -51,9 +51,21 @@ if [ -f "$ENV_FILE" ]; then
     EXTRA_PARAMS="&audioOnly=1"
   fi
   if [ -n "$VENUE_CODE" ]; then
-    echo "==> Reusing existing venue code from $ENV_FILE: $VENUE_CODE"
-    [ -n "$EXTRA_PARAMS" ] && echo "==> Preserving headless mode."
-    echo "==> URL params will be refreshed from this installer's defaults."
+    echo
+    echo "==> Found existing config for venue: $VENUE_CODE"
+    [ -n "$EXTRA_PARAMS" ] && echo "    (headless mode is currently ON)"
+    printf "Keep this venue? [Y/n]: "
+    read -r KEEP_VENUE < /dev/tty
+    case "${KEEP_VENUE:-}" in
+      n|N|no|NO|No)
+        echo "==> Switching venues — you'll be prompted for the new code below."
+        VENUE_CODE=""
+        EXTRA_PARAMS=""
+        ;;
+      *)
+        echo "==> Keeping venue $VENUE_CODE. URL params will be refreshed from this installer's defaults."
+        ;;
+    esac
   fi
 fi
 
