@@ -1176,6 +1176,111 @@ router.post("/api/v1/venues/:code/restart-ack", async (req: Request, res: Respon
   }
 });
 
+// =============================================================================
+// Native Apple Music playback (Phase 1 — server endpoints only).
+//
+// When playback_backend = 'apple_music_native', the audio agent drives the
+// macOS Music app via AppleScript instead of Chrome/MusicKit JS handling
+// audio. These two endpoints are the agent's interface:
+//
+//   GET  /playback-state    — what the server wants played (now + next).
+//   POST /playback-report   — what the agent observes is actually playing.
+//
+// Phase 1 only adds the endpoints + persistence so we can observe the agent
+// without changing behavior. The kiosk page is still the one calling /play
+// and /played to advance the queue. Phase 2 will start using these reports
+// to advance the queue from the server when the agent reports track-end.
+//
+// Both endpoints are gated by the venue code only (same trust model as
+// /audio-sink, /audio-devices, /restart-ack — these run on a Mac LAN, not
+// arbitrary internet). The fields here are non-sensitive (catalog ids,
+// playback positions).
+// =============================================================================
+
+router.get("/api/v1/venues/:code/playback-state", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) return res.status(404).json({ error: "VENUE_NOT_FOUND" });
+
+    // Peek at the top of the queue so the agent can prefetch / locally
+    // schedule the transition. This is the "A" part of the gap-reduction
+    // plan (A+B): the agent knows what's coming next BEFORE the current
+    // track ends, and can fire the next AppleScript ~200ms before the
+    // predicted track-end based on startedAt + duration, instead of waiting
+    // for the next poll cycle. Net inter-song gap drops from ~4-8s to ~1-2s.
+    const queue = await storage.getQueueWithVotes(venue.id);
+    const next = queue.find((q) => q.trackId !== venue.currentlyPlayingId) || null;
+
+    res.json({
+      backend: (venue as any).playbackBackend || "musickit_js",
+      nowPlaying: venue.currentlyPlayingId
+        ? {
+            catalogId: venue.currentlyPlayingId,
+            title: venue.currentlyPlayingTitle,
+            artist: venue.currentlyPlayingArtist,
+            startedAt: venue.currentlyPlayingStartedAt?.toISOString() || null,
+            duration: venue.currentlyPlayingDuration ?? null,
+          }
+        : null,
+      nextUp: next
+        ? {
+            catalogId: next.trackId,
+            title: next.title,
+            artist: next.artist,
+            duration: next.duration ?? null,
+          }
+        : null,
+      volume: venue.kioskAudioVolume ?? 65,
+      serverNow: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("playback-state error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
+router.post("/api/v1/venues/:code/playback-report", async (req: Request, res: Response) => {
+  try {
+    const venue = await storage.getVenueByCode(req.params.code);
+    if (!venue) return res.status(404).json({ error: "VENUE_NOT_FOUND" });
+
+    const body = (req.body || {}) as {
+      currentCatalogId?: string | null;
+      positionSec?: number | null;
+      isPlaying?: boolean;
+      error?: string | null;
+    };
+
+    // Sanitize. Cap strings to keep DB tidy; coerce positionSec to a sane int.
+    const trackId =
+      typeof body.currentCatalogId === "string" && body.currentCatalogId.length > 0
+        ? body.currentCatalogId.slice(0, 200)
+        : null;
+    const positionSec =
+      typeof body.positionSec === "number" && Number.isFinite(body.positionSec)
+        ? Math.max(0, Math.min(86400, Math.round(body.positionSec)))
+        : null;
+    const isPlaying = typeof body.isPlaying === "boolean" ? body.isPlaying : null;
+    const errMsg =
+      typeof body.error === "string" && body.error.length > 0
+        ? body.error.slice(0, 500)
+        : null;
+
+    await storage.updateVenue(venue.id, {
+      agentPlaybackCurrentTrackId: trackId,
+      agentPlaybackPositionSec: positionSec,
+      agentPlaybackIsPlaying: isPlaying,
+      agentPlaybackReportedAt: new Date(),
+      agentPlaybackError: errMsg,
+    } as any);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("playback-report error:", error);
+    res.status(500).json({ error: "SERVER_ERROR" });
+  }
+});
+
 // Owner connects Apple Music directly from the admin dashboard (no pairing code needed).
 router.post("/api/me/venues/:venueId/apple-music-token", isAuthenticated, async (req: any, res) => {
   try {

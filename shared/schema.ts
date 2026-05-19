@@ -117,6 +117,16 @@ export const venues = pgTable("venues", {
   // by the agent via /restart-ack). Stale values past 2min are ignored server-side
   // so a missed/offline agent can't restart Chromium hours later.
   kioskRestartRequestedAt: timestamp("kiosk_restart_requested_at"),
+  // Native Apple Music agent playback report — populated by POST /playback-report
+  // when playback_backend = 'apple_music_native'. The audio agent runs the
+  // native Apple Music desktop app via AppleScript and reports its observed
+  // state here every ~1s. Used by /playback-state to confirm what's actually
+  // playing on the Mac (for queue advancement and admin diagnostics).
+  agentPlaybackCurrentTrackId: text("agent_playback_current_track_id"),
+  agentPlaybackPositionSec: integer("agent_playback_position_sec"),
+  agentPlaybackIsPlaying: boolean("agent_playback_is_playing"),
+  agentPlaybackReportedAt: timestamp("agent_playback_reported_at"),
+  agentPlaybackError: text("agent_playback_error"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
